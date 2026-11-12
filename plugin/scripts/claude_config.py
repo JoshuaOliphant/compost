@@ -103,6 +103,18 @@ def turn_off_skills(claude_dir: Path, names: list[str]) -> None:
     os.replace(handle.name, path)
 
 
+def plugin_name(plugin_id: str) -> str:
+    """The `plugin` in a `plugin@marketplace` id."""
+    return plugin_id.partition("@")[0]
+
+
+def _runs_from(plugin: dict, root: Path) -> bool:
+    # The fallback relies on the CLI caching installs as `cache/<marketplace>/<plugin>/<version>`; if that layout
+    # changes it stops matching, and other_installs then reports nothing rather than the wrong copy.
+    path = Path(plugin["installPath"]).resolve()
+    return path == root or (path.parent == root.parent and root.parent.name == plugin_name(plugin["id"]))
+
+
 @dataclass
 class Config:
     """Enabled plugins come from `claude plugin list --json`, run only when a plugin or plugin skill is asked about:
@@ -145,6 +157,26 @@ class Config:
                 orphans.append((plugin["id"], scope))
         return orphans
 
+    def other_installs(self, root: Path) -> list[str]:
+        """Enabled ids for the plugin running from `root`, other than its own: the same plugin reached through a
+        second marketplace, which loads every skill twice. The running id is the enabled install at `root`, or, after
+        an update the session has not restarted for, the one whose versioned cache directory is beside it
+        (`cache/<marketplace>/<plugin>/<version>`). Nothing is returned when no enabled install runs from `root`
+        (a --plugin-dir checkout, or a copy already disabled), or when the running install is orphaned: its
+        marketplace dropped it, so the other id is the one to keep."""
+        root = root.resolve()
+        here = {
+            plugin["id"]
+            for plugin in self._listing
+            if plugin.get("enabled") and plugin.get("installPath") and _runs_from(plugin, root)
+        }
+        if here & {plugin_id for plugin_id, _ in self.orphaned}:
+            return []
+        names = {plugin_name(plugin_id) for plugin_id in here}
+        return sorted(
+            plugin_id for plugin_id in self.enabled if plugin_name(plugin_id) in names and plugin_id not in here
+        )
+
     def plugin_enabled(self, plugin_id: str) -> bool:
         """`plugin_id` is `plugin@marketplace`."""
         return plugin_id in self.enabled
@@ -159,7 +191,7 @@ class Config:
         if ":" not in name:
             return name in self.personal
         plugin = name.split(":", 1)[0]
-        return any(plugin_id.split("@", 1)[0] == plugin for plugin_id in self.enabled)
+        return any(plugin_name(plugin_id) == plugin for plugin_id in self.enabled)
 
 
 def read(claude_dir: Path) -> Config:

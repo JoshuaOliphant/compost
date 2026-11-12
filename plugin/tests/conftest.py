@@ -212,7 +212,8 @@ class ClaudeHome:
     uninstalled: Path
 
     def install(self, *plugins: dict) -> None:
-        """Sets what `claude plugin list --json` prints: dicts shaped like the CLI's, `{"id", "scope", "enabled"}`."""
+        """Sets what `claude plugin list --json` prints: dicts shaped like the CLI's, `{"id", "scope", "enabled"}`,
+        plus `installPath` where a test needs to say which copy of a plugin is running."""
         self.listing.write_text(json.dumps(list(plugins)))
 
     def add_marketplace(self, name: str, *plugins: str) -> Path:

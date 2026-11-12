@@ -211,12 +211,18 @@ class Active:
     synced: list[str]
     skills: list[str]
     orphaned: list[tuple[str, str]]
+    duplicates: list[str] = field(default_factory=list)
 
 
-def find_active(replaces: Replaces, config: claude_config.Config, keep_orphans: bool) -> Active:
+def find_active(
+    replaces: Replaces, config: claude_config.Config, keep_orphans: bool, root: Path = PLUGIN_ROOT
+) -> Active:
     """`plugins` are the superseded plugins to disable: one that is also orphaned is left out, since it is
-    uninstalled instead, unless `keep_orphans`."""
+    uninstalled instead, unless `keep_orphans`. compost installed under another id than the one at `root`, the copy
+    running now, counts as superseded; `[replaces]` can't list it, since either id may be the one running."""
     listed = [plugin_id for plugin_id in replaces.plugins if config.plugin_enabled(plugin_id)]
+    duplicates = [plugin_id for plugin_id in config.other_installs(root) if plugin_id not in listed]
+    listed += duplicates
     orphaned = config.orphaned
     uninstalling = set() if keep_orphans else {plugin_id for plugin_id, _ in orphaned}
     return Active(
@@ -226,32 +232,41 @@ def find_active(replaces: Replaces, config: claude_config.Config, keep_orphans: 
         synced=[plugin_id for plugin_id in listed if config.is_synced(plugin_id)],
         skills=[name for name in replaces.skills if config.skill_active(name)],
         orphaned=orphaned,
+        duplicates=duplicates,
     )
 
 
 def render_active(active: Active, keep_orphans: bool) -> str:
+    def mark(plugin_id: str) -> str:
+        return (
+            " (compost itself, a second install, so every skill loads twice)" if plugin_id in active.duplicates else ""
+        )
+
+    def named(plugin_ids: list[str]) -> str:
+        return ", ".join(f"{plugin_id}{mark(plugin_id)}" for plugin_id in plugin_ids)
+
     if active.plugins or active.synced or active.skills:
         lines = ["compost replaces these, and they are still active here:"]
     else:
         lines = ["Nothing compost replaces is active here."]
     if active.plugins:
-        lines.append(f"  plugins to disable: {', '.join(active.plugins)}")
+        lines.append(f"  plugins to disable: {named(active.plugins)}")
     if active.skills:
         lines.append(f"  skills to set off in skillOverrides: {', '.join(active.skills)}")
     if active.synced:
-        lines.append(f"  synced from claude.ai, turn off in your claude.ai settings: {', '.join(active.synced)}")
+        lines.append(f"  synced from claude.ai, turn off in your claude.ai settings: {named(active.synced)}")
     if active.orphaned:
         lines.append("Installs their marketplace no longer lists:")
-        orphans = ", ".join(f"{plugin_id} ({scope} scope)" for plugin_id, scope in active.orphaned)
+        orphans = ", ".join(f"{plugin_id} ({scope} scope){mark(plugin_id)}" for plugin_id, scope in active.orphaned)
         lines.append(f"  {'kept, as --keep-orphans asked' if keep_orphans else 'plugins to uninstall'}: {orphans}")
     return "\n".join(lines)
 
 
-def replaced(pile: Path, claude_dir: Path, apply: bool, keep_orphans: bool = False) -> str:
+def replaced(pile: Path, claude_dir: Path, apply: bool, keep_orphans: bool = False, root: Path = PLUGIN_ROOT) -> str:
     """With `apply`, disables superseded plugins, sets superseded skills off, and uninstalls orphaned installs unless
     `keep_orphans`. A superseded plugin that is also orphaned is uninstalled rather than disabled, unless kept. An
     uninstall keeps the plugin's data directory, since a delisted plugin cannot be reinstalled."""
-    active = find_active(load(pile).replaces, claude_config.read(claude_dir), keep_orphans)
+    active = find_active(load(pile).replaces, claude_config.read(claude_dir), keep_orphans, root)
     orphans = [] if keep_orphans else active.orphaned
     report = render_active(active, keep_orphans)
     if not apply or not (active.plugins or active.skills or orphans):
