@@ -213,10 +213,14 @@ class Active:
     orphaned: list[tuple[str, str]]
 
 
-def find_active(replaces: Replaces, config: claude_config.Config, keep_orphans: bool) -> Active:
+def find_active(
+    replaces: Replaces, config: claude_config.Config, keep_orphans: bool, root: Path = PLUGIN_ROOT
+) -> Active:
     """`plugins` are the superseded plugins to disable: one that is also orphaned is left out, since it is
-    uninstalled instead, unless `keep_orphans`."""
+    uninstalled instead, unless `keep_orphans`. compost installed under another id than the one at `root`, the copy
+    running now, counts as superseded; `[replaces]` can't list it, since either id may be the one running."""
     listed = [plugin_id for plugin_id in replaces.plugins if config.plugin_enabled(plugin_id)]
+    listed += [plugin_id for plugin_id in config.other_installs(root) if plugin_id not in listed]
     orphaned = config.orphaned
     uninstalling = set() if keep_orphans else {plugin_id for plugin_id, _ in orphaned}
     return Active(
@@ -247,11 +251,11 @@ def render_active(active: Active, keep_orphans: bool) -> str:
     return "\n".join(lines)
 
 
-def replaced(pile: Path, claude_dir: Path, apply: bool, keep_orphans: bool = False) -> str:
+def replaced(pile: Path, claude_dir: Path, apply: bool, keep_orphans: bool = False, root: Path = PLUGIN_ROOT) -> str:
     """With `apply`, disables superseded plugins, sets superseded skills off, and uninstalls orphaned installs unless
     `keep_orphans`. A superseded plugin that is also orphaned is uninstalled rather than disabled, unless kept. An
     uninstall keeps the plugin's data directory, since a delisted plugin cannot be reinstalled."""
-    active = find_active(load(pile).replaces, claude_config.read(claude_dir), keep_orphans)
+    active = find_active(load(pile).replaces, claude_config.read(claude_dir), keep_orphans, root)
     orphans = [] if keep_orphans else active.orphaned
     report = render_active(active, keep_orphans)
     if not apply or not (active.plugins or active.skills or orphans):

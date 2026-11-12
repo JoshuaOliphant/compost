@@ -145,6 +145,20 @@ class Config:
                 orphans.append((plugin["id"], scope))
         return orphans
 
+    def other_installs(self, root: Path) -> list[str]:
+        """Enabled ids for the plugin installed at `root`, other than the id(s) installed there: the same plugin
+        reached through a second marketplace, which loads every skill twice. A `root` no install lists, such as a
+        checkout run with --plugin-dir, names no plugin, so nothing is returned."""
+        here = {
+            plugin["id"]
+            for plugin in self._listing
+            if plugin.get("installPath") and Path(plugin["installPath"]).resolve() == root.resolve()
+        }
+        names = {plugin_id.partition("@")[0] for plugin_id in here}
+        return sorted(
+            plugin_id for plugin_id in self.enabled if plugin_id.partition("@")[0] in names and plugin_id not in here
+        )
+
     def plugin_enabled(self, plugin_id: str) -> bool:
         """`plugin_id` is `plugin@marketplace`."""
         return plugin_id in self.enabled

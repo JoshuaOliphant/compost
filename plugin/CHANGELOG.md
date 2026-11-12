@@ -2,6 +2,12 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.33.1] - 2026-11-12
+
+### Fixed
+
+- `compost:setup` catches compost enabled under two ids (`compost@compost` and `compost@oliphant-plugins`): `pile.py replaced` offers to disable the copy that isn't running, and never the one that is.
+
 ## [0.33.0] - 2026-11-12
 
 ### Changed

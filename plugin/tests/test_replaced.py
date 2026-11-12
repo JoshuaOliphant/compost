@@ -166,3 +166,56 @@ def test_cli_replaced_prints_the_report_and_reports_config_errors(machine, capsy
     (claude_dir / "settings.json").write_text("{not json")
     assert pile.main(["--pile", str(pile_path), "replaced", "--claude-dir", str(claude_dir)]) == 1
     assert "settings.json is not valid JSON" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("enabled", "running", "to_disable", "synced"),
+    [
+        pytest.param(
+            ("compost@compost", "compost@oliphant"), "compost@compost", ["compost@oliphant"], [], id="other-id"
+        ),
+        pytest.param(
+            ("compost@compost", "compost@oliphant"), "compost@oliphant", ["compost@compost"], [], id="flipped"
+        ),
+        pytest.param(("compost@compost", "compost@synced"), "compost@compost", [], ["compost@synced"], id="synced"),
+        pytest.param(("compost@compost",), "compost@compost", [], [], id="one-id"),
+        pytest.param(("compost@compost", "compost@oliphant"), None, [], [], id="running-elsewhere"),
+    ],
+)
+def test_a_second_compost_install_is_superseded_and_the_running_one_never_is(
+    tmp_path, enabled, running, to_disable, synced
+):
+    """compost can install under two ids; the copy whose installPath this script runs from is the one kept."""
+    root = tmp_path / "running"
+    root.mkdir()
+    installs = [
+        {
+            "id": plugin_id,
+            "scope": "synced" if plugin_id.endswith("@synced") else "user",
+            "enabled": True,
+            "installPath": str(root if plugin_id == running else tmp_path / plugin_id),
+        }
+        for plugin_id in enabled
+    ]
+    installs.append({"id": "compost@retired", "scope": "user", "enabled": False, "installPath": str(tmp_path / "x")})
+    config = claude_config.Config(frozenset(), {}, lambda: installs)
+    active = pile.find_active(pile.Replaces(plugins=(), skills=()), config, keep_orphans=False, root=root)
+    assert (active.plugins, active.synced) == (to_disable, synced)
+
+
+def test_apply_disables_the_compost_install_that_is_not_running(machine, claude_home, tmp_path):
+    claude_dir, pile_path, log = machine
+    pile_path.write_text("[replaces]\nplugins = []\nskills = []\n")
+    root = tmp_path / "cache" / "compost" / "compost" / "1.0.0"
+    root.mkdir(parents=True)
+    claude_home.install(
+        {"id": "compost@compost", "scope": "user", "enabled": True, "installPath": str(root)},
+        {"id": "compost@oliphant", "scope": "user", "enabled": True, "installPath": str(tmp_path / "other")},
+    )
+    claude_home.add_marketplace("compost", "compost")
+    claude_home.add_marketplace("oliphant", "compost")
+    report = pile.replaced(pile_path, claude_dir, apply=True, root=root)
+    assert report.startswith(
+        "compost replaces these, and they are still active here:\n  plugins to disable: compost@oliphant"
+    )
+    assert log.read_text() == "compost@oliphant\n"
