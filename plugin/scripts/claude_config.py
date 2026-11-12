@@ -103,10 +103,16 @@ def turn_off_skills(claude_dir: Path, names: list[str]) -> None:
     os.replace(handle.name, path)
 
 
+def plugin_name(plugin_id: str) -> str:
+    """The `plugin` in a `plugin@marketplace` id."""
+    return plugin_id.partition("@")[0]
+
+
 def _runs_from(plugin: dict, root: Path) -> bool:
+    # The fallback relies on the CLI caching installs as `cache/<marketplace>/<plugin>/<version>`; if that layout
+    # changes it stops matching, and other_installs then reports nothing rather than the wrong copy.
     path = Path(plugin["installPath"]).resolve()
-    name = plugin["id"].partition("@")[0]
-    return path == root or (path.parent == root.parent and root.parent.name == name)
+    return path == root or (path.parent == root.parent and root.parent.name == plugin_name(plugin["id"]))
 
 
 @dataclass
@@ -166,9 +172,9 @@ class Config:
         }
         if here & {plugin_id for plugin_id, _ in self.orphaned}:
             return []
-        names = {plugin_id.partition("@")[0] for plugin_id in here}
+        names = {plugin_name(plugin_id) for plugin_id in here}
         return sorted(
-            plugin_id for plugin_id in self.enabled if plugin_id.partition("@")[0] in names and plugin_id not in here
+            plugin_id for plugin_id in self.enabled if plugin_name(plugin_id) in names and plugin_id not in here
         )
 
     def plugin_enabled(self, plugin_id: str) -> bool:
@@ -185,7 +191,7 @@ class Config:
         if ":" not in name:
             return name in self.personal
         plugin = name.split(":", 1)[0]
-        return any(plugin_id.split("@", 1)[0] == plugin for plugin_id in self.enabled)
+        return any(plugin_name(plugin_id) == plugin for plugin_id in self.enabled)
 
 
 def read(claude_dir: Path) -> Config:

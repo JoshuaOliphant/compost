@@ -280,7 +280,7 @@ def test_apply_disables_the_compost_install_that_is_not_running(machine, claude_
     claude_home.add_marketplace("oliphant", "compost")
     report = pile.replaced(pile_path, claude_dir, apply=True, root=root)
     assert report.startswith(
-        "compost replaces these, and they are still active here:\n  plugins to disable: compost@oliphant\n"
-        "  compost@oliphant: compost itself, a second install beside the one running now, so every skill loads twice\n"
+        "compost replaces these, and they are still active here:\n"
+        "  plugins to disable: compost@oliphant (compost itself, a second install, so every skill loads twice)\n"
     )
     assert log.read_text() == "compost@oliphant\n"

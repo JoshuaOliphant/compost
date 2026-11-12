@@ -237,21 +237,24 @@ def find_active(
 
 
 def render_active(active: Active, keep_orphans: bool) -> str:
+    def named(plugin_ids: list[str]) -> str:
+        return ", ".join(
+            f"{plugin_id} (compost itself, a second install, so every skill loads twice)"
+            if plugin_id in active.duplicates
+            else plugin_id
+            for plugin_id in plugin_ids
+        )
+
     if active.plugins or active.synced or active.skills:
         lines = ["compost replaces these, and they are still active here:"]
     else:
         lines = ["Nothing compost replaces is active here."]
     if active.plugins:
-        lines.append(f"  plugins to disable: {', '.join(active.plugins)}")
+        lines.append(f"  plugins to disable: {named(active.plugins)}")
     if active.skills:
         lines.append(f"  skills to set off in skillOverrides: {', '.join(active.skills)}")
     if active.synced:
-        lines.append(f"  synced from claude.ai, turn off in your claude.ai settings: {', '.join(active.synced)}")
-    if active.duplicates:
-        lines.append(
-            f"  {', '.join(active.duplicates)}: compost itself, a second install beside the one running now, so every"
-            " skill loads twice"
-        )
+        lines.append(f"  synced from claude.ai, turn off in your claude.ai settings: {named(active.synced)}")
     if active.orphaned:
         lines.append("Installs their marketplace no longer lists:")
         orphans = ", ".join(f"{plugin_id} ({scope} scope)" for plugin_id, scope in active.orphaned)
