@@ -2,6 +2,13 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.33.2] - 2026-11-12
+
+### Fixed
+
+- `thin.py` no longer crashes on a test whose parametrize id contains `|`: it cuts the coverage context's phase off the last `|`, not the first, so `test_x[a|b]` stays one test id.
+- `compost:thin` step 7 now checks what thinning left behind: the remaining parametrize rows still cover every True/False value and still match the test's name and docstring, and the comment above a removed row or function goes with it.
+
 ## [0.33.1] - 2026-11-12
 
 ### Fixed

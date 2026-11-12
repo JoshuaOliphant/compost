@@ -30,8 +30,10 @@ def covered_lines(contexts: dict) -> dict[str, set[tuple[str, int]]]:
     for path, info in contexts["files"].items():
         for line, names in info["contexts"].items():
             for name in names:
-                if name:  # the empty context is import time, which belongs to no test
-                    lines[name.split("|")[0]].add((path, int(line)))
+                # the empty context is import time, which belongs to no test; the phase is one field after the
+                # last |, and a parameter id may hold a | of its own
+                if name:
+                    lines[name.rsplit("|", 1)[0]].add((path, int(line)))
     return dict(lines)
 
 
