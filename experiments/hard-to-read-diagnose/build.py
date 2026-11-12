@@ -23,7 +23,7 @@ Bug report, as a user wrote it:
 Rules:
 - Find the root cause and fix it where it lives. Your fix is graded by tests you cannot see, so decide for yourself how to know it works.
 - Run Python with: {py}  (pytest is installed there). Put any scratch files in /tmp/scratch-{run}, not in the tree, and delete them before finishing.
-- Do not look at any other directory under {work} or at /home/user/claude-plugins; the answer is not there and doing so invalidates the run.
+- Do not look at any other directory under {work} or at /home/user/compost; the answer is not there and doing so invalidates the run.
 - You cannot ask questions; nobody is available. When done, reply with: the root cause in two sentences, the files you changed, and how you checked the fix.
 """
 

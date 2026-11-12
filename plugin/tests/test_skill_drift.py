@@ -150,6 +150,19 @@ def test_each_pattern_names_the_skills_owner_and_file(machine, skill, owner, fil
     assert (pattern["owner"], pattern["file"]) == (owner, expected)
 
 
+@pytest.mark.parametrize(
+    ("skill", "expected"),
+    [("compost:build", ("repo", "plugin/skills/build/SKILL.md")), ("other:build", ("third-party", None))],
+    ids=["its-own-plugin", "same-skill-name-in-another-plugin"],
+)
+def test_a_one_plugin_repo_owns_only_its_own_plugins_skills(tmp_path, skill, expected):
+    (tmp_path / "plugin" / "skills" / "build").mkdir(parents=True)
+    (tmp_path / "plugin" / "skills" / "build" / "SKILL.md").write_text("---\nname: build\n---\n")
+    (tmp_path / "plugin" / ".claude-plugin").mkdir()
+    (tmp_path / "plugin" / ".claude-plugin" / "plugin.json").write_text(json.dumps({"name": "compost"}))
+    assert skill_drift.owner(skill, tmp_path / "home", tmp_path) == expected
+
+
 def test_only_the_latest_skill_version_counts_and_earlier_hits_are_reported(machine):
     machine[2](
         hit(session="s1", skill_hash="v1", at=1),

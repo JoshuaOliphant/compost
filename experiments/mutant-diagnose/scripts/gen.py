@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 WORK = os.environ.get("MUTANT_WORK", "/tmp/mutant-diagnose")
-SRC_ROOT = os.environ.get("COMPOST", "plugins/compost")
+SRC_ROOT = os.environ.get("COMPOST", "plugin")
 import json
 import os
 import shutil

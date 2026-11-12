@@ -73,8 +73,8 @@ judged against the step it serves. Report the two apart.
    an add, the step it serves and what it makes cheaper or harder to skip.
 5. Once every change since a pin has a ruling, move the pin. Pins live in the source repo, not the
    installed plugin: in a worktree of that repo run
-   `uv run plugins/compost/scripts/pile.py advance <source> <commit>`, then
-   `uv run plugins/compost/scripts/pile.py notice`, and commit both with the ignored changes and
+   `uv run plugin/scripts/pile.py advance <source> <commit>`, then
+   `uv run plugin/scripts/pile.py notice`, and commit both with the ignored changes and
    their reasons in the commit message. That is the record that keeps them from resurfacing.
 6. Report per source, in two parts: overlaps, with how many changes were adopted, adapted, and
    ignored and the issue links; then additions, each add with its kind, the step it serves, and
@@ -103,7 +103,7 @@ change merges ([Jev tools](references/jev-tools.md)):
 
 1. **Routing.** The 30 labeled prompts live in the private compost-evals repo, as
    `$COMPOST_EVALS/route.json`, where `COMPOST_EVALS` points at that checkout's `evals/` directory.
-   From `plugins/compost` in the source repo, run
+   From `plugin` in the source repo, run
    `COMPOST_EVALS=<checkout>/evals uv run --group dev pytest -m jev tests/test_evals_meta.py -k route -s`.
    It routes every prompt through every skill's description and fails below 27 of 30. A new miss,
    or a prompt now marked `close`, points at the description that moved; fix the description, not

@@ -96,8 +96,16 @@ def owner(skill: str, claude_dir: Path, repo: Path) -> tuple[str, str | None]:
     if ":" not in skill:
         return "personal", str((claude_dir / "skills" / skill / "SKILL.md").resolve())
     plugin, name = skill.split(":", 1)
-    in_repo = repo / "plugins" / plugin / "skills" / name / "SKILL.md"
-    return ("repo", str(in_repo.relative_to(repo))) if in_repo.exists() else ("third-party", None)
+    for root in (repo / "plugins" / plugin, repo / "plugin"):  # a marketplace repo, or a one-plugin repo
+        in_repo = root / "skills" / name / "SKILL.md"
+        if in_repo.exists() and plugin_name(root) in (plugin, None):
+            return "repo", str(in_repo.relative_to(repo))
+    return "third-party", None
+
+
+def plugin_name(root: Path) -> str | None:
+    manifest = root / ".claude-plugin" / "plugin.json"
+    return json.loads(manifest.read_text()).get("name") if manifest.exists() else None
 
 
 def transcript(claude_dir: Path, session: str) -> str | None:

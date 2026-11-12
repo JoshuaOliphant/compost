@@ -59,7 +59,7 @@ Read `CONTEXT.md` (or `CONTEXT-MAP.md` and the context it points to) before judg
 
 The compost plugin ships short essays that state the principles its skills lean on. Cite one when a finding rests on it, by filename, so the author can read the reasoning.
 
-The essays live in `${CLAUDE_PLUGIN_ROOT}/canon/`. When the repo under review is the compost plugin itself, use its own `plugins/compost/canon/`.
+The essays live in `${CLAUDE_PLUGIN_ROOT}/canon/`. When the repo under review is the compost plugin itself, use its own `plugin/canon/`.
 
 When Jev is unavailable, choose from the essays a review most often leans on:
 

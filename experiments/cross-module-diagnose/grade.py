@@ -7,10 +7,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-SRC = Path(os.environ.get("COMPOST", "plugins/compost")).resolve()
+SRC = Path(os.environ.get("COMPOST", "plugin")).resolve()
 WORK = Path(os.environ.get("CM_WORK", "/tmp/cross-module"))
 PY = str(SRC / ".venv/bin/python")
-PLUGIN = "plugins/compost"
+PLUGIN = "plugin"
 
 
 def main() -> None:

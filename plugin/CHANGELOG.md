@@ -2,6 +2,13 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.33.0] - 2026-11-12
+
+### Changed
+
+- compost moved to its own repository, JoshuaOliphant/compost, with history; `compost@oliphant-plugins` keeps installing it from there.
+- Skill drift recognizes compost's own skills when it runs in a one-plugin repo laid out as `plugin/`, not only in a marketplace's `plugins/<name>/`.
+
 ## [0.32.5] - 2026-11-12
 
 ### Added

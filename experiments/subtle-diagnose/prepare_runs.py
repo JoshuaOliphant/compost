@@ -5,8 +5,8 @@ import shutil
 from pathlib import Path
 
 WORK = Path(os.environ.get("CM_WORK", "/tmp/subtle"))
-PLUGIN = "plugins/compost"
-PY = str(Path(os.environ.get("COMPOST", "plugins/compost")).resolve() / ".venv/bin/python")
+PLUGIN = "plugin"
+PY = str(Path(os.environ.get("COMPOST", "plugin")).resolve() / ".venv/bin/python")
 BRIEF = """You are fixing a bug in a copy of a Python plugin's source. No git history is available, and the plugin's test suite has been removed from this tree.
 
 Tree: {tree}/{plugin}  (work only inside {tree})
@@ -19,7 +19,7 @@ Bug report, as a user wrote it:
 Rules:
 - Find the root cause and fix it there; the cause may not be in the module the report is about. Your fix is graded by tests you cannot see, so decide for yourself how to know it works.
 - You may run Python with: {py}  (for example `cd {tree}/{plugin} && {py} -c ...`; pytest is installed there too). Put any scratch files outside {tree}/{plugin}/scripts, and delete them before finishing.
-- Do not look at any other directory under /tmp/subtle or at /home/user/claude-plugins (other than running the python interpreter and, if named above, the skill files); the answer is not there and doing so invalidates the run.
+- Do not look at any other directory under /tmp/subtle or at /home/user/compost (other than running the python interpreter and, if named above, the skill files); the answer is not there and doing so invalidates the run.
 - When done, reply with: the root cause in two sentences, the files you changed, and how you checked the fix.
 """
 SKILL = "Method: first read /tmp/subtle/skill/diagnose/SKILL.md and follow that skill's discipline for this bug."

@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+build/
+!plugin/skills/build/
+dist/
+*.egg-info/
+.venv
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# OS and editors
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# compost plugin-eval suite: lives in private compost-evals, linked in locally to run
+/plugin/evals
+
+# compost:build's per-issue worktrees, and the harness worktrees Claude Code falls back to
+.worktrees/
+.claude/worktrees/
+trees/

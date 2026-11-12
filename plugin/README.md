@@ -160,9 +160,11 @@ Two tools that used to be their own plugins ship inside compost now:
 ## Install
 
 ```
-/plugin marketplace add joshuaoliphant/claude-plugins
-/plugin install compost@oliphant-plugins
+/plugin marketplace add JoshuaOliphant/compost
+/plugin install compost@compost
 ```
+
+It is also listed in the oliphant-plugins marketplace as `compost@oliphant-plugins`; install one, not both.
 
 Then run `/compost:setup` in each repo.
 
@@ -178,7 +180,7 @@ the marketplace no longer offers them. To check a machine directly:
 
 ## Development
 
-From `plugins/compost` (the 100% coverage gate applies when pytest runs from there):
+From `plugin` (the 100% coverage gate applies when pytest runs from there):
 
 ```sh
 uv run --group dev pytest        # tooling tests (100% coverage) and checks on the shipped files

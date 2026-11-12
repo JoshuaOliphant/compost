@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  coverage:
+    name: compost coverage gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Install Claude Code, which runs compost's hooks-module tests
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Run compost suite with its 100% coverage gate
+        working-directory: plugin
+        run: uv run --group dev pytest
+
+  repo:
+    name: Repo checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Version-check and experiment tests
+        run: uv run --group dev pytest -q
+      - name: Lint
+        run: uv run --group dev ruff check .
+      - name: Format
+        run: uv run --group dev ruff format --check .
+
+  version-bump:
+    name: Changed plugin has a version above main
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check compost's version and changelog entry against main
+        run: python3 scripts/check_version_bumps.py --base origin/main

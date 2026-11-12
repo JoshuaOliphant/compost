@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-SRC = Path(os.environ.get("COMPOST", "plugins/compost")).resolve()
+SRC = Path(os.environ.get("COMPOST", "plugin")).resolve()
 WORK = Path(os.environ.get("CM_WORK", "/tmp/cross-module"))
 PY = str(SRC / ".venv/bin/python")
 BAD = re.compile(r"Is|IsNot|Lt|Gt|NumberReplacer|Invert|USub|BinaryOperator|ReplaceString")

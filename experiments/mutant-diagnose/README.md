@@ -2,7 +2,7 @@
 
 Inject known defects into a green module, hand an agent only the symptom, and grade by whether the module's own tests go green again. The ground truth is the mutation, so no judge is needed. Compared `compost:diagnose` against no skill on the same trees.
 
-Reference material only, not a shipped tool. Sibling experiments: `../judge-mutation/`, `../skill-mutation/`.
+Reference material only, not a shipped tool. Sibling experiments in claude-plugins: `ai_docs/experiments/judge-mutation/`, `ai_docs/experiments/skill-mutation/`.
 
 ## Result
 
@@ -21,13 +21,13 @@ Mean cost in round 2: skill 9.4 tool calls and about 91k tokens, no skill 7.4 an
 
 ## Run it
 
-From a checkout, with the compost venv (`uv sync` in `plugins/compost`) and `MUTANT_WORK` pointing at a scratch directory:
+From a checkout, with the compost venv (`uv sync` in `plugin`) and `MUTANT_WORK` pointing at a scratch directory:
 
 ```bash
-export MUTANT_WORK=/tmp/mutant-diagnose COMPOST=plugins/compost; mkdir -p $MUTANT_WORK
-cd plugins/compost
-uv run --with cosmic-ray python ../../ai_docs/experiments/mutant-diagnose/scripts/gen2.py scripts/skill_drift.py tests/test_skill_drift.py  # every mutant the tests kill
-uv run --with cosmic-ray python ../../ai_docs/experiments/mutant-diagnose/scripts/mk2.py     # pairs them into trees with the tests removed
+export MUTANT_WORK=/tmp/mutant-diagnose COMPOST=plugin; mkdir -p $MUTANT_WORK
+cd plugin
+uv run --with cosmic-ray python ../experiments/mutant-diagnose/scripts/gen2.py scripts/skill_drift.py tests/test_skill_drift.py  # every mutant the tests kill
+uv run --with cosmic-ray python ../experiments/mutant-diagnose/scripts/mk2.py     # pairs them into trees with the tests removed
 ```
 
 `gen.py`, `mk.py` and `grade.py` are the round 1 versions (one mutant, tests visible); `gen2.py`, `mk2.py` and `grade2.py` are round 2. `realism.py` is the Jev filter. `mk2.py` names its two modules in a loop and leaves the bug reports to you (round 2 had a Haiku agent write them from the failing output; its output is `results/symptoms-round2.json`).

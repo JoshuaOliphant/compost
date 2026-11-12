@@ -1,0 +1,29 @@
+[project]
+name = "compost-repo"
+version = "0.1.0"
+description = "Repo tooling for compost: the version check and the experiment harnesses. The plugin's own dev group is in plugin/pyproject.toml."
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6,<0.16",  # matches claude-plugins; 0.16+ enables more rules by default
+]
+
+[tool.pytest.ini_options]
+# The root run covers scripts/tests and the experiment harnesses; the plugin's coverage-gated suite runs from plugin/.
+testpaths = ["scripts", "experiments"]
+
+[tool.ruff]
+line-length = 100
+# Seeded buggy trees and their hidden tests: the bugs are the point, so they are not linted or formatted.
+extend-exclude = [
+    "experiments/hard-to-read-diagnose/tasks",
+    "experiments/hard-to-read-diagnose/hidden",
+    "experiments/hard-to-read-diagnose/reference",
+    "experiments/hard-to-read-diagnose/author",
+]

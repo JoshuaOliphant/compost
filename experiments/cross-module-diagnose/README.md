@@ -6,7 +6,7 @@ Question: does the diagnose skill change outcomes when the symptom is reported a
 
 - `gen.py` mutates a helper module of compost's scripts (cosmic-ray operators plus thin's own) and keeps only mutants that a *different* module's tests kill. `tasks.json` holds the 10 chosen (c1 to c10); `build.py` builds the trees with the tests removed.
 - `symptoms.json`: one hand-written symptom per task, phrased at the caller (for example "every Score reads 0.0", "the stop guard crashes with KeyError 'message'"). The helper is never named.
-- Two arms, 10 tasks each, one fresh Sonnet-class subagent per run: `skill` (told to follow `plugins/compost/skills/diagnose/SKILL.md`) and `base` (same brief, no skill). `prepare_runs.py` writes the briefs.
+- Two arms, 10 tasks each, one fresh Sonnet-class subagent per run: `skill` (told to follow `plugin/skills/diagnose/SKILL.md`) and `base` (same brief, no skill). `prepare_runs.py` writes the briefs.
 - Grade 1, `grade.py`: put the original tests back over the agent's tree and run the whole suite. Green means no failure beyond the environment's (there is no `.git`, so 7 gather and plugin-layout tests fail in every run, including untouched ones).
 - Grade 2, `repro_before_edit.py`: from each transcript, count python or pytest runs before the first mutating call to `scripts/`. I then read the commands for the two non-zero cases by hand.
 

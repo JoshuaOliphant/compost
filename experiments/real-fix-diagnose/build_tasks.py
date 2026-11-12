@@ -9,7 +9,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO = Path(os.environ.get("REPO", ".")).resolve()
-PLUGIN = os.environ.get("PLUGIN", "plugins/compost")
+PLUGIN = os.environ.get("PLUGIN", "plugin")
 PY = os.environ.get("PY", str(REPO / PLUGIN / ".venv/bin/python"))
 WORK = Path(os.environ.get("FIX_WORK", "/tmp/real-fix-diagnose"))
 

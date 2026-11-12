@@ -8,10 +8,10 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-SRC = Path(os.environ.get("COMPOST", "plugins/compost")).resolve()
+SRC = Path(os.environ.get("COMPOST", "plugin")).resolve()
 WORK = Path(os.environ.get("CM_WORK", "/tmp/subtle"))
 PY = str(SRC / ".venv/bin/python")
-PLUGIN = "plugins/compost"
+PLUGIN = "plugin"
 IGNORE = shutil.ignore_patterns(
     ".venv", "__pycache__", ".git", "node_modules", ".coverage", ".pytest_cache", ".ruff_cache"
 )

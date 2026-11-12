@@ -37,7 +37,7 @@ central step was often skipped. A follow-up could grade whether the repro was bu
 ## Run it
 
 ```
-REPO=. PLUGIN=plugins/compost PY=plugins/compost/.venv/bin/python python3 select_fixes.py origin/main
+REPO=. PLUGIN=plugin PY=plugin/.venv/bin/python python3 select_fixes.py origin/main
 python3 build_tasks.py                  # uses symptoms.json beside it
 python3 grade.py t8 /path/to/agent/tree # JSON: green flag, failures, files changed
 ```
