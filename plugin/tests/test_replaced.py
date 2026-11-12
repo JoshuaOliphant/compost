@@ -168,6 +168,7 @@ def test_cli_replaced_prints_the_report_and_reports_config_errors(machine, capsy
     assert "settings.json is not valid JSON" in capsys.readouterr().err
 
 
+DUPLICATE = " (compost itself, a second install, so every skill loads twice)"
 COMPOST_CACHE = {
     "compost@compost": "cache/compost/compost/1.0.0",
     "compost@oliphant": "cache/oliphant/compost/1.0.0",
@@ -265,6 +266,30 @@ def test_a_second_compost_install_is_superseded_and_the_running_one_never_is(
     config = claude_config.Config(frozenset(), {}, lambda: listing, lambda: listings)
     active = pile.find_active(pile.Replaces(plugins=(), skills=()), config, False, root=tmp_path / running)
     assert (active.plugins, active.synced, active.duplicates) == (to_disable, synced, to_disable + synced)
+
+
+@pytest.mark.parametrize(
+    ("active", "line"),
+    [
+        pytest.param(
+            pile.Active(plugins=["compost@b"], synced=[], skills=[], orphaned=[], duplicates=["compost@b"]),
+            "  plugins to disable: compost@b" + DUPLICATE,
+            id="local",
+        ),
+        pytest.param(
+            pile.Active(plugins=[], synced=["compost@synced"], skills=[], orphaned=[], duplicates=["compost@synced"]),
+            "  synced from claude.ai, turn off in your claude.ai settings: compost@synced" + DUPLICATE,
+            id="synced",
+        ),
+        pytest.param(
+            pile.Active(plugins=[], synced=[], skills=[], orphaned=[("compost@b", "user")], duplicates=["compost@b"]),
+            "  plugins to uninstall: compost@b (user scope)" + DUPLICATE,
+            id="orphaned",
+        ),
+    ],
+)
+def test_the_second_compost_install_is_marked_wherever_the_report_lists_it(active, line):
+    assert line in pile.render_active(active, keep_orphans=False).splitlines()
 
 
 def test_apply_disables_the_compost_install_that_is_not_running(machine, claude_home, tmp_path):

@@ -142,9 +142,9 @@ edits the user made by hand.
     anything: re-enabling a plugin or removing an override turns it back on.
 
     compost itself can be enabled twice, as `compost@compost` and `compost@oliphant-plugins`,
-    which loads every skill twice. The report lists the id that isn't running this script, marked
-    as compost itself, among the plugins to disable (or the claude.ai ones, if synced), never
-    the one that is. It lists
+    which loads every skill twice. The report marks the id that isn't running this script as
+    compost itself wherever it lists it (to disable, to turn off on claude.ai if synced, or to
+    uninstall if orphaned), and never lists the one that is. It lists
     neither when it can't tell which copy runs (a checkout run with `--plugin-dir`, or a copy
     already disabled earlier in this session) or when the running copy is itself orphaned, since
     the other is then the one to keep.
