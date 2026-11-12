@@ -83,6 +83,19 @@ def test_candidates_are_tests_whose_lines_equal_or_sit_inside_anothers():
     assert found["cover_keeps"] == 2
 
 
+@pytest.mark.parametrize(
+    ("context", "node_id"),
+    [
+        ("t.py::test_y|run", "t.py::test_y"),
+        ("t.py::test_y[a|b]|run", "t.py::test_y[a|b]"),
+        ("t.py::test_y[|]|setup", "t.py::test_y[|]"),
+    ],
+    ids=["plain", "parameter id holding |", "parameter id that is only |"],
+)
+def test_covered_lines_cuts_the_phase_off_the_last_pipe(context, node_id):
+    assert thin.covered_lines(contexts({"m.py": {2: [context]}})) == {node_id: {("m.py", 2)}}
+
+
 def test_greedy_cover_skips_what_is_already_covered():
     sets = {"a": {1, 2}, "b": {2, 3}, "c": {3}}
     assert thin.greedy_cover(sets) == ["a", "b"]
