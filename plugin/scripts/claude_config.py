@@ -103,6 +103,12 @@ def turn_off_skills(claude_dir: Path, names: list[str]) -> None:
     os.replace(handle.name, path)
 
 
+def _runs_from(plugin: dict, root: Path) -> bool:
+    path = Path(plugin["installPath"]).resolve()
+    name = plugin["id"].partition("@")[0]
+    return path == root or (path.parent == root.parent and root.parent.name == name)
+
+
 @dataclass
 class Config:
     """Enabled plugins come from `claude plugin list --json`, run only when a plugin or plugin skill is asked about:
@@ -146,14 +152,20 @@ class Config:
         return orphans
 
     def other_installs(self, root: Path) -> list[str]:
-        """Enabled ids for the plugin installed at `root`, other than the id(s) installed there: the same plugin
-        reached through a second marketplace, which loads every skill twice. A `root` no install lists, such as a
-        checkout run with --plugin-dir, names no plugin, so nothing is returned."""
+        """Enabled ids for the plugin running from `root`, other than its own: the same plugin reached through a
+        second marketplace, which loads every skill twice. The running id is the enabled install at `root`, or, after
+        an update the session has not restarted for, the one whose versioned cache directory is beside it
+        (`cache/<marketplace>/<plugin>/<version>`). Nothing is returned when no enabled install runs from `root`
+        (a --plugin-dir checkout, or a copy already disabled), or when the running install is orphaned: its
+        marketplace dropped it, so the other id is the one to keep."""
+        root = root.resolve()
         here = {
             plugin["id"]
             for plugin in self._listing
-            if plugin.get("installPath") and Path(plugin["installPath"]).resolve() == root.resolve()
+            if plugin.get("enabled") and plugin.get("installPath") and _runs_from(plugin, root)
         }
+        if here & {plugin_id for plugin_id, _ in self.orphaned}:
+            return []
         names = {plugin_id.partition("@")[0] for plugin_id in here}
         return sorted(
             plugin_id for plugin_id in self.enabled if plugin_id.partition("@")[0] in names and plugin_id not in here

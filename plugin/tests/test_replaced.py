@@ -168,39 +168,103 @@ def test_cli_replaced_prints_the_report_and_reports_config_errors(machine, capsy
     assert "settings.json is not valid JSON" in capsys.readouterr().err
 
 
+COMPOST_CACHE = {
+    "compost@compost": "cache/compost/compost/1.0.0",
+    "compost@oliphant": "cache/oliphant/compost/1.0.0",
+    "compost@synced": "synced/org/compost",
+    "other@synced": "synced/org/other",
+}
+
+
 @pytest.mark.parametrize(
-    ("enabled", "running", "to_disable", "synced"),
+    ("installs", "running", "listings", "to_disable", "synced"),
     [
         pytest.param(
-            ("compost@compost", "compost@oliphant"), "compost@compost", ["compost@oliphant"], [], id="other-id"
+            {"compost@compost": True, "compost@oliphant": True},
+            "cache/compost/compost/1.0.0",
+            {},
+            ["compost@oliphant"],
+            [],
+            id="other-id",
         ),
         pytest.param(
-            ("compost@compost", "compost@oliphant"), "compost@oliphant", ["compost@compost"], [], id="flipped"
+            {"compost@compost": True, "compost@oliphant": True},
+            "cache/oliphant/compost/1.0.0",
+            {},
+            ["compost@compost"],
+            [],
+            id="flipped",
         ),
-        pytest.param(("compost@compost", "compost@synced"), "compost@compost", [], ["compost@synced"], id="synced"),
-        pytest.param(("compost@compost",), "compost@compost", [], [], id="one-id"),
-        pytest.param(("compost@compost", "compost@oliphant"), None, [], [], id="running-elsewhere"),
+        pytest.param(
+            {"compost@compost": True, "compost@synced": True},
+            "cache/compost/compost/1.0.0",
+            {},
+            [],
+            ["compost@synced"],
+            id="synced-duplicate",
+        ),
+        pytest.param(
+            {"compost@compost": True, "compost@oliphant": False},
+            "cache/compost/compost/1.0.0",
+            {},
+            [],
+            [],
+            id="one-id-enabled",
+        ),
+        pytest.param(
+            {"compost@compost": True, "compost@oliphant": True}, "checkout/plugin", {}, [], [], id="plugin-dir-checkout"
+        ),
+        pytest.param(
+            {"compost@compost": False, "compost@oliphant": True},
+            "cache/compost/compost/1.0.0",
+            {},
+            [],
+            [],
+            id="running-copy-already-disabled",
+        ),
+        pytest.param(
+            {"compost@compost": True, "compost@oliphant": True},
+            "cache/compost/compost/0.9.0",
+            {},
+            ["compost@oliphant"],
+            [],
+            id="updated-but-not-restarted",
+        ),
+        pytest.param(
+            {"compost@compost": True, "compost@oliphant": True},
+            "cache/compost/compost/1.0.0",
+            {"compost": frozenset()},
+            [],
+            [],
+            id="running-copy-orphaned",
+        ),
+        pytest.param(
+            {"compost@synced": True, "other@synced": True},
+            "synced/org/compost",
+            {},
+            [],
+            [],
+            id="synced-siblings-are-not-versions",
+        ),
     ],
 )
 def test_a_second_compost_install_is_superseded_and_the_running_one_never_is(
-    tmp_path, enabled, running, to_disable, synced
+    tmp_path, installs, running, listings, to_disable, synced
 ):
-    """compost can install under two ids; the copy whose installPath this script runs from is the one kept."""
-    root = tmp_path / "running"
-    root.mkdir()
-    installs = [
+    """compost can install under two ids; the copy this script runs from is kept and the other offered for disabling,
+    unless no enabled install runs from here or the running one is orphaned (then the other is the one to keep)."""
+    listing = [
         {
             "id": plugin_id,
             "scope": "synced" if plugin_id.endswith("@synced") else "user",
-            "enabled": True,
-            "installPath": str(root if plugin_id == running else tmp_path / plugin_id),
+            "enabled": enabled,
+            "installPath": str(tmp_path / COMPOST_CACHE[plugin_id]),
         }
-        for plugin_id in enabled
+        for plugin_id, enabled in installs.items()
     ]
-    installs.append({"id": "compost@retired", "scope": "user", "enabled": False, "installPath": str(tmp_path / "x")})
-    config = claude_config.Config(frozenset(), {}, lambda: installs)
-    active = pile.find_active(pile.Replaces(plugins=(), skills=()), config, keep_orphans=False, root=root)
-    assert (active.plugins, active.synced) == (to_disable, synced)
+    config = claude_config.Config(frozenset(), {}, lambda: listing, lambda: listings)
+    active = pile.find_active(pile.Replaces(plugins=(), skills=()), config, False, root=tmp_path / running)
+    assert (active.plugins, active.synced, active.duplicates) == (to_disable, synced, to_disable + synced)
 
 
 def test_apply_disables_the_compost_install_that_is_not_running(machine, claude_home, tmp_path):
@@ -216,6 +280,7 @@ def test_apply_disables_the_compost_install_that_is_not_running(machine, claude_
     claude_home.add_marketplace("oliphant", "compost")
     report = pile.replaced(pile_path, claude_dir, apply=True, root=root)
     assert report.startswith(
-        "compost replaces these, and they are still active here:\n  plugins to disable: compost@oliphant"
+        "compost replaces these, and they are still active here:\n  plugins to disable: compost@oliphant\n"
+        "  compost@oliphant: compost itself, a second install beside the one running now, so every skill loads twice\n"
     )
     assert log.read_text() == "compost@oliphant\n"

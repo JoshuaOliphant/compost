@@ -211,6 +211,7 @@ class Active:
     synced: list[str]
     skills: list[str]
     orphaned: list[tuple[str, str]]
+    duplicates: list[str] = field(default_factory=list)
 
 
 def find_active(
@@ -220,7 +221,8 @@ def find_active(
     uninstalled instead, unless `keep_orphans`. compost installed under another id than the one at `root`, the copy
     running now, counts as superseded; `[replaces]` can't list it, since either id may be the one running."""
     listed = [plugin_id for plugin_id in replaces.plugins if config.plugin_enabled(plugin_id)]
-    listed += [plugin_id for plugin_id in config.other_installs(root) if plugin_id not in listed]
+    duplicates = [plugin_id for plugin_id in config.other_installs(root) if plugin_id not in listed]
+    listed += duplicates
     orphaned = config.orphaned
     uninstalling = set() if keep_orphans else {plugin_id for plugin_id, _ in orphaned}
     return Active(
@@ -230,6 +232,7 @@ def find_active(
         synced=[plugin_id for plugin_id in listed if config.is_synced(plugin_id)],
         skills=[name for name in replaces.skills if config.skill_active(name)],
         orphaned=orphaned,
+        duplicates=duplicates,
     )
 
 
@@ -244,6 +247,11 @@ def render_active(active: Active, keep_orphans: bool) -> str:
         lines.append(f"  skills to set off in skillOverrides: {', '.join(active.skills)}")
     if active.synced:
         lines.append(f"  synced from claude.ai, turn off in your claude.ai settings: {', '.join(active.synced)}")
+    if active.duplicates:
+        lines.append(
+            f"  {', '.join(active.duplicates)}: compost itself, a second install beside the one running now, so every"
+            " skill loads twice"
+        )
     if active.orphaned:
         lines.append("Installs their marketplace no longer lists:")
         orphans = ", ".join(f"{plugin_id} ({scope} scope)" for plugin_id, scope in active.orphaned)

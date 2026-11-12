@@ -142,9 +142,11 @@ edits the user made by hand.
     anything: re-enabling a plugin or removing an override turns it back on.
 
     compost itself can be enabled twice, as `compost@compost` and `compost@oliphant-plugins`,
-    which loads every skill twice. The report lists the id that isn't running this script among
-    the plugins to disable, and never the one that is; run from a checkout with `--plugin-dir`, it
-    can't tell which copy runs and lists neither.
+    which loads every skill twice. The report names the id that isn't running this script on a
+    line of its own and lists it among the plugins to disable, never the one that is. It lists
+    neither when it can't tell which copy runs (a checkout run with `--plugin-dir`, or a copy
+    already disabled earlier in this session) or when the running copy is itself orphaned, since
+    the other is then the one to keep.
 
     The report also lists, under its own heading, **orphaned installs**: plugins still installed
     whose marketplace's clone no longer lists them, enabled or not. They load stale copies and fail
