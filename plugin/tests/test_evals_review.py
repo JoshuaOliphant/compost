@@ -1,17 +1,24 @@
 # ABOUTME: Live evals for the review Jev tools against labeled cases in compost-evals (COMPOST_EVALS) (real findings, commits, and files
-# ABOUTME: from this repo). Marked jev, so they only run with `pytest -m jev`; each prints its measurements and asserts a floor.
+# ABOUTME: from claude-plugins, where compost lived until 0.33.0; CLAUDE_PLUGINS points at a checkout). Marked jev, so they only run with `pytest -m jev`; each prints its measurements and asserts a floor.
 import asyncio
 import json
+import os
 from collections import defaultdict
 
 import jev
 import pytest
-from conftest import PLUGIN_ROOT, evals_dir
+from conftest import evals_dir
 from jevtools import review
 
 pytestmark = pytest.mark.jev
 
-REPO = PLUGIN_ROOT.parent.parent
+
+def claude_plugins() -> str:
+    """The review-risk cases name commits from compost's years in claude-plugins, so they run against a checkout of it."""
+    configured = os.environ.get("CLAUDE_PLUGINS")
+    if not configured:
+        pytest.skip("set CLAUDE_PLUGINS to a checkout of JoshuaOliphant/claude-plugins to run the review-risk evals")
+    return configured
 
 
 def cases(name: str) -> list[dict]:
@@ -56,7 +63,7 @@ def test_review_risk_flags_structural_files():
     for (base, head), group in by_range.items():
         files = {
             entry["file"]: entry
-            for entry in run("review-risk", {"repo": str(REPO), "base": base, "head": head})["files"]
+            for entry in run("review-risk", {"repo": claude_plugins(), "base": base, "head": head})["files"]
         }
         scored.extend((case, files[case["file"]]) for case in group)
     for case, got in sorted(scored, key=lambda pair: pair[1]["score"]):
