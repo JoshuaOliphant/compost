@@ -68,7 +68,8 @@ yours to do without asking.
    two-way door with its blast radius, and names whatever is unproven, deferred, or excluded
    from coverage. End the body with a `Closes` line for the issue, or for
    the parent and every sub-issue (`Closes #12, closes #13, closes #14`), keeping any the PR
-   already has; leave out `ready-for-human` sub-issues, and the parent while any is open. Use the
+   already has; leave out `ready-for-human` sub-issues and any another session holds
+   (`compost:implement` step 2's taken), and the parent while any of those is open. Use the
    [PR body template](references/pr-body.md) and the **Pull requests** commands in
    `docs/agents/issue-tracker.md` (create as a draft, edit the body). Use those, not the forge CLI's
    porcelain: `gh pr create` goes through GraphQL, which Claude Code cloud sessions block. With a

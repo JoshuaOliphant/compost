@@ -109,8 +109,10 @@ the work so each step can be checked before the next builds on it
      routing:" comment is not "ended". In a lane-routing run,
      [references/lane-routing.md](references/lane-routing.md) decides how every lane spawns, a
      lone lane included, and whether a leftover marker still applies.
-   - Keep a rolling window, not batches: when one worker finishes, spawn whatever its landing
-     unblocked right away instead of waiting for the slowest sibling.
+   - Keep a rolling window, not batches: when an issue is ticked (step 7), spawn whatever that
+     unblocked right away instead of waiting for the slowest sibling. Landing alone doesn't
+     unblock: a blocker is done once reviewed and ticked, so a dependant never builds on work
+     review may still send back.
 
 5. **Land each finished issue.** A completion is an event to handle, not a review to do inline.
    Read the worker's short report; if it says `DONE_WITH_CONCERNS`, read the concerns first.
@@ -122,7 +124,8 @@ the work so each step can be checked before the next builds on it
    landing, before the first push, so the PR's checks are green from its first run, and again
    after any later landing that first changes another package; lanes still leave versions alone. After the first landing, push the branch and, when step 3 calls for a PR,
    open a draft PR whose body closes the parent and every sub-issue ("Closes #12, closes #13"),
-   leaving out `ready-for-human` sub-issues, and the parent while any of those is open.
+   leaving out `ready-for-human` sub-issues and any another session holds (`frontier.py` reads
+   it taken), and the parent while any of those is open.
 
 6. **Review every issue.** Load `compost:review` for the issue's commits. It runs the
    `/compost:review-changes` workflow through subagents; you never wait to be asked. Scope it to
