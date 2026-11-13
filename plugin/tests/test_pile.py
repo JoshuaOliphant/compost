@@ -170,6 +170,8 @@ def test_cli_status_with_references_lists_a_watched_repos_new_files_and_without_
     watched = pile_file.parent / "github" / "else" / "skills.git"
     watched.mkdir(parents=True)
     run_git(watched, "init", "-q", "-b", "main")
+    run_git(watched, "config", "user.email", "t@example.com")
+    run_git(watched, "config", "user.name", "Tester")
     pin = commit(watched, {"README.md": "readme\n"}, "first")
     head = commit(watched, {"skills/new-idea/SKILL.md": "idea\n"}, "second")
     pile_file.write_text(pile_file.read_text().replace("bbbbbbbbbbbbbbbb", pin))
