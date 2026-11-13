@@ -2,6 +2,26 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.34.0] - 2026-11-13
+
+### Changed
+
+- `compost:implement` step 2 defines done (closed, or ticked on the parent), blocked, taken (a branch named for the issue exists), and the frontier in one place, and `compost:build` checks blockers against the same "done". On GitHub a reviewed, landed blocker stays open until the PR merges, so build's old "every blocker is closed" check reported it as blocking.
+- The frontier leaves out issues labelled `ready-for-human`; the close-out recap lists them instead.
+- `compost:review` heads its issue comment `Review round <n>`, and implement counts those comments for its three-round cap, so the cap holds across a pause or a compacted context. `compost:pause`'s status comment carries the review round and, in a lane-routing run, each lane's tokens so far.
+- `compost:slice` and `compost:implement` stop for approval on a `Class: architectural` parent with no approval comment.
+- Map decisions are claimed with a comment naming the session, read back so the earliest live claim wins, with a one-day lease; every session runs as the same user, so an assignee couldn't tell two apart. Rerun `compost:setup` to refresh the claim command in `docs/agents/issue-tracker.md`.
+- `compost:build` posts the issue's AC table, which `compost:verify` edits rather than adding a second; implement workers report AC-row retirements and leave a committed AC-table cache alone, and the orchestrator applies both after landing.
+- `compost:turn` runs `pile.py status --references` from a compost checkout, skips changes an open `upstream` issue already carries, and passes `advance` the full hash status printed.
+- `compost:skill-drift` doesn't draft a second fix while a `claude/skill-drift-<skill>` pull request is open.
+
+### Fixed
+
+- The Stop hook treats a `compost:pause` load as the end of an implement run, like `compost:finish`, so a paused run no longer guards later turns that background notifications start.
+- `pile.py advance` refuses anything but a full commit hash: a ref resolved after the fetch could move the pin past changes nobody ruled on. `pile.py status --references` lists changes in reference sources, which were recorded but never compared.
+- The skill-drift mod queues its log writes, so a turn's judgment and the next prompt's correction check that overlap no longer drop one batch of hits. `skill_drift.py mark` writes `reviewed.json` atomically.
+- `thin.py matrix --resume` reruns a mutant when a test file it ran changed since the journal (hashes in `matrix.jsonl.tests`), instead of trusting kills the old tests found.
+
 ## [0.33.2] - 2026-11-12
 
 ### Fixed
