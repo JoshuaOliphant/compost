@@ -40,8 +40,9 @@ the work so each step can be checked before the next builds on it
    and prints each sub-issue's state with the reason; act on that, not on your own reading. These
    are the definitions it applies, and the only ones; `compost:build` and `compost:pause` use them
    too.
-   - This run's **session id** comes from `frontier.py session` (it lives in this worktree's git
-     dir, so it outlives a compacted context). End every comment the run posts, yours and every
+   - This run's **session id** comes from `frontier.py session`. It lives in the clone's git dir,
+     shared by every worktree of the clone, so it outlives a compacted context; a second session
+     working at the same time needs its own clone. End every comment the run posts, yours and every
      worker's, on the parent or any sub-issue, with a line `compost-session: <id>`; on a local
      tracker, put the time from `date -u +%Y-%m-%dT%H:%M:%SZ` after the id, never a guessed one.
      The tag is how other sessions tell your comments from theirs, since every session posts as
@@ -59,8 +60,8 @@ the work so each step can be checked before the next builds on it
      the claim has expired, or no session posted `Started` for the branch, take the issue over
      from its branch's head and post your own `Started`. This run's sessions are your id plus
      every id named on a `Resumes: <id>` line in a comment you tagged (`compost:pause` step 5).
-     A worker that holds an issue for a day without a comment loses it, so a long lane posts its
-     progress on the issue.
+     A run that tags no comment for a day loses all its claims, so a long lane posts its progress
+     on its issue.
    - The **frontier** is every open issue that is not done, not blocked, not taken, and not
      labelled `ready-for-human` (that label is for work only a person can do; list those issues
      under Risk in the close-out recap instead of building them).
@@ -91,7 +92,9 @@ the work so each step can be checked before the next builds on it
    - Before starting an issue, in a lane or yourself, push its branch name at the feature SHA
      (`git push origin <feature SHA>:refs/heads/<issue>-<slug>`) and comment `Started
      <issue>-<slug>` on the issue, tagged with the session id, so a session in another clone sees
-     the issue as taken and by whom.
+     the issue as taken and by whom. Then run `frontier.py issues` again: the newest `Started`
+     holds the claim, so if the issue now reads taken, another session claimed it at the same
+     moment; leave it to them and pick the next.
    - An isolated worktree starts from the default branch, not the feature branch. Every brief names
      the feature branch's head SHA, and the worker switches to it before any work.
    - Write each brief from [references/task-brief.md](references/task-brief.md): the issue, its

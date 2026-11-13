@@ -87,6 +87,11 @@ def test_a_branch_is_taken_only_while_the_session_that_started_it_is_live(
     assert why in got.why
 
 
+def test_the_branch_shown_is_the_one_the_claimant_started_when_slugs_differ():
+    subs = [issue(10), issue(11, "", said("Started 11-b", "s-other")), issue(12), issue(13)]
+    assert rows(subs, ["11-a", "11-b"])[11].branch == "11-b"
+
+
 def test_a_session_this_one_resumed_counts_as_this_one_and_so_does_its_own_resume():
     resumed = said("Resumed from the status comment.\nResumes: s-old", "s-mid")
     again = said("Resumed again.\nResumes: s-mid", "s-me")
@@ -125,7 +130,15 @@ def test_the_parent_checklist_lists_slices_and_skips_acceptance_criteria_boxes()
     [
         ([said("Claimed by s-a", at=FRESH - timedelta(minutes=1)), said("Claimed by s-b")], "s-a"),
         ([said("Claimed by s-a", at=STALE), said("Claimed by s-b")], "s-b"),
-        ([said("Claimed by s-a", at=STALE), said("Claimed by s-b"), said("Progress: read the API", "s-a")], "s-a"),
+        ([said("Claimed by s-a", at=STALE), said("Claimed by s-b"), said("Progress: read the API", "s-a")], "s-b"),
+        (
+            [
+                said("Claimed by s-a", at=STALE),
+                said("Progress", "s-a", FRESH - timedelta(hours=1)),
+                said("Claimed by s-b"),
+            ],
+            "s-a",
+        ),
         ([said("Claimed by s-a", at=STALE)], None),
         ([said("A question for whoever picks this up")], None),
         ([Comment("Status: claimed\nClaimed: s-l 2026-11-13T11:00:00Z", None)], "s-l"),
@@ -135,7 +148,8 @@ def test_the_parent_checklist_lists_slices_and_skips_acceptance_criteria_boxes()
     ids=[
         "earliest live claim wins",
         "a dead earlier claim loses to a live later one",
-        "a claimant that posted since is live again",
+        "a claimant back from the dead doesn't take it back",
+        "a later claim doesn't displace a holder that kept posting",
         "every claim dead",
         "no claims",
         "local claim line with its time",
@@ -186,7 +200,8 @@ class Forge:
             )
         if args[-1].startswith("projects") and "/notes" in args[-1]:
             notes = [{"body": b, "created_at": t, "system": False} for b, t in found["comments"]]
-            return json.dumps([*notes, {"body": "added label", "created_at": "2026-11-13T11:59:00Z", "system": True}])
+            system = {"body": "added label", "created_at": "2026-11-13T11:59:00Z", "system": True}
+            return json.dumps(notes[:1]) + "\n" + json.dumps([*notes[1:], system]) + "\n"
         return json.dumps(
             {"description": found["body"], "state": found.get("state", "opened"), "labels": found.get("labels", [])}
         )
@@ -194,17 +209,20 @@ class Forge:
 
 ISSUES = {
     1: {
-        "body": "- [x] #10 a\n- [ ] #11 b\n- [ ] #12 c",
+        "body": "- [x] #10 a\n- [ ] #11 b\n- [ ] #12 c\n- [ ] #13 d",
         "comments": [("Ruling\n\ncompost-session: s-other", "2026-11-13T11:00:00Z")],
     },
     10: {"body": "", "comments": []},
     11: {"body": "Blocked by #10", "comments": [("Started 11-b\n\ncompost-session: s-other", "2026-11-12T00:00:00Z")]},
     12: {"body": "Blocked by #11", "labels": ["ready-for-agent"], "comments": []},
+    13: {"body": "Blocked by #90", "comments": []},
+    90: {"body": "", "state": "closed", "comments": []},
 }
 EXPECTED = [
     "#10 done: ticked on the parent",
     "#11 taken [11-b]: s-other is live (last comment 2026-11-13 11:00Z)",
     "#12 blocked: waits on #11",
+    "#13 frontier: no branch yet: push one at the feature SHA and post Started",
 ]
 
 
@@ -232,8 +250,10 @@ def test_cli_claim_on_the_forge_prints_the_winner(tracker, capsys):
 def local(tmp_path):
     spec = tmp_path / ".scratch" / "greet" / "spec.md"
     (spec.parent / "issues").mkdir(parents=True)
-    spec.write_text("# Greet\n## Slices\n- [x] 01 greet\n- [ ] 02 greet all\n- [ ] 03 farewell\n")
+    spec.write_text("# Greet\n## Slices\n- [x] 01 greet\n- [ ] 02 greet all\n- [ ] 03 farewell\n- [ ] 05 wave\n")
     (spec.parent / "issues" / "01-greet.md").write_text("# 01 Greet\nStatus: closed\n")
+    (spec.parent / "issues" / "04-hello.md").write_text("# 04 Hello, from an earlier spec\nStatus: closed\n")
+    (spec.parent / "issues" / "05-wave.md").write_text("# 05 Wave\nStatus: ready-for-agent\nBlocked by: 04, 07\n")
     (spec.parent / "issues" / "02-greet-all.md").write_text(
         "# 02 Greet all\nStatus: ready-for-agent\nBlocked by: 01\n\n## Comments\n\nStarted 02-greet-all\n"
         "compost-session: s-other 2026-11-13T11:30:00Z\n\nA note with no trailer yet\n"
@@ -249,6 +269,7 @@ def test_cli_issues_on_a_local_tracker_reads_the_files(local, capsys):
         "#1 done: closed",
         "#2 taken [02-greet-all]: s-other is live (last comment 2026-11-13 11:30Z)",
         "#3 ready-for-human: needs a person; list it under Risk",
+        "#5 blocked: waits on #7",
     ]
 
 
@@ -272,8 +293,11 @@ def test_run_command_turns_a_failure_into_a_frontier_error():
         frontier.run_command(["no-such-binary-xyz"])
 
 
-def test_session_is_made_once_per_worktree_and_kept_in_its_git_dir(tmp_path, monkeypatch, capsys):
+def test_session_is_made_once_per_clone_and_reads_the_same_from_its_worktrees(tmp_path, monkeypatch, capsys):
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    git = ["git", "-C", str(tmp_path), "-c", "user.email=t@t", "-c", "user.name=t", "-c", "commit.gpgsign=false"]
+    subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "x"], check=True)
+    subprocess.run([*git, "worktree", "add", "-q", str(tmp_path / "wt"), "-b", "feature"], check=True)
     monkeypatch.chdir(tmp_path)
     assert frontier.main(["session"], now=NOW) == 0
     first = capsys.readouterr().out.strip()
@@ -281,6 +305,9 @@ def test_session_is_made_once_per_worktree_and_kept_in_its_git_dir(tmp_path, mon
     assert frontier.main(["session"]) == 0
     assert capsys.readouterr().out.strip() == first
     assert (tmp_path / ".git" / "compost-session").read_text().strip() == first
+    monkeypatch.chdir(tmp_path / "wt")
+    assert frontier.main(["session"]) == 0
+    assert capsys.readouterr().out.strip() == first
 
 
 def test_remote_branches_reads_origin_heads_from_real_git(tmp_path, monkeypatch):

@@ -99,6 +99,7 @@ there and give it a line under Out of scope.
    decision. A session is live while its claim or a later comment it tagged
    (`compost-session: <id>`) on the decision is under a day old, so post progress there daily on
    long research; a dead session's claim has expired, and the decision is back on the frontier.
+   Whoever claims it then keeps it, even if the dead session comes back.
 3. Resolve it, reading related decisions in full as needed.
 4. Post the answer as a resolution comment, close the sub-issue, and add its gist to Decisions so
    far.

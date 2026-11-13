@@ -119,9 +119,9 @@ def own_sessions(me: str, issues: list[Issue]) -> set[str]:
     return own
 
 
-def claimant(issue: Issue) -> str | None:
-    """The session on the newest `Started` comment for this issue, which is who holds its branch."""
-    started = [comment.session for comment in issue.comments if STARTED.search(comment.body) and comment.session]
+def claimant(issue: Issue) -> tuple[str, str] | None:
+    """The session and branch on the newest `Started` comment for this issue: who holds it, and on which branch."""
+    started = [(c.session, found.group(1)) for c in issue.comments if c.session and (found := STARTED.search(c.body))]
     return started[-1] if started else None
 
 
@@ -134,7 +134,7 @@ def branch_for(number: int, branches: list[str]) -> str | None:
 def states(parent: Issue, issues: list[Issue], branches: list[str], me: str, now: datetime) -> list[Row]:
     checklist = ticks(parent.body)
     by_number = {issue.number: issue for issue in issues}
-    done = {n for n, ticked in checklist.items() if ticked or (n in by_number and by_number[n].closed)}
+    done = {n for n, ticked in checklist.items() if ticked} | {issue.number for issue in issues if issue.closed}
     own = own_sessions(me, [parent, *issues])
     seen = last_seen([parent, *issues])
     rows = []
@@ -156,7 +156,8 @@ def states(parent: Issue, issues: list[Issue], branches: list[str], me: str, now
         if branch is None:
             rows.append(Row(number, "frontier", "no branch yet: push one at the feature SHA and post Started"))
             continue
-        holder = claimant(issue)
+        holder, started = claimant(issue) or (None, None)
+        branch = started if started in branches else branch
         if holder in own:
             rows.append(Row(number, "frontier", f"your branch (claimed by {holder}): continue from its head", branch))
             continue
@@ -170,22 +171,23 @@ def states(parent: Issue, issues: list[Issue], branches: list[str], me: str, now
 
 
 def claim_winner(comments: list[Comment], now: datetime) -> str | None:
-    """The earliest claim whose session is live: it posted on the decision (the claim counts) under a day ago.
-
-    Liveness is keyed to the claimant, so a newer session's own comments never keep a dead session's claim alive.
+    """The session holding a map decision: the first claim, displaced only by a claim made after its holder had been
+    silent a day, and only while that holder is still live. Liveness is keyed to the claimant, so a newer session's
+    comments never keep a dead claim alive, and a claimant back from the dead doesn't take a decision back.
     """
-    claims: list[tuple[datetime, str]] = []
-    seen: dict[str, datetime] = {}
+    events = []
     for comment in comments:
         found = CLAIMED.search(comment.body)
         when = comment.when or (parse_time(found.group(2)) if found and found.group(2) else None)
         who = found.group(1) if found else comment.session
-        if when is None or who is None:
-            continue
-        seen[who] = max(seen.get(who, when), when)
-        if found:
-            claims.append((when, who))
-    return next((who for _, who in sorted(claims) if now - seen[who] < LEASE), None)
+        if when is not None and who is not None:
+            events.append((when, who, bool(found)))
+    holder, seen = None, {}
+    for when, who, claims in sorted(events, key=lambda event: event[0]):
+        if claims and (holder is None or when - seen[holder] >= LEASE):
+            holder = who
+        seen[who] = when
+    return holder if holder and now - seen[holder] < LEASE else None
 
 
 # Trackers: each reads an issue (body, closed, labels, comments) through the same Run seam, so tests feed it JSON.
@@ -223,7 +225,7 @@ def read_github(number: int, run: Run) -> Issue:
 
 def read_gitlab(number: int, run: Run) -> Issue:
     raw = json.loads(run(["glab", "api", f"projects/:fullpath/issues/{number}"]))
-    notes = json.loads(run(["glab", "api", "--paginate", f"projects/:fullpath/issues/{number}/notes?sort=asc"]))
+    notes = pages(run(["glab", "api", "--paginate", f"projects/:fullpath/issues/{number}/notes?sort=asc"]))
     return Issue(
         number,
         raw.get("description") or "",
@@ -231,6 +233,17 @@ def read_gitlab(number: int, run: Run) -> Issue:
         list(raw.get("labels", [])),
         [Comment(n["body"], parse_time(n["created_at"])) for n in notes if not n.get("system")],
     )
+
+
+def pages(text: str) -> list[dict]:
+    """A paginated listing, whether the CLI printed one merged array or one array per page."""
+    decoder, items, at, text = json.JSONDecoder(), [], 0, text.strip()
+    while at < len(text):
+        page, at = decoder.raw_decode(text, at)
+        items += page
+        while at < len(text) and text[at].isspace():
+            at += 1
+    return items
 
 
 def read_local(path: Path) -> Issue:
@@ -263,19 +276,25 @@ def remote_branches(run: Run) -> list[str]:
 
 
 def load(tracker: str, parent: str, run: Run) -> tuple[Issue, list[Issue]]:
+    """The parent and its checklist's issues, plus any blocker off the checklist, so a closed one counts as done."""
     if tracker == "local":
         spec = Path(parent)
         top = read_local(spec)
         files = {issue.number: issue for issue in map(read_local, sorted((spec.parent / "issues").glob("*.md")))}
-        return top, [files[n] for n in ticks(top.body) if n in files]
+        listed = [files[n] for n in ticks(top.body) if n in files]
+        wanted = {n for issue in listed for n in blockers(issue.body)} - {issue.number for issue in listed}
+        return top, listed + [files[n] for n in sorted(wanted) if n in files]
     read = read_github if tracker == "github" else read_gitlab
     top = read(int(parent.lstrip("#")), run)
-    return top, [read(n, run) for n in ticks(top.body)]
+    listed = [read(n, run) for n in ticks(top.body)]
+    wanted = {n for issue in listed for n in blockers(issue.body)} - {issue.number for issue in listed}
+    return top, listed + [read(n, run) for n in sorted(wanted)]
 
 
 def session_id(run: Run) -> str:
-    """This worktree's session id, made once and kept in its git dir so it outlives a compacted context."""
-    path = Path(run(["git", "rev-parse", "--git-path", "compost-session"]).strip())
+    """This clone's session id, made once and kept in its common git dir, so it outlives a compacted context and
+    reads the same from the main checkout and every worktree of the clone (the run moves into a feature worktree)."""
+    path = Path(run(["git", "rev-parse", "--git-common-dir"]).strip()) / "compost-session"
     if not path.exists():
         path.write_text(f"s-{secrets.token_hex(4)}\n")
     return path.read_text().strip()
