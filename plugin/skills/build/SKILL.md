@@ -51,8 +51,9 @@ no test counts until you have seen it fail for the right reason.
    - how tests are named, grouped, and split across files
 
    Write a placement map with one line per AC: the file and test it lands in, and the fixtures
-   it uses. Once the tests exist, post the map as an issue comment, one line per AC-N with its
-   test node id, so `compost:verify` reads it instead of guessing.
+   it uses. Once the tests exist, post it on the issue as the AC table, in the `| AC | Test |`
+   shape `compost:verify` step 1 shows, one row per AC-N with its test node id. That one comment
+   is the issue's AC table from then on: `compost:verify` edits it rather than posting another.
 
 4. **Place each acceptance criterion.** Ask Jev first: run `find-test` with the repo and every
    AC-N ([jev](references/jev.md)). `extend` names the test that already covers the criterion;

@@ -85,7 +85,8 @@ the work so each step can be checked before the next builds on it
      unblocked right away instead of waiting for the slowest sibling.
 
 5. **Land each finished issue.** A completion is an event to handle, not a review to do inline.
-   Read the worker's short report; if it says `DONE_WITH_CONCERNS`, read the concerns first. Merge
+   Read the worker's short report; if it says `DONE_WITH_CONCERNS`, read the concerns first.
+   Apply any AC-table row retirements it reports (`compost:verify` step 5) once its branch is merged. Merge
    its branch into the feature branch with `--no-ff`, then run the suite on the feature branch; a
    merge is a change like any other. A red suite after a merge goes to `compost:diagnose`. When the
    repo's instructions want a version bump for a changed package, commit it right after the first

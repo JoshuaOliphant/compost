@@ -44,8 +44,10 @@ command can: judge whether it ran what changed, and prove the fact the change is
      ```
    - reads the tables in bulk, not one tracker call per issue: from the local tracker's files, or
      for a remote tracker one listing call scoped to issues that carry a table, or a committed
-     cache of the tables. Verify refreshes the cache whenever it posts a table or retires a row,
-     and the command warns when the cache is older than the newest edit to an AC table itself:
+     cache of the tables. Verify refreshes the cache whenever it posts a table or retires a row, except as a
+     `compost:implement` worker: parallel lanes that each rewrite one committed file conflict when
+     they land, so workers leave the cache alone and the orchestrator refreshes it after each
+     landing. The command warns when the cache is older than the newest edit to an AC table itself:
      the edit time of the comment or file that holds a table, not the issue's updated time, which
      moves on every comment or label change and would make the warning noise. A table edited
      outside verify won't reach the cache otherwise. With hundreds of issues, a call per issue is
@@ -98,8 +100,9 @@ command can: judge whether it ran what changed, and prove the fact the change is
    skipped yourself.
 
 5. **Map every acceptance criterion to a passing test.** Build a table from this run's results:
-   AC-N, the test's node id, and pass or fail. Find the tests in the placement map
-   `compost:build` posted on the issue (AC-N to node id). A criterion with no test is unmet, with no judgment call. So is one
+   AC-N, the test's node id, and pass or fail. Find the tests in the AC table
+   `compost:build` posted on the issue (AC-N to node id); it is the only one, so edit it, never
+   post a second. A criterion with no test is unmet, with no judgment call. So is one
    whose test was skipped, deselected, or marked xfail in this run, because a test that did not
    run proves nothing. A passing test can still miss its criterion, so ask Jev whether each
    test asserts its Then: run `ac-exercised` with the table ([jev](references/jev.md)) and read
@@ -115,7 +118,9 @@ command can: judge whether it ran what changed, and prove the fact the change is
    `superseded by #N`, with N this issue, refresh the cache if the command keeps one, and post a
    ruling on this issue naming the retired row.
    The row edit and the ruling are the record; a row that just disappears, or a check that stops
-   reading closed issues, is not.
+   reading closed issues, is not. As a `compost:implement` worker, put the retirement in your
+   report instead of editing the other issue's table: two lanes editing one comment lose one of
+   the edits, so the orchestrator applies retirements after it lands each lane.
 
 6. **Prove the one fact the change is safe because of.** Most changes that look risky are safe
    because of one fact, such as "this call only evicts entries that are already expired". Name
@@ -166,8 +171,8 @@ command can: judge whether it ran what changed, and prove the fact the change is
    or excluded, the AC table, the safety fact with its rung and
    the proof output (the telemetry query and what it returned, when a stack is recorded), and the
    comments removed. Post the AC table on the issue in the shape the verify command checks, so
-   every later run checks it too; on a re-run, edit the AC-table comment you posted before instead
-   of adding another. Before saying "done", ask
+   every later run checks it too, by editing the AC-table comment already on the issue (the one
+   `compost:build` posted, or yours from an earlier run) instead of adding another. Before saying "done", ask
    Jev whether the output you captured backs each claim: run `claim-backed` with every claim
    and its command's output ([jev](references/jev.md)), and fix or drop each one in `unbacked`.
    Exit 3: reread each output against its claim yourself. Say "done" only

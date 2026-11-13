@@ -57,6 +57,7 @@ Reply in under 15 lines:
 - Each AC-N and the test that proves it
 - What you ran to verify, with the result (for example "pytest: 214 passed, coverage 100%")
 - Rulings you posted, as links
+- AC-table rows in other issues your change retires (`superseded by #<n>`), for the orchestrator to apply
 - Concerns and follow-ups, if any
 
 Use DONE_WITH_CONCERNS when the work is complete but you doubt part of it. Use BLOCKED or

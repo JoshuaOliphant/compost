@@ -46,6 +46,8 @@ Used by `compost:slice` for map issues.
   line of `open`, `claimed`, or `resolved`.
 - **Frontier:** decisions that are `open` and whose `Blocked by` files are all `resolved`; lowest
   number wins.
-- **Claim:** set `Status: claimed` and save before any other work.
+- **Claim:** set `Status: claimed`, add a `Claimed: <session> <ISO time>` line, and save; then read
+  the file back and keep the claim only if the line is still yours. A claim older than a day with
+  nothing after it has expired: take it over by rewriting the line.
 - **Resolve:** append the answer under `## Answer`, set `Status: resolved`, then add the gist and
   link to the map's Decisions so far.
