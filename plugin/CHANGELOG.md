@@ -2,6 +2,18 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.35.0] - 2026-11-13
+
+### Added
+
+- `scripts/frontier.py` computes `compost:implement`'s issue states from the tracker and git: `issues <parent>` prints each sub-issue as done, blocked, taken, frontier, or ready-for-human with the reason; `claim <decision>` prints the session holding a map decision's earliest live claim; `session` prints this worktree's session id (kept in its git dir). It reads GitHub (`gh api`), GitLab (`glab api`), and local trackers.
+
+### Changed
+
+- Every comment an implement run posts ends with `compost-session: <id>`, and starting an issue posts `Started <branch>` on it. A branch is taken only while the session on its newest `Started` comment is live, meaning some comment it tagged on the parent or any sub-issue is under a day old. Liveness now belongs to the claimant, so another session's comments no longer keep a dead claim alive, and comments on sub-issues (where rulings and review rounds go on GitHub) count. Resuming posts `Resumes: <id>`, which makes the paused session's branches this run's own; it replaces the branch list in the status comment as the record of ownership.
+- Map-decision claims use the same rule through `frontier.py claim`: the earliest claim whose session posted on the decision under a day ago wins. Rerun `compost:setup` to refresh `docs/agents/issue-tracker.md`.
+- `compost:implement` says to load implement again after a mid-run `compost:finish`, and that the Stop hook sends a stop back only once.
+
 ## [0.34.0] - 2026-11-13
 
 ### Changed

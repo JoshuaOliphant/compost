@@ -73,8 +73,8 @@ Pause only when asked or when the session has to end. "Keep going", "going to be
    Uncommitted changes in a worktree mean the pause was not clean; commit them as `wip:` and say so.
 
 3. **Diff done against pending.** Compare what landed with what the parent issue asks for, using
-   `compost:implement` step 2's done, blocked, and taken (the branches the status comment lists
-   are this run's own, not taken), name the resume point, and don't redo finished work or rerun an old repro.
+   `frontier.py issues` (`compost:implement` step 2), run with the id the status comment was
+   tagged with as `--session`, so the paused run's branches count as its own; name the resume point, and don't redo finished work or rerun an old repro.
 
 4. **Check the claim the next step rests on.** Before building on inherited work, prove the one
    fact it depends on against the real artifact: run the suite on the feature branch, or the check
@@ -83,9 +83,10 @@ Pause only when asked or when the session has to end. "Keep going", "going to be
 
 5. **Continue.** Load `compost:implement` first, even when the next action belongs to another
    skill: a pause the user asked for ended the run for compost's Stop hook, and only an implement
-   load starts it again. Then hand the next action to the skill it names, and post a one-line comment on the
-   parent issue saying the run resumed, from which status comment, and in which session; that
-   comment makes the status comment's branches this run's own (`compost:implement` step 2).
+   load starts it again. Then post a one-line comment on the parent issue saying the run resumed
+   and from which status comment, with a `Resumes: <the status comment's session id>` line,
+   tagged with your own id (`frontier.py session`); that line makes the paused session's branches
+   this run's own (`compost:implement` step 2). Then hand the next action to the skill it names.
 
 ## Next moves
 

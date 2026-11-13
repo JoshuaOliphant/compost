@@ -26,6 +26,8 @@ run `git switch -C <branch> <feature SHA>` and confirm `git rev-parse HEAD` prin
 before any other work.
 <For a teammate: create it first with `git worktree add <path> -b <branch> <feature SHA>`.>
 Read this repo's instructions file (AGENTS.md or CLAUDE.md) before editing.
+End every comment you post on the tracker with the line `compost-session: <session id>`, so
+other sessions know this run is still alive.
 
 ## Acceptance criteria (verbatim from the issue)
 <the user story and its AC-N scenarios in Given/When/Then>

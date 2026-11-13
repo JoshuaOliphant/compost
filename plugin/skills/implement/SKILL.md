@@ -33,23 +33,34 @@ the work so each step can be checked before the next builds on it
    status comment from `compost:pause` means you are resuming, so start from its next action. Read
    `CONTEXT.md` and the ADRs in `docs/adr/` for the areas the issues touch. Run `git log` and `git worktree list` to see what already landed.
 
-2. **Compute the frontier.** These definitions are the only ones; `compost:build` and
-   `compost:pause` use them too.
+2. **Compute the frontier.** Run
+   `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/frontier.py issues <parent> --tracker <github|gitlab|local>`
+   (the tracker `docs/agents/issue-tracker.md` names; for a local tracker, pass the `spec.md`
+   path). It reads the parent's checklist, every sub-issue and its comments, and `git ls-remote`,
+   and prints each sub-issue's state with the reason; act on that, not on your own reading. These
+   are the definitions it applies, and the only ones; `compost:build` and `compost:pause` use them
+   too.
+   - This run's **session id** comes from `frontier.py session` (it lives in this worktree's git
+     dir, so it outlives a compacted context). End every comment the run posts, yours and every
+     worker's, on the parent or any sub-issue, with a line `compost-session: <id>`; on a local
+     tracker, put the time from `date -u +%Y-%m-%dT%H:%M:%SZ` after the id, never a guessed one.
+     The tag is how other sessions tell your comments from theirs, since every session posts as
+     the same user.
    - An issue is **done** when it is closed, or ticked on the parent's checklist. A remote tracker
      closes an issue only when its pull request merges, so inside a run "done" almost always means
      ticked: reviewed and landed on the feature branch (step 7).
-   - An issue is **blocked** while any issue on its "Blocked by #n" lines is not done. The forge's
+   - An issue is **blocked** while any issue on its "Blocked by" lines is not done. The forge's
      own dependency count (open blockers) stays non-zero until the PR merges; don't read it.
-   - An issue is **taken** when a branch for it exists after `git fetch`, the issue isn't done,
-     and the branch isn't this run's own. Match by prefix, `refs/heads/<issue>-*`: `compost:build`
-     names the branch `<issue>-<slug>` and step 4 pushes it, but another session may derive a
-     different slug. This run's own are the branches this session made and, when this session
-     resumed from a `compost:pause` status comment (and posted the "resumed" comment after it),
-     the branches that comment lists. Git is the claim; a second session on the same parent skips
-     a taken issue. A claim expires when no comment on the parent from any session but this one
-     is under a day old: a live run keeps posting rulings and review rounds there, and your own
-     comments say nothing about whether the other session is alive. Take the issue over from its
-     branch's head.
+   - An issue is **taken** when a branch for it exists on the remote (matched by prefix,
+     `<issue>-*`, since another session may pick a different slug), the issue isn't done, the
+     session on its newest `Started <branch>` comment (step 4) isn't this run's, and that session
+     is live: some comment it tagged, on the parent or any sub-issue, is under a day old. Liveness
+     belongs to the claimant, so your own comments never keep a dead session's claim alive. When
+     the claim has expired, or no session posted `Started` for the branch, take the issue over
+     from its branch's head and post your own `Started`. This run's sessions are your id plus
+     every id named on a `Resumes: <id>` line in a comment you tagged (`compost:pause` step 5).
+     A worker that holds an issue for a day without a comment loses it, so a long lane posts its
+     progress on the issue.
    - The **frontier** is every open issue that is not done, not blocked, not taken, and not
      labelled `ready-for-human` (that label is for work only a person can do; list those issues
      under Risk in the close-out recap instead of building them).
@@ -78,8 +89,9 @@ the work so each step can be checked before the next builds on it
      as named teammates instead; a teammate spawn cannot take `isolation`, so its brief tells it to
      create its own worktree first.
    - Before starting an issue, in a lane or yourself, push its branch name at the feature SHA
-     (`git push origin <feature SHA>:refs/heads/<issue>-<slug>`), so a session in another clone
-     sees the issue as taken.
+     (`git push origin <feature SHA>:refs/heads/<issue>-<slug>`) and comment `Started
+     <issue>-<slug>` on the issue, tagged with the session id, so a session in another clone sees
+     the issue as taken and by whom.
    - An isolated worktree starts from the default branch, not the feature branch. Every brief names
      the feature branch's head SHA, and the worker switches to it before any work.
    - Write each brief from [references/task-brief.md](references/task-brief.md): the issue, its
@@ -167,7 +179,10 @@ the work so each step can be checked before the next builds on it
    continue. The run ends when `compost:finish` loads, or `compost:pause` once the user has sent a
    message during the run; a pause you start on your own leaves the guard on, so stop only for the
    list above (resuming loads implement again, which starts a new run). A turn that answers a
-   message the user typed is attended, so waiting on them there is allowed.
+   message the user typed is attended, so waiting on them there is allowed. When `compost:finish`
+   loads mid-run (the user asked for the PR early), load `compost:implement` again before you go
+   on, or the rest of the run is unguarded. The hook sends a stop back once and lets the next one
+   through, so it is a nudge, not a gate: keeping to the list is still on you.
 
    When the run repeats a mistake (a command that needs a flag, a fixture that lies, a service that
    must be up), record the gotcha with `compound-knowledge:compound-capture` if it is installed, so

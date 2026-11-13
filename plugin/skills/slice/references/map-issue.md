@@ -92,11 +92,13 @@ there and give it a line under Out of scope.
 
 1. Read the map body, not every sub-issue.
 2. Take the decision the user names, or the first one on the frontier, and claim it before any
-   work with the tracker's **Claim** command, so a parallel session skips it. A claim is a comment
-   naming your session (its branch, or the time you started). Two sessions can post at once, so
-   read the comments back after posting: the earliest live claim wins, and a loser picks the next
-   decision. A claim is live until a day passes with no comment after it; then it has expired, and
-   the decision is back on the frontier for anyone to claim.
+   work with the tracker's **Claim** command, so a parallel session skips it. A claim names your
+   session id (`uv run ${CLAUDE_PLUGIN_ROOT}/scripts/frontier.py session`). Two sessions can post
+   at once, so read it back with `frontier.py claim <decision> --tracker <github|gitlab|local>`:
+   it prints the earliest claim whose session is live, and if that isn't you, pick the next
+   decision. A session is live while its claim or a later comment it tagged
+   (`compost-session: <id>`) on the decision is under a day old, so post progress there daily on
+   long research; a dead session's claim has expired, and the decision is back on the frontier.
 3. Resolve it, reading related decisions in full as needed.
 4. Post the answer as a resolution comment, close the sub-issue, and add its gist to Decisions so
    far.

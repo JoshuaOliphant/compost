@@ -58,8 +58,8 @@ Used by `compost:slice` for map issues.
 - **Frontier:** the map's open children with no open blocker (no native `blocked_by` link to an
   open issue, per `glab api projects/:id/issues/:iid/links`, and every issue on the `Blocked by`
   line closed) and no live claim (see `compost:slice`'s map reference); first in map order wins.
-- **Claim:** `glab issue note <n> --message "Claimed by <session>"`, then list the notes and keep the
-  claim only if yours is the earliest live one. Every session runs as the same user, so an
-  assignee can't tell two of them apart.
+- **Claim:** `glab issue note <n> --message "Claimed by <session>"`, then keep the claim only if
+  compost's `frontier.py claim <n> --tracker gitlab` prints your session (the earliest claim whose session
+  is live). Every session runs as the same user, so an assignee can't tell two of them apart.
 - **Resolve:** `glab issue note <n> --message "<answer>"`, `glab issue close <n>`, then add the
   gist and link to the map's Decisions so far.
