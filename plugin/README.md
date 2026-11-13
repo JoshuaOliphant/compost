@@ -112,7 +112,7 @@ as it does on any outage.
 | `route` | Choice | turn, description changes | 27/30 (30 real prompts) |
 | `rulings-lint` | Noul ×8 | turn, compost's own text | 10/13 violations, 2–4 false flags (36 passages) |
 | `stop-guard` | Noul ×2 | Stop hook in implement runs | 23/23 (23 final messages) |
-| `skill-drift` mod | Noul, one per skill step +2 | every skill-using turn | deviated (by step, compost:build): no false hits on 8 clean turns, 12/15 drifting turns flagged (23 turns); missing guidance 2/2 and corrected 1/1 flagged (60 turns, whole-skill questions) |
+| `skill-drift` mod | Noul, one per skill step +2 | every skill-using turn | deviated (by step, compost:build): no false hits on 8 clean turns, 11-12/15 drifting turns flagged (23 turns); missing guidance and corrected: not replayable, their 60-turn data never reached compost-evals (#16) |
 
 compost also ships the `skill-drift` mod (`hooks/skill-drift.ts`), the collector behind
 `compost:skill-drift`. After each turn that loaded a skill it sends one Jev request per skill

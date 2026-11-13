@@ -122,13 +122,14 @@ export function skillSteps(text: string): Step[] {
 
 // One whole-skill "did it deviate" question scores 0.8+ on a long skill however well the turn followed it, so a
 // skill with numbered steps gets one question per step, and the turn deviated by its likeliest skipped step.
+// Questions are keyed by position, not by the step's own number: a skill with two lists (pause) numbers from 1 twice.
 function turnQuestions(text: string): Record<string, string> {
   const steps = skillSteps(text)
   if (steps.length === 0) return TURN_QUESTIONS
   const asked: Record<string, string> = { missing_guidance: TURN_QUESTIONS.missing_guidance }
-  for (const step of steps) {
-    asked[`step ${step.n}`] = STEP_QUESTION.replace('{n}', step.n).replace('{title}', step.title).replace('{body}', step.body)
-  }
+  steps.forEach((step, index) => {
+    asked[`step ${index + 1}`] = STEP_QUESTION.replace('{n}', step.n).replace('{title}', step.title).replace('{body}', step.body)
+  })
   return asked
 }
 
@@ -136,8 +137,8 @@ function turnQuestions(text: string): Record<string, string> {
 function turnScores(text: string, answers: Record<string, number>): { kind: DriftKind; p: number; why?: string }[] {
   const steps = skillSteps(text)
   if (steps.length === 0) return Object.entries(answers).map(([kind, p]) => ({ kind: kind as DriftKind, p }))
-  const likeliest = steps.reduce((best, step) => ((answers[`step ${step.n}`] ?? 0) > (answers[`step ${best.n}`] ?? 0) ? step : best))
-  const p = answers[`step ${likeliest.n}`] ?? 0
+  const scored = steps.map((step, index) => ({ step, p: answers[`step ${index + 1}`] ?? 0 }))
+  const { step: likeliest, p } = scored.reduce((best, next) => (next.p > best.p ? next : best))
   return [
     { kind: 'missing_guidance', p: answers.missing_guidance ?? 0 },
     { kind: 'deviated', p, why: `Likeliest skipped step: ${likeliest.n}. ${likeliest.title} (p=${p.toFixed(2)})` },

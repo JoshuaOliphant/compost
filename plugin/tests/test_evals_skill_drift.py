@@ -64,7 +64,9 @@ def test_a_stepped_skill_deviates_only_when_a_step_was_really_skipped():
     """23 hand-labeled compost:build turns (8 that did every step, 15 that skipped one or more), 13 Nov 2026.
 
     The whole-skill `deviated` question scored all 23 between 0.75 and 0.95, clean or not; the likeliest skipped
-    step, as the hook now scores it, put every clean turn under 0.75 and 11 of the 15 drifting ones over it.
+    step, as the hook now scores it, put every clean turn under 0.75 and 11 or 12 of the 15 drifting ones over it (Jev varies run to run).
+    0.75 was chosen on the 17 `calibration` turns (one clean turn scores between 0.70 and 0.75, so there is little
+    margin) and then checked on the 6 `held-out` turns from another repo: no false hit on its 2 clean turns.
     """
     threshold = skill_drift_judgments()["thresholds"]["deviated"]
     root = evals_dir()
@@ -85,8 +87,12 @@ def test_a_stepped_skill_deviates_only_when_a_step_was_really_skipped():
             jev = core.Jev(client, core.Cache())
             return await asyncio.gather(*(judge(jev, case) for case in cases))
 
-    rows = [(p, case["expected"]["deviated"]) for p, case in zip(asyncio.run(run()), cases, strict=True)]
+    scores = asyncio.run(run())
+    rows = [(p, case["expected"]["deviated"]) for p, case in zip(scores, cases, strict=True)]
+    held_out = [row for row, case in zip(rows, cases, strict=True) if case["split"] == "held-out"]
     sweep(rows, TENTHS)
     accuracy, precision, recall = rates(rows, threshold)
     print(f"deviated by step at {threshold}: accuracy {accuracy:.2f} precision {precision:.2f} recall {recall:.2f}")
+    held_accuracy, held_precision, held_recall = rates(held_out, threshold)
+    print(f"held out: accuracy {held_accuracy:.2f} precision {held_precision:.2f} recall {held_recall:.2f}")
     assert precision == 1.0 and recall >= 0.7

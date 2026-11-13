@@ -60,15 +60,15 @@ def skill_drift_judgments() -> dict:
 
 def skill_drift_step_questions(skill_text: str) -> dict[str, str]:
     """The questions hooks/skill-drift.ts asks for a skill with numbered steps (skillSteps + turnQuestions there):
-    missing_guidance, then the `step` template once per `N. **Title.**` step with the start of its text."""
+    missing_guidance, then the `step` template once per `N. **Title.**` step with the start of its text, keyed by position."""
     judgments = skill_drift_judgments()
     asked = {"missing_guidance": judgments["turn"]["missing_guidance"]}
-    for block in re.split(r"^(?=\d+\. \*\*)", skill_text, flags=re.MULTILINE):
-        if match := re.match(r"(\d+)\. \*\*(.+?)\*\*(.*)", block, re.DOTALL):
-            number, title, rest = match.groups()
-            body = " ".join(rest.split())[:400]
-            step = judgments["step"].replace("{n}", number).replace("{title}", title.removesuffix("."))
-            asked[f"step {number}"] = step.replace("{body}", body)
+    blocks = re.split(r"^(?=\d+\. \*\*)", skill_text, flags=re.MULTILINE)
+    steps = [match.groups() for block in blocks if (match := re.match(r"(\d+)\. \*\*(.+?)\*\*(.*)", block, re.DOTALL))]
+    for position, (number, title, rest) in enumerate(steps, start=1):
+        body = " ".join(rest.split())[:400]
+        step = judgments["step"].replace("{n}", number).replace("{title}", title.removesuffix("."))
+        asked[f"step {position}"] = step.replace("{body}", body)
     return asked
 
 

@@ -33,6 +33,11 @@ def test_the_live_eval_asks_the_step_questions_the_hook_asks():
         in asked["step 2"]
     )
     assert skill_drift_step_questions("no numbered steps here") == {"missing_guidance": asked["missing_guidance"]}
+    picking_up = skill_drift_step_questions(
+        stepped + "\n\n## Picking up\n\n1. **Read the trail.** Find the status comment."
+    )
+    assert list(picking_up) == ["missing_guidance", "step 1", "step 2", "step 3"]
+    assert 'step 1 of that skill, "Read the trail"' in picking_up["step 3"]
 
 
 def test_the_hook_targets_the_same_server_model_and_placeholder_key_as_core():

@@ -127,7 +127,7 @@ const STEPPED = [
 ].join('\n')
 
 test('a skill with numbered steps is judged step by step, and deviates by its likeliest skipped step', async ($, on) => {
-  const world = engine(on, { 'step 1': 0.2, 'step 2': 0.81, missing_guidance: 0.1 })
+  const world = engine(on, { 'step 1': 0.81, 'step 2': 0.2, missing_guidance: 0.1 })
   await $.session.start(START)
   await $.skill.prompt({ skill: 'compost:verify', text: STEPPED })
   await $.turn.complete(ENDED)
@@ -135,7 +135,20 @@ test('a skill with numbered steps is judged step by step, and deviates by its li
   expect(Object.keys(questions)).toEqual(['missing_guidance', 'step 1', 'step 2'])
   expect(questions['step 2'].instructions).toContain('step 2 of that skill, "Run the gates", which begins: Run `uv run pytest` and record its output.')
   expect(logged(world)).toMatchObject([{ skill: 'compost:verify', kind: 'deviated', p: 0.81 }])
-  expect(String(logged(world)[0].evidence)).toStartWith('Likeliest skipped step: 2. Run the gates (p=0.81)\nUSER: run the verify gates')
+  expect(String(logged(world)[0].evidence)).toStartWith('Likeliest skipped step: 1. Read the issue (p=0.81)\nUSER: run the verify gates')
+})
+
+test('a skill whose lists both number from 1 asks every step and names the one that scored', async ($, on) => {
+  const twoLists = `${STEPPED}\n\n## Picking up\n\n1. **Read the trail.** Find the status comment.\n\n2. **Resume.** Carry on.`
+  const world = engine(on, { 'step 1': 0.3, 'step 2': 0.4, 'step 3': 0.88, 'step 4': 0.5, missing_guidance: 0.1 })
+  await $.session.start(START)
+  await $.skill.prompt({ skill: 'compost:pause', text: twoLists })
+  await $.turn.complete(ENDED)
+  const questions = world.asked[0].questions as Record<string, { instructions: string }>
+  expect(Object.keys(questions)).toEqual(['missing_guidance', 'step 1', 'step 2', 'step 3', 'step 4'])
+  expect(questions['step 1'].instructions).toContain('"Read the issue"')
+  expect(questions['step 3'].instructions).toContain('step 1 of that skill, "Read the trail"')
+  expect(String(logged(world)[0].evidence)).toStartWith('Likeliest skipped step: 1. Read the trail (p=0.88)')
 })
 
 test('a stepped skill whose every step scores under the threshold logs nothing', async ($, on) => {
