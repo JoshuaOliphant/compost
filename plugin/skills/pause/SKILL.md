@@ -34,13 +34,16 @@ Pause only when asked or when the session has to end. "Keep going", "going to be
 
    **Where things stand**
    - #13 done, reviewed, merged into `feature/12-export` at abc1234
-   - #14 built and verified, review not run; branch `issue-14` at def5678 (worktree `.claude/worktrees/issue-14`)
+   - #14 built and verified, review round 1 found two majors, fixes not started; branch `issue-14` at def5678 (worktree `.claude/worktrees/issue-14`)
    - #15 not started; blocked by #14
 
    **Next action:** run `compost:review` on #14's commits, then land it and start #15.
 
    **Open rulings:** rulings the user should look at before the run goes further, as links, each with
    its cost if wrong. "None" if there are none.
+
+   **Lane records:** in a lane-routing run, each lane's tokens so far (from its workers'
+   completion notices), so the A/B totals survive the pause. Omit otherwise.
 
    **Gotchas:** anything the next session would otherwise rediscover the slow way (a service that
    must be running, a flaky test and its issue, a command that needs a flag).

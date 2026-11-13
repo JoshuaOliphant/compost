@@ -16,8 +16,10 @@ no test counts until you have seen it fail for the right reason.
 
 1. **Read the issue.** Find the tracker in `docs/agents/issue-tracker.md`. If that file is
    missing, run `compost:setup` now, then continue. Read the acceptance criteria (AC-N), the Files
-   and Interfaces blocks, and the "Blocked by" links. Confirm every blocker is closed; if one is
-   open, pick another issue or report the block. Read `CONTEXT.md` and any ADR in `docs/adr/`
+   and Interfaces blocks, and the "Blocked by" links. Confirm every blocker is done, as
+   `compost:implement` step 2 defines it: closed, or ticked on the parent's checklist. A blocker
+   that is reviewed and landed on the feature branch you start from is done even while its issue
+   stays open until the PR merges. If one is not done, pick another issue or report the block. Read `CONTEXT.md` and any ADR in `docs/adr/`
    that touches the area, so names in code and tests match the domain's words. When the issue
    touches a package, SDK, CLI, or service you did not write, read its current docs for the
    installed version before writing code against it ([read the docs](../../canon/read-the-docs.md)).

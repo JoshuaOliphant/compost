@@ -1,5 +1,6 @@
 # ABOUTME: Checks the plugin as shipped: frontmatter, links, compost:<name> and ${CLAUDE_PLUGIN_ROOT} references,
-# ABOUTME: pile.toml feeds and NOTICE, the lane-routing table's values, and that git tracks every shipped file. Runs on the real files.
+# ABOUTME: pile.toml feeds and NOTICE, the lane-routing table's values, implement's stop list against the Stop hook's,
+# ABOUTME: and that git tracks every shipped file. Runs on the real files.
 import itertools
 import os
 import re
@@ -9,6 +10,7 @@ import pile
 import pytest
 import yaml
 from conftest import PLUGIN_ROOT
+from jevtools import meta
 
 LOCAL_ONLY = {"tests", ".venv", ".pytest_cache", "__pycache__"}
 SHIPPED = (
@@ -132,3 +134,12 @@ def test_lane_routing_table_names_only_models_and_efforts_the_agent_tool_takes()
     short = [row for row in rows if len(row) <= max(model, effort)]
     assert short == [], "routing rows with fewer cells than the header"
     assert [row for row in rows if row[model] not in AGENT_MODELS or row[effort] not in AGENT_EFFORTS] == []
+
+
+def test_implements_stop_list_opens_each_item_with_the_stop_hooks_allowed_stop_in_order():
+    text = (PLUGIN_ROOT / "skills" / "implement" / "SKILL.md").read_text()
+    block = text.split("Stop only for:\n", 1)[1].split("\n\n", 1)[0]
+    items = [" ".join(item.split()) for item in re.split(r"^\s*- ", block, flags=re.MULTILINE) if item.strip()]
+    assert len(items) == len(meta.ALLOWED_STOPS)
+    for item, stop in zip(items, meta.ALLOWED_STOPS, strict=True):
+        assert item.startswith(stop), f"{item!r} should open with {stop!r}"

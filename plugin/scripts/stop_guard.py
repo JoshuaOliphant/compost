@@ -4,7 +4,7 @@
 # dependencies = ["typesafe-sdk>=0.7.1"]
 # ///
 # ABOUTME: Stop hook for compost:implement runs: blocks a stop that waits on the user for anything but an allowed stop.
-# ABOUTME: A run ends when compost:finish loads; a message the user sent during the run makes waiting on them fine.
+# ABOUTME: A run ends when compost:finish or compost:pause loads; a message the user sent during it makes waiting fine.
 # ABOUTME: Jev's stop-guard tool judges the final message; any error or a missing key allows the stop and logs a line.
 import asyncio
 import json
@@ -21,7 +21,8 @@ from jevtools.core import open_client
 
 LOG = Path.home() / ".cache" / "compost" / "stop-guard.log"
 IMPLEMENT = "compost:implement"
-FINISH = "compost:finish"
+# Loading either ends the run: finish hands it off, pause checkpoints it. Resuming loads implement again.
+ENDS = ("compost:finish", "compost:pause")
 # Text Claude Code writes into user entries: <command-name>, <system-reminder>, <teammate-message teammate_id=...>.
 INJECTED = re.compile(r"<([a-z][a-z-]*)(?:\s[^>]*)?>.*?</\1>", re.DOTALL)
 # A <command-name> entry appears only when the user typed a slash command; a skill Claude loads is a Skill tool_use.
@@ -88,12 +89,12 @@ def sent_by_user(entry: dict, texts: list[str]) -> bool:
 
 
 def unattended_run(transcript: list[dict]) -> bool:
-    """An implement run is on (no compost:finish since it loaded) and the user did not send the latest prompt since then."""
+    """An implement run is on (no finish or pause since it loaded) and the user did not send the latest prompt since."""
     starts = [index for index, entry in enumerate(transcript) if loads(entry, IMPLEMENT)]
     if not starts:
         return False
     since = transcript[starts[-1] + 1 :]
-    if any(loads(entry, FINISH) for entry in since):
+    if any(loads(entry, end) for entry in since for end in ENDS):
         return False
     prompts = [(entry, texts) for entry in since if (texts := prompt(entry))]
     return not (prompts and sent_by_user(*prompts[-1]))

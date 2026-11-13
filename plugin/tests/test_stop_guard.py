@@ -149,6 +149,10 @@ LOADS_FINISH = {
     "type": "assistant",
     "message": {"id": "f0", "content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "compost:finish"}}]},
 }
+LOADS_PAUSE = {
+    "type": "assistant",
+    "message": {"id": "p0", "content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "compost:pause"}}]},
+}
 SLASH_FINISH = {
     "type": "user",
     "message": {
@@ -172,17 +176,24 @@ def user(content, **extra) -> dict:
         [LOADS_IMPLEMENT, said("m1", "PR #52 is up."), LOADS_FINISH, WAITS],
         [SLASH_IMPLEMENT, said("m1", "PR #52 is up."), SLASH_FINISH, WAITS],
         [LOADS_IMPLEMENT, LOADS_FINISH, said("m2", "Discarded."), NOTIFIED, WAITS],
+        [LOADS_IMPLEMENT, said("m1", "#13 landed."), LOADS_PAUSE, said("m2", "Paused; resume from #14."), NOTIFIED, WAITS],
     ],
-    ids=["finish loaded after implement", "finish typed after implement", "finish then a notification"],
+    ids=[
+        "finish loaded after implement",
+        "finish typed after implement",
+        "finish then a notification",
+        "pause then a notification",
+    ],
 )
-def test_finish_ends_the_run_so_a_stop_after_it_is_never_judged(transcript, entries):
+def test_finish_or_pause_ends_the_run_so_a_stop_after_it_is_never_judged(transcript, entries):
     client = StubClient(lambda state, questions: {})
     assert stop_guard.decide({"transcript_path": transcript(*entries)}, lambda: client) is None
     assert client.calls == []
 
 
-def test_an_implement_load_after_finish_starts_a_new_run(transcript):
-    path = transcript(LOADS_IMPLEMENT, LOADS_FINISH, SLASH_IMPLEMENT, said("m1", "Which library do you prefer?"))
+@pytest.mark.parametrize("ended", [LOADS_FINISH, LOADS_PAUSE], ids=["after finish", "after pause"])
+def test_an_implement_load_after_the_run_ended_starts_a_new_run(transcript, ended):
+    path = transcript(LOADS_IMPLEMENT, ended, SLASH_IMPLEMENT, said("m1", "Which library do you prefer?"))
     assert stop_guard.decide({"transcript_path": path}, judging(0.9, 0.1)) == {
         "decision": "block",
         "reason": stop_guard.REASON,

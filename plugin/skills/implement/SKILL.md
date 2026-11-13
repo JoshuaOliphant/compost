@@ -21,16 +21,33 @@ the work so each step can be checked before the next builds on it
 ## Steps
 
 1. **Orient.** Read `docs/agents/issue-tracker.md` for the tracker and its commands; if it is absent,
-   run `compost:setup` now, then continue. If `docs/agents/observability.md` is absent, run
+   run `compost:setup` now, then continue. Inside a run, setup's questions get its recommended
+   answer, posted as a ruling on the parent, and its irreversible step (uninstalling orphaned
+   plugins) is left for the user. If `docs/agents/observability.md` is absent, run
    `compost:setup`'s observability step on this branch before any worker branches from it. When
    `docs/agents/testing.md` names no verify command, build it the same way, by `compost:verify`'s
    step 1, so parallel lanes don't each write their own. Read
-   the parent issue, every sub-issue, and every comment on them: earlier rulings bind you, and a
+   the parent issue, every sub-issue, and every comment on them: an architectural parent
+   (`**Class:** architectural`) with no approval comment stops here for approval, unless the ask
+   that started this run said to build it; earlier rulings bind you, and a
    status comment from `compost:pause` means you are resuming, so start from its next action. Read
    `CONTEXT.md` and the ADRs in `docs/adr/` for the areas the issues touch. Run `git log` and `git worktree list` to see what already landed.
 
-2. **Compute the frontier.** An issue is on the frontier when it is open and every issue named in its
-   "Blocked by #n" lines is done. Compare the Files blocks of the frontier issues: issues whose file
+2. **Compute the frontier.** These definitions are the only ones; `compost:build` and
+   `compost:pause` use them too.
+   - An issue is **done** when it is closed, or ticked on the parent's checklist. A remote tracker
+     closes an issue only when its pull request merges, so inside a run "done" almost always means
+     ticked: reviewed and landed on the feature branch (step 7).
+   - An issue is **blocked** while any issue on its "Blocked by #n" lines is not done. The forge's
+     own dependency count (open blockers) stays non-zero until the PR merges; don't read it.
+   - An issue is **taken** when a branch or worktree named for it (`<issue>-<slug>`, what
+     `compost:build` creates) exists in `git branch -a` or `git worktree list` and isn't merged
+     into the feature branch. Git is the claim; a second session on the same parent skips it.
+   - The **frontier** is every open issue that is not done, not blocked, not taken, and not
+     labelled `ready-for-human` (that label is for work only a person can do; list those issues in
+     the close-out recap instead of building them).
+
+   Compare the Files blocks of the frontier issues: issues whose file
    sets don't overlap can run at once; issues that share a file go into one lane and run in order.
    How many issues you take on at once is your judgment; there is no size rule.
 
@@ -87,7 +104,9 @@ the work so each step can be checked before the next builds on it
      verbatim, or fix them yourself when you built it. Each fix is seen failing before it passes, then
      `compost:verify` runs again. A worker's fixes land on its own branch, so land it again (step 5)
      before the re-review.
-   - If three rounds of fixes still leave findings open, stop the loop. Rule on each remaining
+   - If three rounds of fixes still leave findings open, stop the loop. Count rounds from the
+     issue's `compost:review` comments, each headed `Review round <n>`, not from memory, so the cap
+     holds across a pause or a compacted context. Rule on each remaining
      finding (park it, or make the smallest change that unblocks dependent issues) and post the
      ruling. A loop that won't converge is a design problem, not an effort problem.
 
@@ -118,20 +137,22 @@ the work so each step can be checked before the next builds on it
    is unavailable: apply the three tests in [domain docs](../spec/references/domain-docs.md) yourself.
 
    A wrong ruling costs a review comment; a stalled run costs the user's day. Stop only for:
-   - merging to the default branch;
+   - merging to the repository's default branch;
    - a force-push or a history rewrite on a shared branch;
    - a deploy or release, including one flagged for the user's approval;
    - deleting data;
    - a message that reaches people beyond the run's own issues: an email, a chat post, or a
      comment, mention, or review request on someone else's issue or pull request;
-   - approval of an architectural spec, when the work shows the approved design has to change;
-   - starting a Claude Code workflow you wrote yourself (the plugin's own `/compost:review-changes`
-     needs no ask). When a job fits [codify the orchestration](../../canon/codify-the-orchestration.md),
+   - approval of an architectural spec: one never approved (step 1), or one the work shows has
+     to change;
+   - starting a Claude Code workflow the agent wrote itself, since one can spawn dozens of agents
+     (the plugin's own `/compost:review-changes` needs no ask). When a job fits [codify the orchestration](../../canon/codify-the-orchestration.md),
      propose it in a ruling comment and carry on without it.
 
    compost's Stop hook holds you to this list during an implement run: when your last message waits
    on the user for anything else, Jev flags it and the hook sends you back to post a ruling and
-   continue. The run ends when `compost:finish` loads, and a turn that answers a message the user
+   continue. The run ends when `compost:finish` or `compost:pause` loads (resuming loads implement
+   again, which starts a new run), and a turn that answers a message the user
    typed is attended, so waiting on them there is allowed.
 
    When the run repeats a mistake (a command that needs a flag, a fixture that lies, a service that
