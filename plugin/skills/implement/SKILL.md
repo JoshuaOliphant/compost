@@ -35,39 +35,27 @@ the work so each step can be checked before the next builds on it
 
 2. **Compute the frontier.** Run
    `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/frontier.py issues <parent> --tracker <github|gitlab|local>`
-   (the tracker `docs/agents/issue-tracker.md` names; for a local tracker, pass the `spec.md`
-   path). It reads the parent's checklist, every sub-issue and its comments, and `git ls-remote`,
-   and prints each sub-issue's state with the reason; act on that, not on your own reading. These
-   are the definitions it applies, and the only ones; `compost:build` and `compost:pause` use them
-   too.
-   - This run's **session id** comes from `frontier.py session`. It lives in the clone's git dir,
-     shared by every worktree of the clone, so it outlives a compacted context. A second session
-     working at the same time needs its own clone, or `COMPOST_SESSION=<its own id>` set before it
-     runs `frontier.py`; otherwise the two read each other's branches as their own. End every comment the run posts, yours and every
-     worker's, on the parent or any sub-issue, with a line `compost-session: <id>`; on a local
-     tracker, put the time from `date -u +%Y-%m-%dT%H:%M:%SZ` after the id, never a guessed one.
-     The tag is how other sessions tell your comments from theirs, since every session posts as
-     the same user.
-   - An issue is **done** when it is closed, or ticked on the parent's checklist. A remote tracker
-     closes an issue only when its pull request merges, so inside a run "done" almost always means
-     ticked: reviewed and landed on the feature branch (step 7).
-   - An issue is **blocked** while any issue on its "Blocked by" lines is not done. The forge's
-     own dependency count (open blockers) stays non-zero until the PR merges; don't read it.
-   - An issue is **taken** when a branch for it exists on the remote (matched by prefix,
-     `<issue>-*`, since another session may pick a different slug), the issue isn't done, the
-     session holding it isn't this run's, and that session is live: some comment it tagged, on
-     the parent or any sub-issue, is under a day old. The holder is the session on the earliest
-     `Started <branch>` comment (step 4); a later `Started` takes over only when the holder had
-     been silent a day by then, and the holder coming back doesn't take the issue back. Liveness
-     belongs to the claimant, so your own comments never keep a dead session's claim alive. When
-     the claim has expired, or no session posted `Started` for the branch, take the issue over
-     from its branch's head and post your own `Started`. This run's sessions are your id plus
-     every id named on a `Resumes: <id>` line in a comment you tagged (`compost:pause` step 5).
-     A run that tags no comment for a day loses all its claims, so a long lane posts its progress
-     on its issue.
-   - The **frontier** is every open issue that is not done, not blocked, not taken, and not
-     labelled `ready-for-human` (that label is for work only a person can do; list those issues
-     under Risk in the close-out recap instead of building them).
+   (the tracker `docs/agents/issue-tracker.md` names; a local tracker takes the `spec.md` path)
+   and act on the state it prints for each sub-issue, not on your own reading. Its definitions
+   are the only ones; `compost:build` and `compost:pause` use them too.
+   - **Session id:** `frontier.py session`, kept in the clone's git dir so it survives
+     compaction (a second concurrent session needs its own clone or `COMPOST_SESSION=<id>`). End
+     every comment the run posts, yours and workers', with `compost-session: <id>` (a local
+     tracker adds the time from `date -u +%Y-%m-%dT%H:%M:%SZ`): every session posts as the same
+     user, so the tag is how they tell each other apart.
+   - **Done:** closed, or ticked on the parent's checklist. A remote tracker closes an issue only
+     when its PR merges, so in a run done means ticked: reviewed and landed (step 7).
+   - **Blocked:** an issue on its "Blocked by" lines is not done. Don't read the forge's own
+     dependency count.
+   - **Taken:** a remote branch `<issue>-*` exists and another live session holds it. The holder
+     is the session on the earliest `Started <branch>` comment (step 4), unless it had been
+     silent a day when a later one was posted; a session is live while some comment it tagged,
+     on the parent or any sub-issue, is under a day old. Take over an expired or unclaimed
+     branch from its head and post your own `Started`. Your sessions are your id plus those on
+     `Resumes: <id>` lines you tagged (`compost:pause` step 5). A run that tags nothing for a day
+     loses its claims, so a long lane posts progress.
+   - **Frontier:** open, not done, blocked, or taken, and not labelled `ready-for-human` (work
+     only a person can do; list those under Risk in the close-out recap).
 
    Compare the Files blocks of the frontier issues: issues whose file
    sets don't overlap can run at once; issues that share a file go into one lane and run in order.
@@ -95,9 +83,8 @@ the work so each step can be checked before the next builds on it
    - Before starting an issue, in a lane or yourself, push its branch name at the feature SHA
      (`git push origin <feature SHA>:refs/heads/<issue>-<slug>`) and comment `Started
      <issue>-<slug>` on the issue, tagged with the session id, so a session in another clone sees
-     the issue as taken and by whom. Then run `frontier.py issues` again: the earliest live
-     `Started` holds the issue, so if it now reads taken, another session got there first; leave
-     it to them and pick the next.
+     the issue as taken and by whom. Then rerun `frontier.py issues`; if the issue now reads
+     taken, another session got there first, so pick the next.
    - An isolated worktree starts from the default branch, not the feature branch. Every brief names
      the feature branch's head SHA, and the worker switches to it before any work.
    - Write each brief from [references/task-brief.md](references/task-brief.md): the issue, its
@@ -110,9 +97,8 @@ the work so each step can be checked before the next builds on it
      [references/lane-routing.md](references/lane-routing.md) decides how every lane spawns, a
      lone lane included, and whether a leftover marker still applies.
    - Keep a rolling window, not batches: when an issue is ticked (step 7), spawn whatever that
-     unblocked right away instead of waiting for the slowest sibling. Landing alone doesn't
-     unblock: a blocker is done once reviewed and ticked, so a dependant never builds on work
-     review may still send back.
+     unblocked right away. A merge alone doesn't unblock, so a dependant never builds on work
+     review may send back.
 
 5. **Land each finished issue.** A completion is an event to handle, not a review to do inline.
    Read the worker's short report; if it says `DONE_WITH_CONCERNS`, read the concerns first.
