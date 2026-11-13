@@ -15,6 +15,12 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 - `compost:implement`'s rolling window starts a dependant once its blocker is ticked (reviewed and landed), not merely merged, matching the one definition of done. The draft PR's `Closes` line (implement and `compost:finish`) leaves out sub-issues another session holds, and the parent while any is held.
 - `compost:implement` says to load implement again after a mid-run `compost:finish`, and that the Stop hook sends a stop back only once.
 
+## [0.34.2] - 2026-11-13
+
+### Fixed
+
+- The skill-drift mod judges `deviated` step by step: one Jev question per numbered step of the skill, and the turn deviates by its likeliest skipped step, which the hit's evidence names. The single whole-skill question scored every `compost:build` turn 0.75-0.95 whether or not a step was skipped, so it flagged all of them. On 23 hand-labeled build turns from two toy repos, step by step at 0.75 flags none of the 8 that did every step and 11 or 12 of the 15 that skipped one (it varies run to run). The threshold was chosen on 17 of those turns and held on the other 6, from a second repo. Steps are keyed by position, so a skill with two numbered lists (pause) has every step asked. A skill with no numbered steps keeps the whole-skill question, whose `deviated` threshold also moves from 0.7 to 0.75; only `wait-what` has no steps. The labeled turns are compost-evals' `skill-drift-steps.json`, replayed by `tests/test_evals_skill_drift.py`.
+
 ## [0.34.1] - 2026-11-13
 
 ### Fixed

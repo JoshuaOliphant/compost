@@ -112,11 +112,11 @@ as it does on any outage.
 | `route` | Choice | turn, description changes | 27/30 (30 real prompts) |
 | `rulings-lint` | Noul ×8 | turn, compost's own text | 10/13 violations, 2–4 false flags (36 passages) |
 | `stop-guard` | Noul ×2 | Stop hook in implement runs | 23/23 (23 final messages) |
-| `skill-drift` mod | Noul ×3 | every skill-using turn | deviated recall 10/11, precision 0.77–0.83; missing guidance 2/2 and corrected 1/1 flagged, thresholds provisional (60 turns) |
+| `skill-drift` mod | Noul, one per skill step +2 | every skill-using turn | deviated (by step, compost:build): no false hits on 8 clean turns, 11-12/15 drifting turns flagged (23 turns); missing guidance and corrected: not replayable, their 60-turn data never reached compost-evals (#16) |
 
 compost also ships the `skill-drift` mod (`hooks/skill-drift.ts`), the collector behind
 `compost:skill-drift`. After each turn that loaded a skill it sends one Jev request per skill
-loaded, asking whether the turn deviated from the skill or lacked its guidance; when your next
+loaded, asking for each of the skill's numbered steps whether the turn skipped it (a skill with no numbered steps gets one whole-skill question), and whether the turn lacked the skill's guidance; when your next
 prompt follows such a turn it sends one more per skill, asking whether you are correcting that
 work. A request averages about 5,000 input tokens, a fraction of a cent. Hits go to
 `~/.claude/skill-drift/`, and `/drift` lists the open ones by skill, as `scripts/skill_drift.py
