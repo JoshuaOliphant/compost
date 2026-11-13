@@ -156,7 +156,9 @@ export const DRIFT_COMMAND = { name: 'drift', description: 'List skill drift the
 
 // skill.prompt names the skill but not the loop that loaded it. A model loads one through the Skill tool, whose
 // call carries its loop's agentId, so each in-flight Skill call waits here for the load it causes. A load no call
-// waits for (a typed /skill, or a skill an agent definition preloads) belongs to the main loop.
+// waits for (a typed /skill, or a skill an agent definition preloads) belongs to the main loop. skill.prompt carries no
+// tool_use_id, so a load takes the first waiting call for its skill: two loops loading one skill at once may swap
+// entries, which is harmless when both loads land, and misfiles one only if a lower hook refuses the other call.
 const MAIN_LOOP = ''
 type SkillCall = { asked: string; loop: string }
 

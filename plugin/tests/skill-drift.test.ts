@@ -205,16 +205,26 @@ test("a skill a subagent loads is judged against that subagent's turn, never the
   expect(world.asked.length).toBe(1)
 })
 
-test('a skill the main loop loads through the Skill tool, by its short name, stays with the main loop', async ($, on) => {
+test('a worker that asks for a skill by its short name has the load filed under its own loop', async ($, on) => {
   const world = engine(on, { deviated: 0.99 })
   world.agents['agent-7'] = WORKER_TURN
   const load = skillTool(on)
   await $.session.start(START)
-  await load($, '/build', 'compost:build')
-  await $.turn.complete({ ...(ENDED as object), agentId: 'agent-7' } as never)
-  expect(world.asked.length).toBe(0)
+  await load($, '/build', 'compost:build', 'agent-7')
   await $.turn.complete(ENDED)
-  expect(logged(world)).toMatchObject([{ skill: 'compost:build', kind: 'deviated', turn: 'turn-1' }])
+  expect(world.asked.length).toBe(0)
+  await $.turn.complete({ ...(ENDED as object), turnId: 'worker-turn', agentId: 'agent-7' } as never)
+  expect(logged(world)).toMatchObject([{ skill: 'compost:build', kind: 'deviated', turn: 'worker-turn' }])
+})
+
+test("a skill the main loop loads through the Skill tool gets the user's next message checked for a correction", async ($, on) => {
+  const world = engine(on, { corrected: 0.88 })
+  const load = skillTool(on)
+  await $.session.start(START)
+  await load($, 'compost:build', 'compost:build')
+  await $.turn.complete(ENDED)
+  await $.prompt.submit({ text: 'no, you skipped the worktree', origin: TYPED } as never)
+  expect(logged(world)).toMatchObject([{ skill: 'compost:build', kind: 'corrected', turn: 'turn-1' }])
 })
 
 test('a refused Skill call leaves nothing waiting, so a later typed skill still goes to the main loop', async ($, on) => {

@@ -32,7 +32,9 @@ def repo(tmp_path):
         "class TestEscaping:\n    def test_commas_are_quoted(self):\n        assert True\n\n    def setup(self):\n        pass\n\n\n"
         "class GreetTest(unittest.TestCase):\n    def test_greet(self):\n        pass\n\n\n"
         "class AsyncGreeting(IsolatedAsyncioTestCase):\n    async def test_greets_later(self):\n        pass\n\n\n"
-        "class Helpers(Base):\n    def test_not_collected(self):\n        pass\n"
+        "class Base(SimpleTestCase):\n    pass\n\n\n"
+        "class ViewTests(Base):\n    def test_renders(self):\n        pass\n\n\n"
+        "class Helpers(Mixin):\n    def test_not_collected(self):\n        pass\n"
     )
     (tmp_path / "tests" / "broken_test.py").write_text("def test_(:\n")
     (tmp_path / "web").mkdir()
@@ -49,6 +51,7 @@ def test_collect_finds_python_functions_class_methods_and_js_tests(repo):
         "tests/test_export.py::AsyncGreeting::test_greets_later",
         "tests/test_export.py::GreetTest::test_greet",
         "tests/test_export.py::TestEscaping::test_commas_are_quoted",
+        "tests/test_export.py::ViewTests::test_renders",
         "tests/test_export.py::test_csv_has_header",
         "web/list.test.ts::sorts by title",
     ]
