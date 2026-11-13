@@ -3,6 +3,7 @@
 # ABOUTME: tracker and git alone. CLI: `session`, `issues PARENT`, `claim DECISION`, for GitHub, GitLab, or local trackers.
 import argparse
 import json
+import os
 import re
 import secrets
 import subprocess
@@ -73,6 +74,10 @@ def parse_time(text: str) -> datetime | None:
     return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
+def utc(moment: datetime) -> str:
+    return f"{moment.astimezone(UTC):%Y-%m-%d %H:%M}Z"
+
+
 def ticks(body: str) -> dict[int, bool]:
     """The parent's checklist: each listed issue and whether its box is ticked."""
     return {int(number): box != " " for box, number in TICK.findall(body)}
@@ -94,15 +99,24 @@ def blockers(body: str) -> set[int]:
     return found
 
 
-def last_seen(issues: list[Issue]) -> dict[str, datetime]:
-    """The newest comment each session tagged, across the parent and every sub-issue."""
-    seen: dict[str, datetime] = {}
-    for issue in issues:
-        for comment in issue.comments:
-            session, when = comment.session, comment.when
-            if session and when and (session not in seen or when > seen[session]):
-                seen[session] = when
-    return seen
+def hold(events: list[tuple[datetime, str, str | None]]) -> tuple[str | None, str | None, datetime | None]:
+    """Who holds a claim: the first claim, displaced only by a claim made after its holder had been silent a day.
+
+    Events are (time, session, claim): a claim carries a payload (the branch, for an issue), any other tagged comment
+    None and only marks its session as active. Returns the holder, its payload, and its newest activity, so a holder
+    is never displaced while it keeps posting, and a session back from the dead doesn't win its claim back.
+    """
+    holder, payload, seen = None, None, {}
+    for when, who, claim in sorted(events, key=lambda event: event[0]):
+        if claim is not None and (holder is None or when - seen[holder] >= LEASE):
+            holder, payload = who, claim
+        seen[who] = max(seen.get(who, when), when)
+    return holder, payload, seen.get(holder) if holder else None
+
+
+def activity(issues: list[Issue]) -> list[tuple[datetime, str, str | None]]:
+    """Every tagged comment across the parent and its sub-issues, as liveness for the session that tagged it."""
+    return [(c.when, c.session, None) for issue in issues for c in issue.comments if c.session and c.when]
 
 
 def own_sessions(me: str, issues: list[Issue]) -> set[str]:
@@ -119,10 +133,13 @@ def own_sessions(me: str, issues: list[Issue]) -> set[str]:
     return own
 
 
-def claimant(issue: Issue) -> tuple[str, str] | None:
-    """The session and branch on the newest `Started` comment for this issue: who holds it, and on which branch."""
-    started = [(c.session, found.group(1)) for c in issue.comments if c.session and (found := STARTED.search(c.body))]
-    return started[-1] if started else None
+def starts(issue: Issue) -> list[tuple[datetime, str, str | None]]:
+    """The issue's `Started <branch>` comments as claims, each by the session that tagged it."""
+    return [
+        (c.when, c.session, found.group(1))
+        for c in issue.comments
+        if c.session and c.when and (found := STARTED.search(c.body))
+    ]
 
 
 def branch_for(number: int, branches: list[str]) -> str | None:
@@ -136,7 +153,7 @@ def states(parent: Issue, issues: list[Issue], branches: list[str], me: str, now
     by_number = {issue.number: issue for issue in issues}
     done = {n for n, ticked in checklist.items() if ticked} | {issue.number for issue in issues if issue.closed}
     own = own_sessions(me, [parent, *issues])
-    seen = last_seen([parent, *issues])
+    active = activity([parent, *issues])
     rows = []
     for number in checklist:
         issue = by_number.get(number)
@@ -156,38 +173,30 @@ def states(parent: Issue, issues: list[Issue], branches: list[str], me: str, now
         if branch is None:
             rows.append(Row(number, "frontier", "no branch yet: push one at the feature SHA and post Started"))
             continue
-        holder, started = claimant(issue) or (None, None)
+        holder, started, latest = hold(active + starts(issue))
         branch = started if started in branches else branch
         if holder in own:
             rows.append(Row(number, "frontier", f"your branch (claimed by {holder}): continue from its head", branch))
             continue
-        latest = seen.get(holder) if holder else None
         if holder and latest and now - latest < LEASE:
-            rows.append(Row(number, "taken", f"{holder} is live (last comment {latest:%Y-%m-%d %H:%M}Z)", branch))
+            rows.append(Row(number, "taken", f"{holder} is live (last comment {utc(latest)})", branch))
             continue
-        why = f"{holder} silent since {latest:%Y-%m-%d %H:%M}Z" if latest else "no live session posted Started for it"
+        why = f"{holder} silent since {utc(latest)}" if holder and latest else "no live session posted Started for it"
         rows.append(Row(number, "frontier", f"claim expired ({why}): take it over from its head", branch))
     return rows
 
 
 def claim_winner(comments: list[Comment], now: datetime) -> str | None:
-    """The session holding a map decision: the first claim, displaced only by a claim made after its holder had been
-    silent a day, and only while that holder is still live. Liveness is keyed to the claimant, so a newer session's
-    comments never keep a dead claim alive, and a claimant back from the dead doesn't take a decision back.
-    """
-    events = []
+    """The session holding a map decision under `hold`'s rule, if it is still live."""
+    events: list[tuple[datetime, str, str | None]] = []
     for comment in comments:
         found = CLAIMED.search(comment.body)
         when = comment.when or (parse_time(found.group(2)) if found and found.group(2) else None)
         who = found.group(1) if found else comment.session
         if when is not None and who is not None:
-            events.append((when, who, bool(found)))
-    holder, seen = None, {}
-    for when, who, claims in sorted(events, key=lambda event: event[0]):
-        if claims and (holder is None or when - seen[holder] >= LEASE):
-            holder = who
-        seen[who] = when
-    return holder if holder and now - seen[holder] < LEASE else None
+            events.append((when, who, "claim" if found else None))
+    holder, _, latest = hold(events)
+    return holder if holder and latest and now - latest < LEASE else None
 
 
 # Trackers: each reads an issue (body, closed, labels, comments) through the same Run seam, so tests feed it JSON.
@@ -292,8 +301,13 @@ def load(tracker: str, parent: str, run: Run) -> tuple[Issue, list[Issue]]:
 
 
 def session_id(run: Run) -> str:
-    """This clone's session id, made once and kept in its common git dir, so it outlives a compacted context and
-    reads the same from the main checkout and every worktree of the clone (the run moves into a feature worktree)."""
+    """COMPOST_SESSION when set (a second session in the same clone sets its own), else this clone's id.
+
+    The clone's id is made once and kept in its common git dir, so it outlives a compacted context and reads the
+    same from the main checkout and every worktree of the clone (the run moves into a feature worktree).
+    """
+    if os.environ.get("COMPOST_SESSION"):
+        return os.environ["COMPOST_SESSION"]
     path = Path(run(["git", "rev-parse", "--git-common-dir"]).strip()) / "compost-session"
     if not path.exists():
         path.write_text(f"s-{secrets.token_hex(4)}\n")

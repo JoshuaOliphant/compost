@@ -87,6 +87,23 @@ def test_a_branch_is_taken_only_while_the_session_that_started_it_is_live(
     assert why in got.why
 
 
+def test_the_earliest_live_start_holds_so_a_late_starter_backs_off_on_its_recheck():
+    first = said("Started 11-x", "s-a", FRESH - timedelta(minutes=5))
+    late = said("Started 11-y", "s-b", FRESH)
+    subs = [issue(10), issue(11, "", first, late), issue(12), issue(13)]
+    as_b = rows(subs, ["11-x", "11-y"], me="s-b")[11]
+    assert (as_b.state, as_b.branch) == ("taken", "11-x")
+    assert rows(subs, ["11-x", "11-y"], me="s-a")[11].why.startswith("your branch (claimed by s-a)")
+
+
+def test_a_start_after_the_holder_went_silent_a_day_takes_over_for_good():
+    dead = said("Started 11-x", "s-a", STALE)
+    taken_over = said("Started 11-y", "s-b", FRESH - timedelta(hours=1))
+    back = said("Ruling: I'm back", "s-a", FRESH)
+    got = rows([issue(10), issue(11, "", dead, taken_over, back), issue(12), issue(13)], ["11-x", "11-y"])[11]
+    assert (got.state, got.branch, got.why) == ("taken", "11-y", "s-b is live (last comment 2026-11-13 09:00Z)")
+
+
 def test_the_branch_shown_is_the_one_the_claimant_started_when_slugs_differ():
     subs = [issue(10), issue(11, "", said("Started 11-b", "s-other")), issue(12), issue(13)]
     assert rows(subs, ["11-a", "11-b"])[11].branch == "11-b"
@@ -308,6 +325,9 @@ def test_session_is_made_once_per_clone_and_reads_the_same_from_its_worktrees(tm
     monkeypatch.chdir(tmp_path / "wt")
     assert frontier.main(["session"]) == 0
     assert capsys.readouterr().out.strip() == first
+    monkeypatch.setenv("COMPOST_SESSION", "s-second-window")
+    assert frontier.main(["session"]) == 0
+    assert capsys.readouterr().out.strip() == "s-second-window"
 
 
 def test_remote_branches_reads_origin_heads_from_real_git(tmp_path, monkeypatch):

@@ -85,7 +85,8 @@ Pause only when asked or when the session has to end. "Keep going", "going to be
 
 5. **Continue.** First post a one-line comment on the parent issue saying the run resumed and
    from which status comment, with a `Resumes: <the status comment's session id>` line, tagged
-   with your own id (`frontier.py session`); that line makes the paused session's branches this
+   with your own id (`frontier.py session`; if the paused session might still be running in this
+   clone, set `COMPOST_SESSION` to a new id first, since the clone's id is shared); that line makes the paused session's branches this
    run's own, so implement's frontier sees them that way (`compost:implement` step 2). Then load
    `compost:implement`, even when the next action belongs to another skill: a pause the user
    asked for ended the run for compost's Stop hook, and only an implement load starts it again.
