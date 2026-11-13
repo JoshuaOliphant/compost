@@ -16,6 +16,13 @@ claude plugin marketplace add JoshuaOliphant/compost
 claude plugin install compost@compost
 ```
 
+For a Claude Code cloud environment, use this as the setup script. It installs compost and the
+typesafe plugin, and replaces a leftover `compost@oliphant-plugins` install:
+
+```
+curl -fsSL https://raw.githubusercontent.com/JoshuaOliphant/compost/main/scripts/cloud-setup.sh | bash
+```
+
 Then run `/compost:setup` in each repo. compost is also listed in the
 [oliphant-plugins](https://github.com/JoshuaOliphant/claude-plugins) marketplace as
 `compost@oliphant-plugins`. Install it one way, not both, or Claude sees every skill twice.
