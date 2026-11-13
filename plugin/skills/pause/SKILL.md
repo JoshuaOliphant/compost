@@ -37,8 +37,8 @@ Pause only when asked or when the session has to end. "Keep going", "going to be
    - #14 built and verified, review round 1 found two majors, fixes not started; branch `14-export-csv` at def5678 (worktree `.worktrees/14-export-csv`)
    - #15 not started; blocked by #14
 
-   **Next action:** resume #14's worker with round 1's findings (linked), re-run `compost:verify`,
-   land it, run review round 2, then start #15.
+   **Next action:** spawn a worker on `14-export-csv`'s head with round 1's findings (linked)
+   to fix them, re-run `compost:verify`, land it, run review round 2, then start #15.
 
    **Open rulings:** rulings the user should look at before the run goes further, as links, each with
    its cost if wrong. "None" if there are none.
@@ -84,7 +84,8 @@ Pause only when asked or when the session has to end. "Keep going", "going to be
 5. **Continue.** Load `compost:implement` first, even when the next action belongs to another
    skill: loading pause ended the run for compost's Stop hook, and only an implement load starts
    it again. Then hand the next action to the skill it names, and post a one-line comment on the
-   parent issue saying the run resumed and from where.
+   parent issue saying the run resumed, from which status comment, and in which session; that
+   comment makes the status comment's branches this run's own (`compost:implement` step 2).
 
 ## Next moves
 

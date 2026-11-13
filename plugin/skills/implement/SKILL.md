@@ -41,12 +41,13 @@ the work so each step can be checked before the next builds on it
    - An issue is **blocked** while any issue on its "Blocked by #n" lines is not done. The forge's
      own dependency count (open blockers) stays non-zero until the PR merges; don't read it.
    - An issue is **taken** when a branch named for it (`<issue>-<slug>`, what `compost:build`
-     creates) exists, after `git fetch`, in `git branch -a` or `git worktree list`, the issue isn't
-     done, and the branch isn't this run's own: a branch the latest `compost:pause` status
-     comment lists, or one this session made, is work to pick up, not someone else's. Git is the
-     claim; a second session on the same parent skips it. A claim whose newest commit is more than
-     a day old, with no worktree for it on this machine, has expired: take the issue over from
-     that branch's head.
+     creates, and step 4 pushes) exists after `git fetch`, the issue isn't done, and the branch
+     isn't this run's own. This run's own are the branches this session made and, when this
+     session resumed from a `compost:pause` status comment (and posted the "resumed" comment
+     after it), the branches that comment lists. Git is the claim; a second session on the same
+     parent skips a taken issue. A claim expires when the parent issue has had no new comment for
+     a day, since a live run keeps posting rulings and review rounds there: take the issue over
+     from its branch's head.
    - The **frontier** is every open issue that is not done, not blocked, not taken, and not
      labelled `ready-for-human` (that label is for work only a person can do; list those issues
      under Risk in the close-out recap instead of building them).
@@ -74,7 +75,7 @@ the work so each step can be checked before the next builds on it
      lane-routing run every lane spawns, whatever its size. When agent teams are enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), spawn them
      as named teammates instead; a teammate spawn cannot take `isolation`, so its brief tells it to
      create its own worktree first.
-   - Before spawning a lane, push its branch name at the feature SHA
+   - Before starting an issue, in a lane or yourself, push its branch name at the feature SHA
      (`git push origin <feature SHA>:refs/heads/<issue>-<slug>`), so a session in another clone
      sees the issue as taken.
    - An isolated worktree starts from the default branch, not the feature branch. Every brief names
@@ -100,7 +101,8 @@ the work so each step can be checked before the next builds on it
    repo's instructions want a version bump for a changed package, commit it right after the first
    landing, before the first push, so the PR's checks are green from its first run, and again
    after any later landing that first changes another package; lanes still leave versions alone. After the first landing, push the branch and, when step 3 calls for a PR,
-   open a draft PR whose body closes the parent and every sub-issue ("Closes #12, closes #13").
+   open a draft PR whose body closes the parent and every sub-issue ("Closes #12, closes #13"),
+   leaving out `ready-for-human` sub-issues, and the parent while any of those is open.
 
 6. **Review every issue.** Load `compost:review` for the issue's commits. It runs the
    `/compost:review-changes` workflow through subagents; you never wait to be asked. Scope it to
@@ -177,14 +179,15 @@ the work so each step can be checked before the next builds on it
     its cost if wrong. A lane-routing run lists its per-lane records in Validation. Without a
     PR, report the feature branch by name, since no PR link points to it, and leave the parent
     open: `compost:finish` closes it once the branch merges. Clean up worker worktrees whose
-    branches are merged into the feature branch, and delete the lane branches step 4 pushed.
+    branches are merged into the feature branch, and delete the issue branches step 4 pushed from the remote
+    (`git push origin --delete <issue>-<slug>`).
 
 For a run that outlives the session, `compost:pause` writes the checkpoint and resuming starts at
 step 1.
 
 ## Next moves
 
-- `compost:finish` when every issue is reviewed and the feature branch passes verify.
+- `compost:finish` when every issue but the `ready-for-human` ones is reviewed and the feature branch passes verify.
 - `compost:diagnose` when a test, merge, or behavior breaks and the cause isn't obvious.
 - `compost:deepen` when an issue raises a design question about a module or interface.
 - `compost:fan-out` when a ruling has two or more defensible designs worth building side by side.

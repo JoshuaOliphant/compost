@@ -6,15 +6,15 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 
 ### Changed
 
-- `compost:implement` step 2 defines done (closed, or ticked on the parent), blocked, taken (another session's branch named for the issue exists, pushed at spawn so other clones see it, expiring after a day without commits), and the frontier in one place, and `compost:build` checks blockers against the same "done". On GitHub a reviewed, landed blocker stays open until the PR merges, so build's old "every blocker is closed" check reported it as blocking.
-- The frontier leaves out issues labelled `ready-for-human`, and close-out doesn't wait on them; the recap lists them under Risk.
+- `compost:implement` step 2 defines done (closed, or ticked on the parent), blocked, taken (another session's branch named for the issue exists, pushed when the issue starts so other clones see it, expiring after a day with no comment on the parent), and the frontier in one place, and `compost:build` checks blockers against the same "done". On GitHub a reviewed, landed blocker stays open until the PR merges, so build's old "every blocker is closed" check reported it as blocking.
+- The frontier leaves out issues labelled `ready-for-human`, and close-out doesn't wait on them; the recap lists them under Risk, and the PR's `Closes` line leaves them (and the parent) open.
 - Inside an implement run, `compost:setup` takes its recommended answers as rulings on the parent and leaves the orphan uninstall to the user.
 - `compost:pause`'s pickup loads `compost:implement` before handing off the next action, so the resumed run is guarded again.
-- `compost:review` heads its issue comment `Review round <n>`, and implement counts those comments for its three-round cap, so the cap holds across a pause or a compacted context. `compost:pause`'s status comment carries the review round and, in a lane-routing run, each lane's tokens so far.
+- `compost:review` heads its issue comment `Review round <n>`, and implement counts those comments for its three-round cap, so the cap holds across a pause or a compacted context. `compost:pause`'s status comment carries the review round and, in a lane-routing run, the tokens of the workers that finished, marking stopped ones' lanes incomplete.
 - `compost:slice` and `compost:implement` stop for approval on a `Class: architectural` parent with no approval comment.
 - Map decisions are claimed with a comment naming the session, read back so the earliest live claim wins, with a one-day lease; every session runs as the same user, so an assignee couldn't tell two apart. Rerun `compost:setup` to refresh the claim command in `docs/agents/issue-tracker.md`.
 - `compost:build` posts the issue's AC table, which `compost:verify` edits rather than adding a second; implement workers report AC-row retirements and leave a committed AC-table cache alone, and the orchestrator applies both after landing.
-- `compost:turn` runs `pile.py status --references` from a compost checkout, skips changes an open `upstream` issue already carries, and passes `advance` the full hash status printed.
+- `compost:turn` runs `pile.py status --references` and `classify-change` (given the checkout's `pile.toml`) from a compost checkout, skips changes an open `upstream` issue already carries, and passes `advance` the full hash status printed.
 - `compost:skill-drift` doesn't draft a second fix while a `claude/skill-drift-<skill>` pull request is open.
 
 ### Fixed
