@@ -104,11 +104,12 @@ def hold(events: list[tuple[datetime, str, str | None]]) -> tuple[str | None, st
 
     Events are (time, session, claim): a claim carries a payload (the branch, for an issue), any other tagged comment
     None and only marks its session as active. Returns the holder, its payload, and its newest activity, so a holder
-    is never displaced while it keeps posting, and a session back from the dead doesn't win its claim back.
+    is never displaced while it keeps posting, and a session back from the dead doesn't win its claim back. A holder's
+    own later claim moves its payload (a restart on a new slug).
     """
     holder, payload, seen = None, None, {}
     for when, who, claim in sorted(events, key=lambda event: event[0]):
-        if claim is not None and (holder is None or when - seen[holder] >= LEASE):
+        if claim is not None and (holder in (None, who) or when - seen[holder] >= LEASE):
             holder, payload = who, claim
         seen[who] = max(seen.get(who, when), when)
     return holder, payload, seen.get(holder) if holder else None

@@ -104,6 +104,13 @@ def test_a_start_after_the_holder_went_silent_a_day_takes_over_for_good():
     assert (got.state, got.branch, got.why) == ("taken", "11-y", "s-b is live (last comment 2026-11-13 09:00Z)")
 
 
+def test_a_holder_that_restarts_on_a_new_slug_moves_its_claim_to_the_new_branch():
+    first = said("Started 11-x", "s-a", FRESH - timedelta(hours=1))
+    again = said("Started 11-x-v2", "s-a", FRESH)
+    got = rows([issue(10), issue(11, "", first, again), issue(12), issue(13)], ["11-x", "11-x-v2"])[11]
+    assert (got.state, got.branch) == ("taken", "11-x-v2")
+
+
 def test_the_branch_shown_is_the_one_the_claimant_started_when_slugs_differ():
     subs = [issue(10), issue(11, "", said("Started 11-b", "s-other")), issue(12), issue(13)]
     assert rows(subs, ["11-a", "11-b"])[11].branch == "11-b"

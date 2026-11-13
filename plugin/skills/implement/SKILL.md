@@ -36,11 +36,12 @@ the work so each step can be checked before the next builds on it
 2. **Compute the frontier.** Run
    `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/frontier.py issues <parent> --tracker <github|gitlab|local>`
    (the tracker `docs/agents/issue-tracker.md` names; a local tracker takes the `spec.md` path)
-   and act on the state it prints for each sub-issue, not on your own reading. Its definitions
+   and act on the state it prints for each sub-issue. Its definitions
    are the only ones; `compost:build` and `compost:pause` use them too.
    - **Session id:** `frontier.py session`, kept in the clone's git dir so it survives
-     compaction (a second concurrent session needs its own clone or `COMPOST_SESSION=<id>`). End
-     every comment the run posts, yours and workers', with `compost-session: <id>` (a local
+     compaction; a second session in the clone prefixes each `frontier.py` call with
+     `COMPOST_SESSION=<new id>` (an `export` dies with its Bash call) and tags with it. End every
+     comment the run posts, yours and workers', with `compost-session: <id>` (a local
      tracker adds the time from `date -u +%Y-%m-%dT%H:%M:%SZ`): every session posts as the same
      user, so the tag is how they tell each other apart.
    - **Done:** closed, or ticked on the parent's checklist. A remote tracker closes an issue only
@@ -54,7 +55,7 @@ the work so each step can be checked before the next builds on it
      branch from its head and post your own `Started`. Your sessions are your id plus those on
      `Resumes: <id>` lines you tagged (`compost:pause` step 5). A run that tags nothing for a day
      loses its claims, so a long lane posts progress.
-   - **Frontier:** open, not done, blocked, or taken, and not labelled `ready-for-human` (work
+   - **Frontier:** open and not done, blocked, or taken, and not labelled `ready-for-human` (work
      only a person can do; list those under Risk in the close-out recap).
 
    Compare the Files blocks of the frontier issues: issues whose file
@@ -173,8 +174,8 @@ the work so each step can be checked before the next builds on it
    on the user for anything else, Jev flags it and the hook sends you back to post a ruling and
    continue. The run ends when `compost:finish` loads, or `compost:pause` once the user has sent a
    message during the run; a pause you start on your own leaves the guard on, so stop only for the
-   list above (resuming loads implement again, which starts a new run). A turn that answers a
-   message the user typed is attended, so waiting on them there is allowed. When `compost:finish`
+   list above (resuming loads implement again, which starts a new run). A turn answering a
+   message the user typed may wait on them. When `compost:finish`
    loads mid-run (the user asked for the PR early), load `compost:implement` again before you go
    on, or the rest of the run is unguarded. The hook sends a stop back once and lets the next one
    through, so it is a nudge, not a gate: keeping to the list is still on you.
