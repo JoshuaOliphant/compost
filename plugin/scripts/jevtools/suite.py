@@ -28,6 +28,11 @@ def dedent(line: str, indent: int) -> str:
     return line[indent:] if line[:indent].isspace() else line
 
 
+def subclasses_test_case(node: ast.ClassDef) -> bool:
+    """unittest collects any TestCase subclass whatever its name (`GreetTest(unittest.TestCase)`); pytest wants `Test*`."""
+    return any(ast.unparse(base).endswith("TestCase") for base in node.bases)
+
+
 def python_tests(source: str, relative: str, limit: int) -> dict[str, str]:
     try:
         tree = ast.parse(source)
@@ -37,7 +42,7 @@ def python_tests(source: str, relative: str, limit: int) -> dict[str, str]:
     found = {}
     for node in tree.body:
         members = [(node, "")]
-        if isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
+        if isinstance(node, ast.ClassDef) and (node.name.startswith("Test") or subclasses_test_case(node)):
             members = [(child, f"{node.name}::") for child in node.body]
         for member, prefix in members:
             if isinstance(member, ast.FunctionDef | ast.AsyncFunctionDef) and member.name.startswith("test_"):

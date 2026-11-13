@@ -8,7 +8,7 @@ import writtenHit from './skill-drift-hit.ts'
 type Asked = { state: Record<string, unknown>; questions: Record<string, unknown> }
 type Ran = { exitCode: number; stdout: string; stderr: string } | 'refused'
 type Sent = { url: string; authorization: string; model: unknown }
-type World = { asked: Asked[]; sent: Sent[]; keychain: number; files: Map<string, string>; toasts: string[]; order: string[]; ran: string[][]; drift: Ran }
+type World = { agents: Record<string, unknown[] | 'deny'>; asked: Asked[]; sent: Sent[]; keychain: number; files: Map<string, string>; toasts: string[]; order: string[]; ran: string[][]; drift: Ran }
 
 // compost's folder, the root the engine loads the mod from (this file sits in its tests/).
 const PLUGIN_ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '')
@@ -32,7 +32,7 @@ function engine(
   key: string | null = 'test-key',
   env: Record<string, string> = {},
 ): World {
-  const world: World = { asked: [], sent: [], keychain: 0, files: new Map(), toasts: [], order: [], ran: [], drift: { exitCode: 0, stdout: '', stderr: '' } }
+  const world: World = { agents: {}, asked: [], sent: [], keychain: 0, files: new Map(), toasts: [], order: [], ran: [], drift: { exitCode: 0, stdout: '', stderr: '' } }
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('command.register', () => ({ value: { command: 'drift' } }) as never)
   on('skill.prompt', (_$, e) => ({ text: e.text }))
@@ -41,7 +41,11 @@ function engine(
     world.order.push('prompt entered')
     return { text: e.text, context: e.context } as never
   })
-  on('session.messages', () => ({ value: messages }) as never)
+  on('session.messages', (_$, e) => {
+    const { agentId } = e as { agentId?: string }
+    const transcript = agentId === undefined ? messages : world.agents[agentId]
+    return (transcript === 'deny' ? { value: { deny: 'unknown agent' } } : { value: transcript }) as never
+  })
   on('session.id', () => ({ value: 'session-9' }) as never)
   on('env.get', (_$, e) => {
     const { name } = e as { name: string }
@@ -158,10 +162,77 @@ test('a turn that loaded no skill is not judged', async ($, on) => {
   expect(world.asked.length).toBe(0)
 })
 
-test('a subagent turn is not judged', async ($, on) => {
+// A worker's turn, as the engine hands it to session.messages({ agentId }).
+const WORKER_TURN = [
+  { role: 'user', text: 'You are a lane worker: build issue 14', toolUses: [] },
+  { role: 'assistant', text: 'Status: DONE', toolUses: [] },
+]
+
+type Engine = Parameters<Parameters<typeof test>[1]>[0]
+
+// Answers the model's Skill calls as the engine does: the skill's expansion (skill.prompt) happens inside the call.
+// Register it before the test's first call on $; the returned function makes one such call.
+function skillTool(on: On) {
+  let answer: (value: unknown) => void = () => undefined
+  let entered: () => void = () => undefined
+  on('tool.call', { tool: 'Skill' }, () => {
+    entered()
+    return new Promise(resolve => (answer = resolve)) as never
+  })
+  return async ($: Engine, asked: string, loads: string, agentId?: string) => {
+    const inside = new Promise<void>(resolve => (entered = resolve))
+    const call = $.tool.call({ tool: 'Skill', tool_use_id: `use-${asked}`, skill: asked, ...(agentId ? { agentId } : {}) } as never)
+    await inside
+    await $.skill.prompt({ skill: loads, text: `${loads} steps` })
+    answer({ result: { success: true, commandName: loads } })
+    await call
+  }
+}
+
+test("a skill a subagent loads is judged against that subagent's turn, never the main loop's", async ($, on) => {
   const world = engine(on, { deviated: 0.99 })
+  world.agents['agent-7'] = WORKER_TURN
+  const load = skillTool(on)
   await $.session.start(START)
+  await load($, 'compost:build', 'compost:build', 'agent-7')
+  await $.turn.complete(ENDED)
+  expect(world.asked.length).toBe(0)
+  await $.turn.complete({ ...(ENDED as object), turnId: 'worker-turn', agentId: 'agent-7' } as never)
+  expect(world.asked.map(a => (a.state.skill as { name: string }).name)).toEqual(['compost:build'])
+  expect(String(world.asked[0].state.turn)).toContain('USER: You are a lane worker')
+  expect(logged(world)).toMatchObject([{ skill: 'compost:build', kind: 'deviated', turn: 'worker-turn' }])
+  await $.prompt.submit({ text: 'no, that is wrong', origin: TYPED } as never)
+  expect(world.asked.length).toBe(1)
+})
+
+test('a skill the main loop loads through the Skill tool, by its short name, stays with the main loop', async ($, on) => {
+  const world = engine(on, { deviated: 0.99 })
+  world.agents['agent-7'] = WORKER_TURN
+  const load = skillTool(on)
+  await $.session.start(START)
+  await load($, '/build', 'compost:build')
+  await $.turn.complete({ ...(ENDED as object), agentId: 'agent-7' } as never)
+  expect(world.asked.length).toBe(0)
+  await $.turn.complete(ENDED)
+  expect(logged(world)).toMatchObject([{ skill: 'compost:build', kind: 'deviated', turn: 'turn-1' }])
+})
+
+test('a refused Skill call leaves nothing waiting, so a later typed skill still goes to the main loop', async ($, on) => {
+  const world = engine(on, { deviated: 0.99 })
+  on('tool.call', { tool: 'Skill' }, () => ({ deny: 'no such skill' }) as never)
+  await $.session.start(START)
+  await $.tool.call({ tool: 'Skill', tool_use_id: 'use-1', skill: 'compost:verify', agentId: 'agent-7' } as never)
   await $.skill.prompt({ skill: 'compost:verify', text: 'steps' })
+  await $.turn.complete(ENDED)
+  expect(logged(world)).toMatchObject([{ skill: 'compost:verify', turn: 'turn-1' }])
+})
+
+test("a subagent whose transcript the session can't read is skipped", async ($, on) => {
+  const world = engine(on, { deviated: 0.99 })
+  world.agents['agent-7'] = 'deny'
+  const load = skillTool(on)
+  await $.session.start(START)
+  await load($, 'compost:build', 'compost:build', 'agent-7')
   await $.turn.complete({ ...(ENDED as object), agentId: 'agent-7' } as never)
   expect(world.asked.length).toBe(0)
 })

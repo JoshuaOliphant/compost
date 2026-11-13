@@ -10,7 +10,8 @@ const TYPESAFE_URL = 'https://api.typesafe.ai'
 const DEFAULT_MODEL = 'jev-latest'
 const LOCAL_KEY = 'local'
 const TYPED_BY_A_PERSON = new Set(['composer', 'bridge'])
-const SKILL_CHARS = 8000
+// Room for compost's longest skill whole: Jev can't judge a step it never read. tests/test_skill_drift_mod.py holds this.
+const SKILL_CHARS = 16000
 const TURN_CHARS = 12000
 const EVIDENCE_CHARS = 4000
 const { thresholds: THRESHOLDS, turn: TURN_QUESTIONS, next_message: NEXT_MESSAGE_QUESTIONS } = judgments
@@ -153,26 +154,58 @@ async function driftSummary($: EngineInterface): Promise<string> {
 
 export const DRIFT_COMMAND = { name: 'drift', description: 'List skill drift the mod has recorded, by skill' }
 
+// skill.prompt names the skill but not the loop that loaded it. A model loads one through the Skill tool, whose
+// call carries its loop's agentId, so each in-flight Skill call waits here for the load it causes. A load no call
+// waits for (a typed /skill, or a skill an agent definition preloads) belongs to the main loop.
+const MAIN_LOOP = ''
+type SkillCall = { asked: string; loop: string }
+
+function callFor(calls: SkillCall[], skill: string): SkillCall | undefined {
+  return calls.find(call => call.asked === skill || skill.endsWith(`:${call.asked}`))
+}
+
 export const register: Register = on => {
-  const loaded = new Map<string, string>()
+  const loaded = new Map<string, Map<string, string>>()
+  const calls: SkillCall[] = []
   let pending: Watched[] = []
+
+  on('tool.call', { tool: 'Skill' }, async ($, e, next) => {
+    const call = { asked: String((e as { skill?: unknown }).skill ?? '').replace(/^\//, ''), loop: e.agentId ?? MAIN_LOOP }
+    calls.push(call)
+    try {
+      return await next(e)
+    } finally {
+      // A call whose load never came (refused, or no such skill) leaves; one that loaded was taken by skill.prompt.
+      if (calls.includes(call)) calls.splice(calls.indexOf(call), 1)
+    }
+  })
 
   on('skill.prompt', async ($, e, next) => {
     const result = await next(e)
-    loaded.set(e.skill, result.text.slice(0, SKILL_CHARS))
+    const call = callFor(calls, e.skill)
+    if (call) calls.splice(calls.indexOf(call), 1)
+    const loop = call?.loop ?? MAIN_LOOP
+    if (!loaded.has(loop)) loaded.set(loop, new Map())
+    loaded.get(loop)?.set(e.skill, result.text.slice(0, SKILL_CHARS))
     return result
   })
 
+  // Each loop's turn is judged against the skills that loop loaded, so a worker's compost:build is held to the
+  // worker's own turn and never to the coordinator's. Only the main loop has a person whose next message can correct it.
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
-    if (e.agentId || e.isAborted || loaded.size === 0) return result
+    const loop = e.agentId ?? MAIN_LOOP
+    const skills = loaded.get(loop)
+    if (e.isAborted || !skills?.size) return result
+    loaded.delete(loop)
     const target = await server($)
     if (!target) return result
 
-    const { prompt, trace } = turnTrace(await $.session.messages())
-    const watched = [...loaded.entries()].map(([skill, text]) => ({ skill, text, trace, prompt, turn: e.turnId }))
-    loaded.clear()
-    pending = watched
+    const messages = e.agentId ? await $.session.messages({ agentId: e.agentId }) : await $.session.messages()
+    if ('deny' in messages) return result
+    const { prompt, trace } = turnTrace(messages)
+    const watched = [...skills.entries()].map(([skill, text]) => ({ skill, text, trace, prompt, turn: e.turnId }))
+    if (loop === MAIN_LOOP) pending = watched
 
     const answered = await Promise.all(
       watched.map(w => nouls($, target, { skill: { name: w.skill, text: w.text }, turn: w.trace }, TURN_QUESTIONS)),

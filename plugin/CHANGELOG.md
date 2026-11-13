@@ -2,6 +2,15 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.34.1] - 2026-11-13
+
+### Fixed
+
+- The skill-drift mod judges a skill against the turn of the loop that loaded it. A skill a subagent loaded (an implement worker's `compost:build`) was judged against the main session's turn, which never ran it, so every lane run logged a false `deviated` hit for build. Subagent turns are now judged on their own transcript; only the main loop's turns get the next-message correction check.
+- The skill-drift mod hands Jev a skill's whole text (16,000 characters, up from 8,000). Eleven of compost's skills were cut short, so Jev judged steps it never read; a test keeps every skill under the limit.
+- Jev's `find-test` and `duplicate-test` see unittest test classes (any `TestCase` subclass, whatever its name), not only pytest's `Test*` classes. On a unittest suite they exited "no tests found", and build fell back to placing tests by hand.
+- `compost:build` gives the exact `find-test` and `duplicate-test` commands inline and says to run them even when the placement looks obvious or there is one new test. Workers skipped both in every observed run; that was the real drift the mod flagged. The AC table is posted as a comment the way `docs/agents/issue-tracker.md` says.
+
 ## [0.34.0] - 2026-11-13
 
 ### Changed
