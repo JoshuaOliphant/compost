@@ -57,8 +57,10 @@ hand decides.
 
    `--operators stock` leaves out thin's own operators, to compare a run with stock cosmic-ray's.
    Each mutant's row lands in `matrix.jsonl` beside the contexts file as its run ends; if the run
-   dies, rerun it with `--resume "$T/matrix.jsonl"` to run only the rest. Resume only when no code
-   or test changed since: a row is dropped when its mutant changed, not when a test did. A run
+   dies, rerun it with `--resume "$T/matrix.jsonl"` to run only the rest. A resumed row runs
+   again when its mutant changed, or when a test file it ran or a `conftest.py` above one changed
+   since (`matrix.jsonl.tests` holds their hashes). Other helpers and the code the tests import
+   aren't checked: resume only when none of those changed since. A run
    deletes the journal once it prints the matrix, so one left there means a run that died, and a
    fresh run stops with exit 2 rather than empty it; delete it to start over.
    The matrix runs inside the project's environment, so its imports resolve as the tests' do. It

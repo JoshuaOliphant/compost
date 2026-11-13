@@ -44,8 +44,11 @@ Used by `compost:slice` for map issues.
 - **Map:** `.scratch/<effort>/map.md`.
 - **Decision:** `.scratch/<effort>/decisions/<NN>-<slug>.md` with a `Kind:` line and a `Status:`
   line of `open`, `claimed`, or `resolved`.
-- **Frontier:** decisions that are `open` and whose `Blocked by` files are all `resolved`; lowest
-  number wins.
-- **Claim:** set `Status: claimed` and save before any other work.
+- **Frontier:** decisions that are `open`, or `claimed` with a claim that has expired, and whose
+  `Blocked by` files are all `resolved`; lowest number wins.
+- **Claim:** set `Status: claimed`, add a `Claimed: <session> <ISO time>` line, and save; wait a
+  few seconds, then read the file back and keep the claim only if the line is still yours (two
+  sessions writing one file leave one line, so exactly one of them keeps it). A claim older than a day with
+  nothing after it has expired: take it over by rewriting the line.
 - **Resolve:** append the answer under `## Answer`, set `Status: resolved`, then add the gist and
   link to the map's Decisions so far.

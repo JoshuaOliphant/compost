@@ -21,7 +21,7 @@ You are implementing issue #<n>: <title>
 
 ## Workspace
 Your work starts from <feature branch> at <feature SHA>. Work only in your worktree, on branch
-<branch>. A harness-made worktree starts from the default branch, not the feature branch, so first
+<branch> (named `<issue>-<slug>`, so other sessions see the issue is taken). A harness-made worktree starts from the default branch, not the feature branch, so first
 run `git switch -C <branch> <feature SHA>` and confirm `git rev-parse HEAD` prints <feature SHA>
 before any other work.
 <For a teammate: create it first with `git worktree add <path> -b <branch> <feature SHA>`.>
@@ -57,6 +57,7 @@ Reply in under 15 lines:
 - Each AC-N and the test that proves it
 - What you ran to verify, with the result (for example "pytest: 214 passed, coverage 100%")
 - Rulings you posted, as links
+- AC-table rows in other issues your change retires (`superseded by #<n>`), for the orchestrator to apply
 - Concerns and follow-ups, if any
 
 Use DONE_WITH_CONCERNS when the work is complete but you doubt part of it. Use BLOCKED or

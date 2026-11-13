@@ -1,8 +1,9 @@
 # ABOUTME: Reads compost's pile.toml: the sources compost was made from, and the plugins and skills it replaces.
-# ABOUTME: CLI: `status`/`advance`/`notice` track upstream sources; `replaced` turns off superseded skills and
+# ABOUTME: CLI: `status` (`--references` too)/`advance`/`notice` track upstream sources; `replaced` turns off superseded skills and
 # ABOUTME: uninstalls plugins their marketplace no longer lists.
 import argparse
 import dataclasses
+import re
 import subprocess
 import sys
 import tomllib
@@ -17,6 +18,7 @@ CLONES = Path.home() / ".cache" / "compost" / "upstream"
 UNMAPPED_SHOWN = 20
 
 ROLES = ("input", "frozen", "reference")
+FULL_SHA = re.compile(r"[0-9a-f]{40}")
 
 
 @dataclass(frozen=True)
@@ -125,10 +127,11 @@ def git_compare(repo: str, pin: str) -> tuple[str, list[str]]:
     return head, sorted(name for name in output.split("\0") if name)
 
 
-def drift(sources: list[Source]) -> list[Drift]:
+def drift(sources: list[Source], roles: tuple[str, ...] = ("input",)) -> list[Drift]:
+    """Inputs by default; `roles` adds references, whose changes all feed nothing, so their new skills can be read."""
     report = []
     for source in sources:
-        if source.role != "input":
+        if source.role not in roles:
             continue
         head, changed = git_compare(source.repo, source.pin)
         by_target, unmapped = map_changes(changed, source.feeds)
@@ -156,10 +159,11 @@ def render_status(report: list[Drift]) -> str:
     lines = []
     for item in report:
         source = item.source
+        label = f"{source.name} ({source.repo}{', reference' if source.role == 'reference' else ''})"
         if not item.by_target and not item.unmapped:
-            lines.append(f"{source.name} ({source.repo}): nothing new since {source.pin[:7]}")
+            lines.append(f"{label}: nothing new since {source.pin[:7]}")
             continue
-        lines.append(f"{source.name} ({source.repo}): {source.pin[:7]} → {item.head}")
+        lines.append(f"{label}: {source.pin[:7]} → {item.head}")
         lines.append(f"  diffs: git -C {clone_path(source.repo)} diff {source.pin} {item.head} -- <path>")
         for target in sorted(item.by_target, key=_target_order):
             lines.append(f"  {target_label(target)}")
@@ -177,6 +181,11 @@ def advance(path: Path, name: str, commit: str) -> tuple[str, str]:
     if name not in sources:
         raise PileError(f"no source named {name!r} in {path.name}")
     source = sources[name]
+    if not FULL_SHA.fullmatch(commit):
+        raise PileError(
+            f"pass the full commit hash `status` printed, not {commit!r}: a ref or short hash resolves after the "
+            "fetch, so it can move the pin past changes nobody ruled on"
+        )
     old = f'pin = "{source.pin}"'
     text = path.read_text()
     if text.count(old) == 0:
@@ -299,8 +308,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     superseded.add_argument("--keep-orphans", action="store_true", help="with --apply, uninstall nothing")
     superseded.add_argument("--claude-dir", type=Path, default=claude_config.CLAUDE_DIR)
-    commands.add_parser("status", help="list upstream changes since each input's pin, by compost skill")
-    move = commands.add_parser("advance", help="move SOURCE's pin to COMMIT, resolved to a full hash upstream")
+    status = commands.add_parser("status", help="list upstream changes since each input's pin, by compost skill")
+    status.add_argument("--references", action="store_true", help="also list changes in the reference sources")
+    move = commands.add_parser(
+        "advance", help="move SOURCE's pin to COMMIT, the full hash `status` printed (checked to exist upstream)"
+    )
     move.add_argument("source")
     move.add_argument("commit")
     notice = commands.add_parser("notice", help="write NOTICE from pile.toml")
@@ -310,7 +322,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "replaced":
             print(replaced(args.pile, args.claude_dir, args.apply, args.keep_orphans))
         elif args.command == "status":
-            print(render_status(drift(load(args.pile).sources)))
+            roles = ("input", "reference") if args.references else ("input",)
+            print(render_status(drift(load(args.pile).sources, roles)))
         elif args.command == "advance":
             old, new = advance(args.pile, args.source, args.commit)
             print(f"{args.source}: {old[:7]} → {new[:7]}")

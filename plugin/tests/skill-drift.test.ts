@@ -64,7 +64,12 @@ function engine(
     const path = (e as { path: string }).path
     return { value: world.files.has(path) || [...world.files.keys()].some(file => file.startsWith(`${path}/`)) } as never
   })
-  on('fs.read', (_$, e) => ({ value: world.files.get((e as { path: string }).path) }) as never)
+  // A read that yields, as a real disk read does, so two writers that overlap both read before either writes.
+  on('fs.read', async (_$, e) => {
+    const text = world.files.get((e as { path: string }).path)
+    await new Promise(resolve => setTimeout(resolve, 5))
+    return { value: text } as never
+  })
   on('fs.write', (_$, e) => {
     const { path, text } = e as { path: string; text: string }
     world.files.set(path, text)
@@ -174,6 +179,21 @@ test("the user's next message is checked for a correction of the skill's work", 
   ])
   await $.prompt.submit({ text: 'and another thing', origin: TYPED } as never)
   expect(world.asked.length).toBe(2)
+})
+
+test("a correction check and the next turn's judgment that overlap both keep their hits", async ($, on) => {
+  const world = engine(on, { corrected: 0.9, deviated: 0.9 })
+  await $.session.start(START)
+  await $.skill.prompt({ skill: 'compost:verify', text: 'steps' })
+  await $.turn.complete(ENDED)
+  const before = logged(world).length
+  await $.skill.prompt({ skill: 'compost:build', text: 'build steps' })
+  await Promise.all([
+    $.prompt.submit({ text: 'no, the gates never ran', origin: TYPED } as never),
+    $.turn.complete({ ...(ENDED as object), turnId: 'turn-2' } as never),
+  ])
+  const added = logged(world).slice(before).map(hit => `${hit.skill}:${hit.kind}`)
+  expect(added.sort()).toEqual(['compost:build:deviated', 'compost:verify:corrected'])
 })
 
 test('hits append to the session file without a toast and carry the skill version', async ($, on) => {

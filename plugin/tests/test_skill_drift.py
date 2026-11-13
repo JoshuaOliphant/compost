@@ -184,10 +184,12 @@ def test_marked_hits_leave_later_runs(machine):
     assert found(machine)["patterns"][0]["sessions"] == 2
     skill_drift.mark(claude_dir, ["s2:t1:compost:build:deviated", "s1:t1:compost:build:deviated"])
     assert found(machine)["patterns"] == []
-    assert json.loads((claude_dir / "skill-drift" / "reviewed.json").read_text()) == [
+    reviewed = claude_dir / "skill-drift" / "reviewed.json"
+    assert json.loads(reviewed.read_text()) == [
         "s1:t1:compost:build:deviated",
         "s2:t1:compost:build:deviated",
     ]
+    assert reviewed.stat().st_mode & 0o777 == 0o644
 
 
 def test_hits_carry_their_id_evidence_and_transcript(machine):

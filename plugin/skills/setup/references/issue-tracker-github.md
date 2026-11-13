@@ -74,8 +74,9 @@ Used by `compost:slice` for map issues.
 - **Map:** one issue labelled `map`; its decisions are sub-issues labelled `decision`.
 - **Frontier:** the map's open sub-issues with no open blocker
   (`issue_dependencies_summary.blocked_by` is 0, or every issue on the `Blocked by` line is
-  closed) and no assignee; first in map order wins.
-- **Claim:** `gh api repos/{owner}/{repo}/issues/<n>/assignees -f "assignees[]=$(gh api user --jq .login)"`,
-  before any other work.
+  closed) and no live claim (see `compost:slice`'s map reference); first in map order wins.
+- **Claim:** post a comment `Claimed by <session>` (`gh api repos/{owner}/{repo}/issues/<n>/comments -f body=...`),
+  then list the comments and keep the claim only if yours is the earliest live one. Every session
+  runs as the same user, so an assignee can't tell two of them apart.
 - **Resolve:** comment the answer and close the issue (Commands above), then add the gist and link
   to the map's Decisions so far.

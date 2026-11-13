@@ -119,12 +119,20 @@ async function logDir($: EngineInterface): Promise<string> {
   return `${await claudeDir($)}/skill-drift`
 }
 
-async function record($: EngineInterface, found: Hit[]) {
-  if (found.length === 0) return
-  const day = new Date(found[0].at).toISOString().slice(0, 10)
-  const path = `${await logDir($)}/${day}-${found[0].session}.jsonl`
-  const before = (await $.fs.exists(path)) ? String(await $.fs.read(path)) : ''
-  await $.fs.write(path, before + found.map(hit => JSON.stringify(hit) + '\n').join(''))
+// The engine's fs has no append, so a write is read-then-rewrite. A turn's judgment and the next prompt's
+// correction check can overlap on the same session file; one queue per mod keeps either from dropping the other's hits.
+let writes: Promise<void> = Promise.resolve()
+
+function record($: EngineInterface, found: Hit[]): Promise<void> {
+  if (found.length === 0) return writes
+  const write = writes.then(async () => {
+    const day = new Date(found[0].at).toISOString().slice(0, 10)
+    const path = `${await logDir($)}/${day}-${found[0].session}.jsonl`
+    const before = (await $.fs.exists(path)) ? String(await $.fs.read(path)) : ''
+    await $.fs.write(path, before + found.map(hit => JSON.stringify(hit) + '\n').join(''))
+  })
+  writes = write.catch(() => undefined)
+  return write
 }
 
 // The mod only writes hits. Which ones are open (unreviewed, on an active skill's latest version) is

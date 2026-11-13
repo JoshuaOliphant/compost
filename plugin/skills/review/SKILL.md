@@ -43,7 +43,7 @@ Run this after `compost:verify` passes on every issue. Nobody needs to ask.
 
 5. **Re-verify.** Once the fixes are in, run `compost:verify` again in full: suite, gates, the AC-N map. If the fixes changed behaviour or touched files the first review didn't see, run the review again, the same way step 1 ran it (workflow or by hand), and the built-in review once more when the diff changes executable code. A finding you pushed back on that comes back from a fresh reviewer deserves a second look, not a second refusal by reflex.
 
-6. **Record the outcome on the issue.** Post one comment: what each axis and the built-in review found, with what each axis checked (for a clean Spec axis, each AC-N and its verdict), what you fixed (with the commit), what you pushed back on and the evidence, whether the Spec axis and the built-in review ran, and whether the review ran by hand and why. That comment is the ruling log `compost:finish` summarises into the PR.
+6. **Record the outcome on the issue.** Post one comment, headed `Review round <n>` (one more than the issue's earlier review comments; `compost:implement` counts these for its three-round cap): what each axis and the built-in review found, with what each axis checked (for a clean Spec axis, each AC-N and its verdict), what you fixed (with the commit), what you pushed back on and the evidence, whether the Spec axis and the built-in review ran, and whether the review ran by hand and why. That comment is the ruling log `compost:finish` summarises into the PR.
 
 ## When the branch is structurally risky
 

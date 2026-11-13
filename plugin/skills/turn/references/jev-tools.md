@@ -24,7 +24,8 @@ changes were sent to be read, and 15 of the 26 ignores were recorded without rea
 wrongly. Jev over-calls adopt and adapt on long diffs that rework ideas compost already has, so
 treat its adopt/adapt split as a hint and read those yourself.
 
-Input: `source` (a name in `pile.toml`) and `paths` (upstream paths from `pile.py status`). Each
+Input: `source` (a name in `pile.toml`), `paths` (upstream paths from `pile.py status`), and
+optionally `pile` (the `pile.toml` to read, by default the installed plugin's). Each
 change in the output lists the `feeds` targets its path maps to; a mechanism target (`hooks`,
 `hooks/<mod>`) is not sent to Jev as skill text, so read those changes yourself.
 `pin` and `head` default to the source's pin and upstream's `origin/HEAD`.

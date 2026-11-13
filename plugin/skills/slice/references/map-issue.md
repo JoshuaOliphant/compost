@@ -63,7 +63,7 @@ Each decision is a sub-issue of the map, labelled `decision`, with the question 
 
 Wire blocking edges in a second pass, once every sub-issue has a number, and write cross-references
 between sub-issues in that same pass, with real numbers: a placeholder `#<n>` auto-links to an
-unrelated issue. The frontier is the open, unblocked, unassigned decisions.
+unrelated issue. The frontier is the open, unblocked decisions with no live claim (below).
 
 ## Fog or decision?
 
@@ -91,8 +91,12 @@ there and give it a line under Out of scope.
 ## Working the map
 
 1. Read the map body, not every sub-issue.
-2. Take the decision the user names, or the first one on the frontier. Assign it to yourself before
-   any work, so a parallel session skips it.
+2. Take the decision the user names, or the first one on the frontier, and claim it before any
+   work with the tracker's **Claim** command, so a parallel session skips it. A claim is a comment
+   naming your session (its branch, or the time you started). Two sessions can post at once, so
+   read the comments back after posting: the earliest live claim wins, and a loser picks the next
+   decision. A claim is live until a day passes with no comment after it; then it has expired, and
+   the decision is back on the frontier for anyone to claim.
 3. Resolve it, reading related decisions in full as needed.
 4. Post the answer as a resolution comment, close the sub-issue, and add its gist to Decisions so
    far.
@@ -100,7 +104,8 @@ there and give it a line under Out of scope.
    or close decisions the answer made moot.
 
 The research decisions that step 5 of Charting the map sends to subagents run in parallel. Other sessions may be editing the map at
-the same time, so re-read it before writing.
+the same time, and a body edit replaces the whole body, so re-read it immediately before each edit,
+change only your own line, and read it back after; if your line is gone, add it again.
 
 The tracker commands for sub-issues, dependencies, claiming, and the frontier query are in
 `docs/agents/issue-tracker.md` under "Map operations".
