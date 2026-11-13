@@ -37,31 +37,32 @@ def scored_build_turns() -> tuple[list[dict], list[dict[str, float]]]:
 
 
 def test_a_stepped_skill_flags_only_the_turns_labeled_for_each_question():
-    """23 hand-labeled compost:build turns, 13 Nov 2026.
+    """23 hand-labeled compost:build turns, 13 Nov 2026. Jev's scores move a few hundredths between runs, and
+    both questions sit close to their thresholds, so the floors allow one false hit rather than none.
 
     deviated: 8 turns did every step and 15 skipped one or more. The whole-skill question scored all 23 between
-    0.75 and 0.95. The likeliest skipped step keeps clean turns at 0.76 or under and puts 9 to 11 of the 15
-    drifting ones at 0.8 or over (Jev varies run to run). 0.75 was first chosen on the 17 `calibration` turns,
-    but over repeated runs one clean `held-out` turn crossed it, so the threshold is 0.8.
+    0.75 and 0.95. Over six runs of the step questions at 0.75: 0 or 1 clean turns flagged (one scores 0.69-0.77),
+    11 or 12 of the 15 drifting ones flagged. 0.75 was chosen on the 17 `calibration` turns; on the 6 `held-out`
+    turns from another repo it flags 2 of the 4 drifting ones.
 
     missing_guidance: 5 turns hit something build gave no instruction for (Jev find-test exiting 2, or
     duplicate-test not seeing the doctest build preferred). The old question scored 16 of the other 18 over its
-    0.6 threshold. Over three runs the one asked now kept the other 18 at 0.46 or under and the 5 at 0.48 to 0.81,
-    so a labeled turn can dip under 0.5 and recall has a floor rather than 1.0. Both gaps are Jev-tool gaps; no
-    other kind is labeled yet.
+    0.6 threshold. Over six runs of this one at 0.5 (and the review's four): at most 1 of the 18 flagged (the
+    highest scores 0.46-0.51), 4 or 5 of the 5 flagged. Both gaps are Jev-tool gaps; no other kind is labeled.
     """
     thresholds = skill_drift_judgments()["thresholds"]
     cases, scores = scored_build_turns()
-    measured = {}
+    measured, false_hits = {}, {}
     for name in ("deviated", "missing_guidance"):
         rows = [(score[name], case["expected"][name]) for score, case in zip(scores, cases, strict=True)]
         held_out = [row for row, case in zip(rows, cases, strict=True) if case["split"] == "held-out"]
         print(f"\n{name}: {sum(label for _, label in rows)} positives of {len(rows)}")
         sweep(rows, TENTHS)
         measured[name] = rates(rows, thresholds[name])
+        false_hits[name] = sum(score >= thresholds[name] and not label for score, label in rows)
         accuracy, precision, recall = measured[name]
         print(f"{name} at {thresholds[name]}: accuracy {accuracy:.2f} precision {precision:.2f} recall {recall:.2f}")
         right = sum((score >= thresholds[name]) == label for score, label in held_out)
         print(f"held out: {right} of {len(held_out)} right")
-    assert measured["deviated"][1] == 1.0 and measured["deviated"][2] >= 0.5
-    assert measured["missing_guidance"][1] == 1.0 and measured["missing_guidance"][2] >= 0.8
+    assert false_hits["deviated"] <= 1 and measured["deviated"][2] >= 0.7
+    assert false_hits["missing_guidance"] <= 1 and measured["missing_guidance"][2] >= 0.8

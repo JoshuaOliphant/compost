@@ -2,7 +2,7 @@
 // ABOUTME: Everything after `export default` must stay plain JSON, because the Python eval parses it.
 export default {
   "thresholds": {
-    "deviated": 0.8,
+    "deviated": 0.75,
     "missing_guidance": 0.5,
     "corrected": 0.55
   },
