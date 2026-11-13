@@ -68,7 +68,8 @@ no test counts until you have seen it fail for the right reason.
 
    `extend` names the test that already covers the criterion; `add-beside` names the one to write
    next to ([jev](references/jev.md) has the full output). Read the named test before you act on
-   it. Exit 3 means Jev is unavailable: place it from your survey, and say so in your report.
+   it. Exit 3 means Jev is unavailable, and exit 2 with `no tests found` means it cannot read this
+   suite: either way place it from your survey, and say so in your report.
    Either way, take the first of these that fits:
    1. Change the expectation in a test that already covers the behavior.
    2. Add a case to an existing parametrized table.
@@ -155,8 +156,9 @@ no test counts until you have seen it fail for the right reason.
     re-covers an existing one, even when you added a single test: run
     `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/jev.py duplicate-test --input <file>` on
     `{"repo": ".", "base": "<the SHA the branch started from>"}` ([jev](references/jev.md)), and
-    fold every `fold into <test>` into that test as step 4 says. Exit 3: compare each new test
-    against its neighbours in the file yourself, and say so in your report. When
+    fold every `fold into <test>` into that test as step 4 says. Jev collects test functions, not
+    doctests. On exit 3, or for a new doctest: compare each new test against its neighbours in the
+    file yourself, and say so in your report. When
     `docs/agents/testing.md` records mutation testing for Python, also make each new test earn its place by
     mutation: collect per-test coverage and run `thin.py matrix --tests <new node ids>`, then
     `thin.py verdict`, as `compost:thin` does. A new test the verdict calls redundant or

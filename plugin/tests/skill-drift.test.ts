@@ -106,7 +106,7 @@ const START = { cwd: '/tmp', surface: 'terminal', isInteractive: true } as const
 const ENDED = { answer: 'Gates pass.', durationMs: 10, isAborted: false, turnId: 'turn-1', reason: 'answer' } as never
 
 test('a turn that used a skill is judged against it and its drift is logged', async ($, on) => {
-  const world = engine(on, { deviated: 0.92, missing_guidance: 0.5 })
+  const world = engine(on, { deviated: 0.92, missing_guidance: 0.4 })
   await $.session.start(START)
   await $.skill.prompt({ skill: 'compost:verify', text: 'Run `uv run pytest` for the gates.' })
   await $.turn.complete(ENDED)
