@@ -6,6 +6,7 @@ import ast
 import contextlib
 import ctypes
 import functools
+import hashlib
 import importlib.abc
 import importlib.machinery
 import json
@@ -459,6 +460,16 @@ def check_baseline(tests: list[str], pytest_args: list[str], timeout: float | No
 JOURNAL = "matrix.jsonl"  # where `matrix` journals its rows, beside the contexts file it reads
 
 
+def stamp_path(journal: Path) -> Path:
+    """Beside the journal: a hash of each test file its rows ran, so a resume can tell which tests changed since."""
+    return journal.with_name(journal.name + ".tests")
+
+
+def test_files(tests: list[str]) -> dict[str, str]:
+    files = sorted({test.split("::")[0] for test in tests})
+    return {name: hashlib.sha256(Path(name).read_bytes()).hexdigest() if Path(name).is_file() else "" for name in files}
+
+
 def kill_matrix(contexts: dict, only: list[str] | None, pytest_args: list[str], timeout: float | None,
                 workers: int, log=print, own: bool = True, journal: Path | None = None,
                 resume: list[dict] = ()) -> dict:  # fmt: skip
@@ -471,7 +482,8 @@ def kill_matrix(contexts: dict, only: list[str] | None, pytest_args: list[str], 
 
     Each row is appended to `journal` as its run ends. Rows in `resume`, a killed run's journal, are kept for the
     mutants they still describe and those mutants aren't run again; the baseline runs regardless, since the code
-    may have changed since.
+    may have changed since. A row whose covering tests sit in a file that changed since the journal's stamp runs
+    again too: its killers were found by the old tests.
     """
     lines = covered_lines(contexts)
     imported = {(path, int(line)) for path, info in contexts["files"].items()
@@ -504,13 +516,21 @@ def kill_matrix(contexts: dict, only: list[str] | None, pytest_args: list[str], 
             made.append({k: v for k, v in mutant.items() if k != "args"}
                         | {"mutated": first_difference(source, mutated), "covering": covering})  # fmt: skip
     earlier = {mutant_id(row): row for row in resume}
-    rows = [journaled(row, earlier) for row in made]
+    stamp = test_files(everyone)
+    before = stamp_path(journal) if journal is not None else None
+    old = json.loads(before.read_text()) if resume and before is not None and before.exists() else None
+    changed = {name for name, digest in stamp.items() if old is not None and old.get(name) != digest}
+    if changed:
+        log(f"tests changed since the journal, so their mutants run again: {', '.join(sorted(changed))}")
+    rows = [None if changed & {test.split("::")[0] for test in row["covering"]} else journaled(row, earlier)
+            for row in made]  # fmt: skip
     if resume:
         log(f"{len(rows) - rows.count(None)} of {len(resume)} journaled rows resumed; the rest name no mutant made now")
     if journal is not None:  # rewritten only past the baseline, so a resume that fails it keeps its rows
         fresh = journal.with_name(journal.name + ".tmp")  # renamed over it, so a kill mid-write loses nothing
         fresh.write_text("".join(json.dumps(row) + "\n" for row in rows if row is not None))
         os.replace(fresh, journal)
+        stamp_path(journal).write_text(json.dumps(stamp))  # after the rows, so a stale stamp only reruns more
     todo = [index for index, row in enumerate(rows) if row is None]
     done = 0
 
@@ -756,6 +776,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(json.dumps(result, indent=1))
         journal.unlink()  # the run finished and its rows are out, so a journal left here means a run that died
+        stamp_path(journal).unlink(missing_ok=True)
         return 0
     else:
         result = verdict(json.loads(Path(args.matrix).read_text()))

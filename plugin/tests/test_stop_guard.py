@@ -176,7 +176,14 @@ def user(content, **extra) -> dict:
         [LOADS_IMPLEMENT, said("m1", "PR #52 is up."), LOADS_FINISH, WAITS],
         [SLASH_IMPLEMENT, said("m1", "PR #52 is up."), SLASH_FINISH, WAITS],
         [LOADS_IMPLEMENT, LOADS_FINISH, said("m2", "Discarded."), NOTIFIED, WAITS],
-        [LOADS_IMPLEMENT, said("m1", "#13 landed."), LOADS_PAUSE, said("m2", "Paused; resume from #14."), NOTIFIED, WAITS],
+        [
+            LOADS_IMPLEMENT,
+            said("m1", "#13 landed."),
+            LOADS_PAUSE,
+            said("m2", "Paused; resume from #14."),
+            NOTIFIED,
+            WAITS,
+        ],
     ],
     ids=[
         "finish loaded after implement",
