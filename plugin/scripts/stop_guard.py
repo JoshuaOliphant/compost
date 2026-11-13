@@ -21,7 +21,6 @@ from jevtools.core import open_client
 
 LOG = Path.home() / ".cache" / "compost" / "stop-guard.log"
 IMPLEMENT = "compost:implement"
-# Loading either ends the run: finish hands it off, pause checkpoints it. Resuming loads implement again.
 ENDS = ("compost:finish", "compost:pause")
 # Text Claude Code writes into user entries: <command-name>, <system-reminder>, <teammate-message teammate_id=...>.
 INJECTED = re.compile(r"<([a-z][a-z-]*)(?:\s[^>]*)?>.*?</\1>", re.DOTALL)

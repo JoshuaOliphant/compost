@@ -60,9 +60,10 @@ judged against the step it serves. Report the two apart.
    a `feeds` entry now; a candidate add gets one once its issue lands, naming what it became. Its
    paths go into the sort below.
 3. Sort the changes before reading them. Ask Jev first: per source, write
-   `{"source": "<name>", "paths": [<every path listed under a compost skill, plus promising
-   unmapped skills>]}` to a temp file and run
-   `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/jev.py classify-change --input <file>`. Record each change
+   `{"source": "<name>", "pile": "plugin/pile.toml", "paths": [<every path listed under a
+   compost skill, plus promising unmapped skills>]}` to a temp file (`pile` points it at the
+   checkout's pins, the ones `status` read) and run
+   `uv run plugin/scripts/jev.py classify-change --input <file>`. Record each change
    with `needs_reading: false` as ignored, with Jev's verdict as the reason, without reading it.
    Read the diff of every path in `to_read` and judge it yourself; Jev's verdict there is a hint,
    since it over-calls adopt and adapt on long diffs ([Jev tools](references/jev-tools.md)). Exit 3

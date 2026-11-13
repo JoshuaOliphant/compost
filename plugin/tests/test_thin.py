@@ -435,15 +435,16 @@ def test_ac2_a_resumed_row_is_kept_only_while_the_source_still_makes_its_mutant(
 
 @pytest.mark.parametrize(
     ("edit", "rerun"),
-    [(None, 0), ("test_age.py", 1), ("unrelated.py", 0)],
-    ids=["tests unchanged", "a covering test file changed", "another file changed"],
+    [(None, 0), ("test_age.py", 1), ("conftest.py", 1), ("unrelated.py", 0)],
+    ids=["tests unchanged", "a covering test file changed", "a conftest above it changed", "another file changed"],
 )
 def test_a_resumed_row_runs_again_once_a_test_file_it_ran_changed_since(toy, tmp_path, monkeypatch, edit, rerun):
     one_mutant(monkeypatch)
     journal = tmp_path / "matrix.jsonl"
     (tmp_path / "unrelated.py").write_text("x = 1\n")
+    (tmp_path / "conftest.py").write_text("")
     thin.kill_matrix(toy, None, PYTEST, 60, 2, log=NO_LOG, journal=journal)
-    assert set(json.loads(thin.stamp_path(journal).read_text())) == {"test_age.py"}
+    assert set(json.loads(thin.stamp_path(journal).read_text())) == {"test_age.py", "conftest.py"}
     if edit:
         (tmp_path / edit).write_text((tmp_path / edit).read_text() + "# touched\n")
     runs, logged = [], []
@@ -458,7 +459,7 @@ def test_a_resumed_row_runs_again_once_a_test_file_it_ran_changed_since(toy, tmp
 
 def test_a_test_file_that_is_gone_stamps_empty_so_any_comeback_counts_as_a_change(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    assert thin.test_files(["gone.py::test_x", "gone.py::test_y"]) == {"gone.py": ""}
+    assert thin.test_files(["gone.py::test_x", "gone.py::test_y"]) == {"gone.py": "", "conftest.py": ""}
 
 
 def test_a_resume_killed_while_its_journal_is_rewritten_keeps_the_rows(toy, tmp_path, monkeypatch):

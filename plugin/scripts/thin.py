@@ -465,8 +465,14 @@ def stamp_path(journal: Path) -> Path:
     return journal.with_name(journal.name + ".tests")
 
 
+def files_run(tests: list[str]) -> set[str]:
+    """Each test file the node ids name, with every conftest.py from its directory up to the working directory."""
+    named = {Path(test.split("::")[0]) for test in tests}
+    return {str(path) for path in named} | {str(folder / "conftest.py") for path in named for folder in path.parents}
+
+
 def test_files(tests: list[str]) -> dict[str, str]:
-    files = sorted({test.split("::")[0] for test in tests})
+    files = sorted(files_run(tests))
     return {name: hashlib.sha256(Path(name).read_bytes()).hexdigest() if Path(name).is_file() else "" for name in files}
 
 
@@ -522,15 +528,18 @@ def kill_matrix(contexts: dict, only: list[str] | None, pytest_args: list[str], 
     changed = {name for name, digest in stamp.items() if old is not None and old.get(name) != digest}
     if changed:
         log(f"tests changed since the journal, so their mutants run again: {', '.join(sorted(changed))}")
-    rows = [None if changed & {test.split("::")[0] for test in row["covering"]} else journaled(row, earlier)
+    rows = [None if changed & files_run(row["covering"]) else journaled(row, earlier)
             for row in made]  # fmt: skip
     if resume:
-        log(f"{len(rows) - rows.count(None)} of {len(resume)} journaled rows resumed; the rest name no mutant made now")
+        log(
+            f"{len(rows) - rows.count(None)} of {len(resume)} journaled rows resumed; the rest name no mutant made now "
+            "or ran tests that changed"
+        )
     if journal is not None:  # rewritten only past the baseline, so a resume that fails it keeps its rows
         fresh = journal.with_name(journal.name + ".tmp")  # renamed over it, so a kill mid-write loses nothing
         fresh.write_text("".join(json.dumps(row) + "\n" for row in rows if row is not None))
         os.replace(fresh, journal)
-        stamp_path(journal).write_text(json.dumps(stamp))  # after the rows, so a stale stamp only reruns more
+        stamp_path(journal).write_text(json.dumps(stamp))
     todo = [index for index, row in enumerate(rows) if row is None]
     done = 0
 

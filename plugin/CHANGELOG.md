@@ -6,8 +6,10 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 
 ### Changed
 
-- `compost:implement` step 2 defines done (closed, or ticked on the parent), blocked, taken (a branch named for the issue exists), and the frontier in one place, and `compost:build` checks blockers against the same "done". On GitHub a reviewed, landed blocker stays open until the PR merges, so build's old "every blocker is closed" check reported it as blocking.
-- The frontier leaves out issues labelled `ready-for-human`; the close-out recap lists them instead.
+- `compost:implement` step 2 defines done (closed, or ticked on the parent), blocked, taken (another session's branch named for the issue exists, pushed at spawn so other clones see it, expiring after a day without commits), and the frontier in one place, and `compost:build` checks blockers against the same "done". On GitHub a reviewed, landed blocker stays open until the PR merges, so build's old "every blocker is closed" check reported it as blocking.
+- The frontier leaves out issues labelled `ready-for-human`, and close-out doesn't wait on them; the recap lists them under Risk.
+- Inside an implement run, `compost:setup` takes its recommended answers as rulings on the parent and leaves the orphan uninstall to the user.
+- `compost:pause`'s pickup loads `compost:implement` before handing off the next action, so the resumed run is guarded again.
 - `compost:review` heads its issue comment `Review round <n>`, and implement counts those comments for its three-round cap, so the cap holds across a pause or a compacted context. `compost:pause`'s status comment carries the review round and, in a lane-routing run, each lane's tokens so far.
 - `compost:slice` and `compost:implement` stop for approval on a `Class: architectural` parent with no approval comment.
 - Map decisions are claimed with a comment naming the session, read back so the earliest live claim wins, with a one-day lease; every session runs as the same user, so an assignee couldn't tell two apart. Rerun `compost:setup` to refresh the claim command in `docs/agents/issue-tracker.md`.
@@ -20,7 +22,7 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 - The Stop hook treats a `compost:pause` load as the end of an implement run, like `compost:finish`, so a paused run no longer guards later turns that background notifications start.
 - `pile.py advance` refuses anything but a full commit hash: a ref resolved after the fetch could move the pin past changes nobody ruled on. `pile.py status --references` lists changes in reference sources, which were recorded but never compared.
 - The skill-drift mod queues its log writes, so a turn's judgment and the next prompt's correction check that overlap no longer drop one batch of hits. `skill_drift.py mark` writes `reviewed.json` atomically.
-- `thin.py matrix --resume` reruns a mutant when a test file it ran changed since the journal (hashes in `matrix.jsonl.tests`), instead of trusting kills the old tests found.
+- `thin.py matrix --resume` reruns a mutant when a test file it ran, or a `conftest.py` above one, changed since the journal (hashes in `matrix.jsonl.tests`), instead of trusting kills the old tests found.
 
 ## [0.33.2] - 2026-11-12
 

@@ -40,12 +40,16 @@ the work so each step can be checked before the next builds on it
      ticked: reviewed and landed on the feature branch (step 7).
    - An issue is **blocked** while any issue on its "Blocked by #n" lines is not done. The forge's
      own dependency count (open blockers) stays non-zero until the PR merges; don't read it.
-   - An issue is **taken** when a branch or worktree named for it (`<issue>-<slug>`, what
-     `compost:build` creates) exists in `git branch -a` or `git worktree list` and isn't merged
-     into the feature branch. Git is the claim; a second session on the same parent skips it.
+   - An issue is **taken** when a branch named for it (`<issue>-<slug>`, what `compost:build`
+     creates) exists, after `git fetch`, in `git branch -a` or `git worktree list`, the issue isn't
+     done, and the branch isn't this run's own: a branch the latest `compost:pause` status
+     comment lists, or one this session made, is work to pick up, not someone else's. Git is the
+     claim; a second session on the same parent skips it. A claim whose newest commit is more than
+     a day old, with no worktree for it on this machine, has expired: take the issue over from
+     that branch's head.
    - The **frontier** is every open issue that is not done, not blocked, not taken, and not
-     labelled `ready-for-human` (that label is for work only a person can do; list those issues in
-     the close-out recap instead of building them).
+     labelled `ready-for-human` (that label is for work only a person can do; list those issues
+     under Risk in the close-out recap instead of building them).
 
    Compare the Files blocks of the frontier issues: issues whose file
    sets don't overlap can run at once; issues that share a file go into one lane and run in order.
@@ -70,6 +74,9 @@ the work so each step can be checked before the next builds on it
      lane-routing run every lane spawns, whatever its size. When agent teams are enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), spawn them
      as named teammates instead; a teammate spawn cannot take `isolation`, so its brief tells it to
      create its own worktree first.
+   - Before spawning a lane, push its branch name at the feature SHA
+     (`git push origin <feature SHA>:refs/heads/<issue>-<slug>`), so a session in another clone
+     sees the issue as taken.
    - An isolated worktree starts from the default branch, not the feature branch. Every brief names
      the feature branch's head SHA, and the worker switches to it before any work.
    - Write each brief from [references/task-brief.md](references/task-brief.md): the issue, its
@@ -86,7 +93,8 @@ the work so each step can be checked before the next builds on it
 
 5. **Land each finished issue.** A completion is an event to handle, not a review to do inline.
    Read the worker's short report; if it says `DONE_WITH_CONCERNS`, read the concerns first.
-   Apply any AC-table row retirements it reports (`compost:verify` step 5) once its branch is merged. Merge
+   Once its branch is merged, apply any AC-table row retirements it reports (`compost:verify`
+   step 5), and refresh the committed AC-table cache if the verify command keeps one. Merge
    its branch into the feature branch with `--no-ff`, then run the suite on the feature branch; a
    merge is a change like any other. A red suite after a merge goes to `compost:diagnose`. When the
    repo's instructions want a version bump for a changed package, commit it right after the first
@@ -162,13 +170,14 @@ the work so each step can be checked before the next builds on it
    of fix: when a check could catch the mistake instead, file an issue for that check
    ([make mistakes impossible](../../canon/make-mistakes-impossible.md)).
 
-10. **Close out.** When the frontier is empty and every sub-issue is ticked, run `compost:verify` on
+10. **Close out.** When the frontier is empty and every sub-issue is ticked, except those labelled
+    `ready-for-human`, run `compost:verify` on
     the whole feature branch, push, and hand off through `compost:finish`, whose recap is Goal,
     Decisions, Changes, Validation, Risk. The Decisions section lists every ruling comment, each with
     its cost if wrong. A lane-routing run lists its per-lane records in Validation. Without a
     PR, report the feature branch by name, since no PR link points to it, and leave the parent
     open: `compost:finish` closes it once the branch merges. Clean up worker worktrees whose
-    branches are merged into the feature branch.
+    branches are merged into the feature branch, and delete the lane branches step 4 pushed.
 
 For a run that outlives the session, `compost:pause` writes the checkpoint and resuming starts at
 step 1.

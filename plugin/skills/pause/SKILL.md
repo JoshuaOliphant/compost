@@ -34,16 +34,18 @@ Pause only when asked or when the session has to end. "Keep going", "going to be
 
    **Where things stand**
    - #13 done, reviewed, merged into `feature/12-export` at abc1234
-   - #14 built and verified, review round 1 found two majors, fixes not started; branch `issue-14` at def5678 (worktree `.claude/worktrees/issue-14`)
+   - #14 built and verified, review round 1 found two majors, fixes not started; branch `14-export-csv` at def5678 (worktree `.worktrees/14-export-csv`)
    - #15 not started; blocked by #14
 
-   **Next action:** run `compost:review` on #14's commits, then land it and start #15.
+   **Next action:** resume #14's worker with round 1's findings (linked), re-run `compost:verify`,
+   land it, run review round 2, then start #15.
 
    **Open rulings:** rulings the user should look at before the run goes further, as links, each with
    its cost if wrong. "None" if there are none.
 
-   **Lane records:** in a lane-routing run, each lane's tokens so far (from its workers'
-   completion notices), so the A/B totals survive the pause. Omit otherwise.
+   **Lane records:** in a lane-routing run, each lane's tokens from the workers that finished
+   (their completion notices), and which workers the pause stopped, so their lanes' totals are
+   marked "incomplete" as lane routing says. Omit otherwise.
 
    **Gotchas:** anything the next session would otherwise rediscover the slow way (a service that
    must be running, a flaky test and its issue, a command that needs a flag).
@@ -70,16 +72,19 @@ Pause only when asked or when the session has to end. "Keep going", "going to be
    comment; a mismatch means someone worked after the pause, so read those commits before going on.
    Uncommitted changes in a worktree mean the pause was not clean; commit them as `wip:` and say so.
 
-3. **Diff done against pending.** Compare what landed with what the parent issue asks for, name the
-   resume point, and don't redo finished work or rerun an old repro.
+3. **Diff done against pending.** Compare what landed with what the parent issue asks for, using
+   `compost:implement` step 2's done, blocked, and taken (the branches the status comment lists
+   are this run's own, not taken), name the resume point, and don't redo finished work or rerun an old repro.
 
 4. **Check the claim the next step rests on.** Before building on inherited work, prove the one
    fact it depends on against the real artifact: run the suite on the feature branch, or the check
    that showed the last issue working. A passing report from the previous session is not proof
    ([prove it works](../../canon/prove-it-works.md)).
 
-5. **Continue.** Hand the run to the skill the next action names, usually `compost:implement`, and
-   post a one-line comment on the parent issue saying the run resumed and from where.
+5. **Continue.** Load `compost:implement` first, even when the next action belongs to another
+   skill: loading pause ended the run for compost's Stop hook, and only an implement load starts
+   it again. Then hand the next action to the skill it names, and post a one-line comment on the
+   parent issue saying the run resumed and from where.
 
 ## Next moves
 
