@@ -124,26 +124,34 @@ def test_git_missing_from_path_is_reported(monkeypatch):
 def test_advance_resolves_the_commit_and_moves_only_the_named_pin(pile_file, upstream):
     head = commit(upstream, {"skills/to-spec/SKILL.md": "spec v2\n"}, "second")
     before = pile_file.read_text()
-    old, new = pile.advance(pile_file, "acme", head[:7])
+    old, new = pile.advance(pile_file, "acme", head)
     assert new == head
     assert pile_file.read_text() == before.replace(old, head)
 
 
+@pytest.mark.parametrize("commit", ["origin/HEAD", "HEAD", "abc1234", "A" * 40], ids=["ref", "head", "short", "upper"])
+def test_advance_takes_only_a_full_hash_so_a_fetch_cannot_move_it_past_unruled_changes(pile_file, upstream, commit):
+    before = pile_file.read_text()
+    with pytest.raises(pile.PileError, match="pass the full commit hash `status` printed"):
+        pile.advance(pile_file, "acme", commit)
+    assert pile_file.read_text() == before
+
+
 def test_advance_refuses_a_commit_upstream_does_not_have(pile_file):
-    with pytest.raises(pile.PileError, match="0000000 is not a commit in acme/skills"):
-        pile.advance(pile_file, "acme", "0000000")
+    with pytest.raises(pile.PileError, match="0{40} is not a commit in acme/skills"):
+        pile.advance(pile_file, "acme", "0" * 40)
 
 
 def test_advance_refuses_a_pin_written_in_another_form(pile_file):
     pile_file.write_text(pile_file.read_text().replace('pin = "aaaa', 'pin="aaaa'))
     with pytest.raises(pile.PileError, match="own's pin is not written as `pin = \"aaaa"):
-        pile.advance(pile_file, "own", "c")
+        pile.advance(pile_file, "own", "c" * 40)
 
 
 def test_advance_refuses_a_pin_two_sources_share(pile_file):
     pile_file.write_text(pile_file.read_text().replace("bbbbbbbbbbbbbbbb", "aaaaaaaaaaaaaaaa"))
     with pytest.raises(pile.PileError, match="shared with another source"):
-        pile.advance(pile_file, "own", "c")
+        pile.advance(pile_file, "own", "c" * 40)
 
 
 def test_notice_lists_inputs_and_frozen_sources_but_not_references(pile_file):
@@ -156,6 +164,21 @@ def test_notice_lists_inputs_and_frozen_sources_but_not_references(pile_file):
 def test_cli_status_prints_the_report(pile_file, capsys):
     assert pile.main(["--pile", str(pile_file), "status"]) == 0
     assert "acme (acme/skills): nothing new since" in capsys.readouterr().out
+
+
+def test_cli_status_with_references_lists_a_watched_repos_new_files_and_without_leaves_it_out(pile_file, capsys):
+    watched = pile_file.parent / "github" / "else" / "skills.git"
+    watched.mkdir(parents=True)
+    run_git(watched, "init", "-q", "-b", "main")
+    pin = commit(watched, {"README.md": "readme\n"}, "first")
+    head = commit(watched, {"skills/new-idea/SKILL.md": "idea\n"}, "second")
+    pile_file.write_text(pile_file.read_text().replace("bbbbbbbbbbbbbbbb", pin))
+    assert pile.main(["--pile", str(pile_file), "status"]) == 0
+    assert "else/skills" not in capsys.readouterr().out
+    assert pile.main(["--pile", str(pile_file), "status", "--references"]) == 0
+    out = capsys.readouterr().out
+    assert f"watch (else/skills, reference): {pin[:7]} → {head}\n" in out
+    assert "  feed nothing in compost:\n    skills/new-idea/SKILL.md" in out
 
 
 def test_cli_advance_prints_the_move(pile_file, upstream, capsys):

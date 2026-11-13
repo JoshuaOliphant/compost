@@ -46,10 +46,15 @@ judged against the step it serves. Report the two apart.
 
 ## Check for upstream changes
 
-1. Run `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/pile.py status`. For each input it keeps a blobless
+1. In a checkout of the compost repo on its default branch, freshly pulled, run
+   `uv run plugin/scripts/pile.py status --references`; the installed plugin's `pile.toml` lags
+   until a release ships, so it would list changes an unreleased pin move already ruled on. For
+   each input it keeps a blobless
    clone under `~/.cache/compost/upstream/`, lists every file changed since the pin, and groups
    them by the compost skill or mechanism they feed, then lists the names of the changed files no
-   `feeds` entry maps. It prints the `git diff` command for reading each change.
+   `feeds` entry maps. `--references` adds each reference source, whose changed files all feed
+   nothing; that is how a watched repo gets watched. It prints the `git diff` command for reading
+   each change.
 2. Skim the unmapped file names for an item that did not exist when the pin was set: a skill, mod
    or hook, agent, or script. Note its kind. One that overlaps a compost skill or mechanism becomes
    a `feeds` entry now; a candidate add gets one once its issue lands, naming what it became. Its
@@ -67,13 +72,17 @@ judged against the step it serves. Report the two apart.
    [canon](../../canon/README.md). When dozens of changes remain to read, split them across
    parallel subagents, one per compost skill or mechanism, each returning a ruling with a one-line
    reason; then read the adopt, adapt, and add candidates yourself.
-4. File one issue per adopt, adapt, or add on the compost repo (the `repository` in
+4. Before filing, list the open issues labelled `upstream` and skip any change one already
+   carries (match on the upstream diff link): a run that died between filing and moving the pin
+   leaves them behind. File one issue per remaining adopt, adapt, or add on the compost repo (the `repository` in
    `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`), labeled `upstream`, with the upstream diff
    link, its kind, and what to take: for an overlap, the compost skill or mechanism it touches; for
    an add, the step it serves and what it makes cheaper or harder to skip.
 5. Once every change since a pin has a ruling, move the pin. Pins live in the source repo, not the
    installed plugin: in a worktree of that repo run
-   `uv run plugin/scripts/pile.py advance <source> <commit>`, then
+   `uv run plugin/scripts/pile.py advance <source> <commit>`, with `<commit>` the full hash
+   `status` printed for that source (a ref would resolve after a fresh fetch and could move the pin
+   past changes nobody ruled on, so `advance` refuses one), then
    `uv run plugin/scripts/pile.py notice`, and commit both with the ignored changes and
    their reasons in the commit message. That is the record that keeps them from resurfacing.
 6. Report per source, in two parts: overlaps, with how many changes were adopted, adapted, and
@@ -92,6 +101,7 @@ judged against the step it serves. Report the two apart.
    sharper trigger, a rule enforced instead of stated. For each add, name the step it serves and
    what it makes cheaper or harder to skip.
 3. Add a `[[source]]` with `role = "reference"`, its license, and `pin` set to the commit you read.
+   Later `status --references` runs list what it adds after that commit.
 4. A reference becomes an `input` the first time compost takes text or a mod or hook from it: set
    the role, add `feeds` (a skill name, `hooks`, or `hooks/<mod>`), and regenerate NOTICE.
 
