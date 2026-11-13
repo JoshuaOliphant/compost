@@ -14,7 +14,8 @@ const TYPED_BY_A_PERSON = new Set(['composer', 'bridge'])
 const SKILL_CHARS = 16000
 const TURN_CHARS = 12000
 const EVIDENCE_CHARS = 4000
-const { thresholds: THRESHOLDS, turn: TURN_QUESTIONS, next_message: NEXT_MESSAGE_QUESTIONS } = judgments
+const { thresholds: THRESHOLDS, turn: TURN_QUESTIONS, next_message: NEXT_MESSAGE_QUESTIONS, step: STEP_QUESTION } = judgments
+const STEP_BODY_CHARS = 400
 
 export type DriftKind = keyof typeof TURN_QUESTIONS | 'corrected'
 export type Hit = {
@@ -106,6 +107,41 @@ export function turnTrace(messages: SessionMessage[]): { prompt: string; trace: 
   const body = rest.join('\n')
   const trace = body.length > TURN_CHARS ? `${opening}\n…\n${body.slice(-TURN_CHARS)}` : [opening, body].join('\n')
   return { prompt: messages[start]?.text ?? '', trace }
+}
+
+export type Step = { n: string; title: string; body: string }
+
+// A skill's numbered steps (`3. **Survey the suite.** ...`), each with the start of its text.
+export function skillSteps(text: string): Step[] {
+  return text
+    .split(/^(?=\d+\. \*\*)/m)
+    .map(block => block.match(/^(\d+)\. \*\*(.+?)\*\*([\s\S]*)/))
+    .filter(match => match !== null)
+    .map(([, n, title, rest]) => ({ n, title: title.replace(/\.$/, ''), body: rest.split(/\s+/).join(' ').trim().slice(0, STEP_BODY_CHARS) }))
+}
+
+// One whole-skill "did it deviate" question scores 0.8+ on a long skill however well the turn followed it, so a
+// skill with numbered steps gets one question per step, and the turn deviated by its likeliest skipped step.
+function turnQuestions(text: string): Record<string, string> {
+  const steps = skillSteps(text)
+  if (steps.length === 0) return TURN_QUESTIONS
+  const asked: Record<string, string> = { missing_guidance: TURN_QUESTIONS.missing_guidance }
+  for (const step of steps) {
+    asked[`step ${step.n}`] = STEP_QUESTION.replace('{n}', step.n).replace('{title}', step.title).replace('{body}', step.body)
+  }
+  return asked
+}
+
+// The step answers folded into one `deviated` score, named after the step that set it.
+function turnScores(text: string, answers: Record<string, number>): { kind: DriftKind; p: number; why?: string }[] {
+  const steps = skillSteps(text)
+  if (steps.length === 0) return Object.entries(answers).map(([kind, p]) => ({ kind: kind as DriftKind, p }))
+  const likeliest = steps.reduce((best, step) => ((answers[`step ${step.n}`] ?? 0) > (answers[`step ${best.n}`] ?? 0) ? step : best))
+  const p = answers[`step ${likeliest.n}`] ?? 0
+  return [
+    { kind: 'missing_guidance', p: answers.missing_guidance ?? 0 },
+    { kind: 'deviated', p, why: `Likeliest skipped step: ${likeliest.n}. ${likeliest.title} (p=${p.toFixed(2)})` },
+  ]
 }
 
 function evidence(trace: string): string {
@@ -210,15 +246,15 @@ export const register: Register = on => {
     if (loop === MAIN_LOOP) pending = watched
 
     const answered = await Promise.all(
-      watched.map(w => nouls($, target, { skill: { name: w.skill, text: w.text }, turn: w.trace }, TURN_QUESTIONS)),
+      watched.map(w => nouls($, target, { skill: { name: w.skill, text: w.text }, turn: w.trace }, turnQuestions(w.text))),
     )
     const [session, at] = await Promise.all([$.session.id(), $.clock.now()])
     await record(
       $,
       watched.flatMap((w, i) =>
-        Object.entries(answered[i])
-          .filter(([kind, p]) => p >= THRESHOLDS[kind as keyof typeof THRESHOLDS])
-          .map(([kind, p]) => hitOf(w, kind as DriftKind, p, session, at, w.prompt)),
+        turnScores(w.text, answered[i])
+          .filter(({ kind, p }) => p >= THRESHOLDS[kind as keyof typeof THRESHOLDS])
+          .map(({ kind, p, why }) => hitOf(w, kind, p, session, at, w.prompt, why)),
       ),
     )
     return result
@@ -251,6 +287,7 @@ export const register: Register = on => {
   on('command.run', { name: 'drift' }, async $ => ({ text: await driftSummary($) }))
 }
 
-function hitOf(w: Watched, kind: DriftKind, p: number, session: string, at: number, prompt: string): Hit {
-  return { skill: w.skill, kind, p, at, session, turn: w.turn, skill_hash: skillHash(w.text), prompt, evidence: evidence(w.trace) }
+function hitOf(w: Watched, kind: DriftKind, p: number, session: string, at: number, prompt: string, why?: string): Hit {
+  const shown = why ? `${why}\n${evidence(w.trace)}` : evidence(w.trace)
+  return { skill: w.skill, kind, p, at, session, turn: w.turn, skill_hash: skillHash(w.text), prompt, evidence: shown }
 }

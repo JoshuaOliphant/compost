@@ -117,6 +117,36 @@ test('a turn that used a skill is judged against it and its drift is logged', as
   expect(world.toasts).toEqual([])
 })
 
+const STEPPED = [
+  '# Verify',
+  '',
+  '1. **Read the issue.** Find the tracker and read its acceptance criteria.',
+  '',
+  '2. **Run the gates.** Run `uv run pytest`',
+  '   and record its output.',
+].join('\n')
+
+test('a skill with numbered steps is judged step by step, and deviates by its likeliest skipped step', async ($, on) => {
+  const world = engine(on, { 'step 1': 0.2, 'step 2': 0.81, missing_guidance: 0.1 })
+  await $.session.start(START)
+  await $.skill.prompt({ skill: 'compost:verify', text: STEPPED })
+  await $.turn.complete(ENDED)
+  const questions = world.asked[0].questions as Record<string, { instructions: string }>
+  expect(Object.keys(questions)).toEqual(['missing_guidance', 'step 1', 'step 2'])
+  expect(questions['step 2'].instructions).toContain('step 2 of that skill, "Run the gates", which begins: Run `uv run pytest` and record its output.')
+  expect(logged(world)).toMatchObject([{ skill: 'compost:verify', kind: 'deviated', p: 0.81 }])
+  expect(String(logged(world)[0].evidence)).toStartWith('Likeliest skipped step: 2. Run the gates (p=0.81)\nUSER: run the verify gates')
+})
+
+test('a stepped skill whose every step scores under the threshold logs nothing', async ($, on) => {
+  const world = engine(on, { 'step 1': 0.72, 'step 2': 0.3, missing_guidance: 0.2 })
+  await $.session.start(START)
+  await $.skill.prompt({ skill: 'compost:verify', text: STEPPED })
+  await $.turn.complete(ENDED)
+  expect(world.asked.length).toBe(1)
+  expect(logged(world)).toEqual([])
+})
+
 test('by default the hook asks TypeSafe for jev-latest', async ($, on) => {
   const world = engine(on, {})
   await $.session.start(START)

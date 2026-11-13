@@ -2,6 +2,7 @@
 # ABOUTME: pile.toml, and Jev stand-ins that answer with the SDK's own response models. Scripts import as modules.
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -55,6 +56,20 @@ def ts_default(path: Path) -> dict:
 def skill_drift_judgments() -> dict:
     """The skill-drift mod's questions and thresholds."""
     return ts_default(PLUGIN_ROOT / "hooks" / "skill-drift-judgments.ts")
+
+
+def skill_drift_step_questions(skill_text: str) -> dict[str, str]:
+    """The questions hooks/skill-drift.ts asks for a skill with numbered steps (skillSteps + turnQuestions there):
+    missing_guidance, then the `step` template once per `N. **Title.**` step with the start of its text."""
+    judgments = skill_drift_judgments()
+    asked = {"missing_guidance": judgments["turn"]["missing_guidance"]}
+    for block in re.split(r"^(?=\d+\. \*\*)", skill_text, flags=re.MULTILINE):
+        if match := re.match(r"(\d+)\. \*\*(.+?)\*\*(.*)", block, re.DOTALL):
+            number, title, rest = match.groups()
+            body = " ".join(rest.split())[:400]
+            step = judgments["step"].replace("{n}", number).replace("{title}", title.removesuffix("."))
+            asked[f"step {number}"] = step.replace("{body}", body)
+    return asked
 
 
 def skill_drift_hit() -> dict:

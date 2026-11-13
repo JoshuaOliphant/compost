@@ -6,7 +6,7 @@ import shutil
 import subprocess
 
 import pytest
-from conftest import PLUGIN_ROOT, skill_drift_judgments
+from conftest import PLUGIN_ROOT, skill_drift_judgments, skill_drift_step_questions
 from jevtools import core
 
 needs_claude = pytest.mark.skipif(
@@ -19,6 +19,20 @@ def test_judgments_are_plain_json_with_a_threshold_per_question():
     judgments = skill_drift_judgments()
     asked = {**judgments["turn"], **judgments["next_message"]}
     assert set(asked) == set(judgments["thresholds"]) == {"deviated", "missing_guidance", "corrected"}
+    assert all(f"{{{slot}}}" in judgments["step"] for slot in ("n", "title", "body"))
+
+
+def test_the_live_eval_asks_the_step_questions_the_hook_asks():
+    """tests/skill-drift.test.ts pins the hook's step 2 question on this same skill text; this pins the eval's copy."""
+    stepped = "# Verify\n\n1. **Read the issue.** Find the tracker and read its acceptance criteria.\n\n"
+    stepped += "2. **Run the gates.** Run `uv run pytest`\n   and record its output."
+    asked = skill_drift_step_questions(stepped)
+    assert list(asked) == ["missing_guidance", "step 1", "step 2"]
+    assert (
+        'step 2 of that skill, "Run the gates", which begins: Run `uv run pytest` and record its output.'
+        in asked["step 2"]
+    )
+    assert skill_drift_step_questions("no numbered steps here") == {"missing_guidance": asked["missing_guidance"]}
 
 
 def test_the_hook_targets_the_same_server_model_and_placeholder_key_as_core():

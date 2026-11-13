@@ -1,10 +1,10 @@
-# ABOUTME: Live eval for the skill-drift mod's Jev questions on 60 labeled real skill-turns in compost-evals (COMPOST_EVALS).
-# ABOUTME: Asks each question as hooks/skill-drift.ts does, prints a threshold sweep, and asserts the floor measured 6 Oct 2026.
+# ABOUTME: Live evals for the skill-drift mod's Jev questions on labeled real skill-turns in compost-evals (COMPOST_EVALS).
+# ABOUTME: Asks each question as hooks/skill-drift.ts does, prints a threshold sweep, and asserts the floors measured.
 import asyncio
 import json
 
 import pytest
-from conftest import TENTHS, evals_dir, rates, skill_drift_judgments, sweep
+from conftest import TENTHS, evals_dir, rates, skill_drift_judgments, skill_drift_step_questions, sweep
 from jevtools import core
 from typesafe_sdk import Noul
 
@@ -15,7 +15,10 @@ def scored_by_question() -> dict[str, list[tuple[float, bool]]]:
     judgments = skill_drift_judgments()
     turn_questions = {name: Noul(instructions=text) for name, text in judgments["turn"].items()}
     next_questions = {name: Noul(instructions=text) for name, text in judgments["next_message"].items()}
-    cases = json.loads((evals_dir() / "skill-drift.json").read_text())
+    path = evals_dir() / "skill-drift.json"
+    if not path.exists():
+        pytest.skip("compost-evals has no skill-drift.json (the 60 whole-skill cases of 6 Oct 2026)")
+    cases = json.loads(path.read_text())
 
     async def judge(jev: core.Jev, case: dict) -> dict:
         state = case["state"]
@@ -55,3 +58,35 @@ def test_each_question_flags_its_labeled_drift_at_the_mods_threshold():
     deviated_precision, deviated_recall = measured["deviated"][1:]
     assert deviated_precision >= 0.75 and deviated_recall >= 0.9
     assert measured["missing_guidance"][2] == measured["corrected"][2] == 1.0
+
+
+def test_a_stepped_skill_deviates_only_when_a_step_was_really_skipped():
+    """23 hand-labeled compost:build turns (8 that did every step, 15 that skipped one or more), 13 Nov 2026.
+
+    The whole-skill `deviated` question scored all 23 between 0.75 and 0.95, clean or not; the likeliest skipped
+    step, as the hook now scores it, put every clean turn under 0.75 and 11 of the 15 drifting ones over it.
+    """
+    threshold = skill_drift_judgments()["thresholds"]["deviated"]
+    root = evals_dir()
+    cases = json.loads((root / "skill-drift-steps.json").read_text())
+
+    async def judge(jev: core.Jev, case: dict) -> float:
+        text = (root / case["skill"]["file"]).read_text()
+        body = text.split("---", 2)[2].lstrip("\n") if text.startswith("---") else text
+        skill = f"Base directory for this skill: /plugin/skills/build\n\n{body}"
+        questions = {name: Noul(instructions=q) for name, q in skill_drift_step_questions(skill).items()}
+        answer = await jev.ask(
+            "skill-drift", {"skill": {"name": case["skill"]["name"], "text": skill}, "turn": case["turn"]}, questions
+        )
+        return max(answer.noul(name) for name in questions if name.startswith("step "))
+
+    async def run() -> list[float]:
+        async with core.open_client() as client:
+            jev = core.Jev(client, core.Cache())
+            return await asyncio.gather(*(judge(jev, case) for case in cases))
+
+    rows = [(p, case["expected"]["deviated"]) for p, case in zip(asyncio.run(run()), cases, strict=True)]
+    sweep(rows, TENTHS)
+    accuracy, precision, recall = rates(rows, threshold)
+    print(f"deviated by step at {threshold}: accuracy {accuracy:.2f} precision {precision:.2f} recall {recall:.2f}")
+    assert precision == 1.0 and recall >= 0.7
