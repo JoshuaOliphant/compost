@@ -2,6 +2,14 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.34.3] - 2026-11-13
+
+### Fixed
+
+- The skill-drift mod's `missing_guidance` question fired on nearly every `compost:build` turn (16 of 18 turns with no gap scored over 0.6). It now asks whether something the skill relies on failed to fit the case: a command returning an outcome the skill doesn't say how to handle, or a method it prefers that its own tools can't check, with no fallback given. The threshold is now 0.5. On the 23 labeled build turns, 5 hit a real gap (Jev find-test exiting 2, or duplicate-test not seeing a doctest build preferred). Over ten runs it flagged at most 1 of the other 18 and 4 or 5 of the 5; the margin is a few hundredths, so the live eval allows one false hit. Only Jev-tool gaps are labeled so far.
+- `compost:build` says what to do when Jev can't see a test: find-test's exit 2 `no tests found`, or duplicate-test leaving a new test (a doctest, say) out of its `tests`, means do the step by hand. The labeled exit-2 turns came from the unittest collector bug that 0.34.1 fixed, so today this mostly covers suites Jev really can't read, and doctests. A real Opus run that hit the doctest gap was flagged at 0.73 before this change; a run with the same gap on the new build scores 0.35 when replayed.
+- The live eval drops the 60-turn whole-skill eval, whose data never reached compost-evals (#16), and allows one false hit for `deviated` too: over six runs a clean turn crossed 0.75 in two. `corrected` has no labeled data and is unmeasured.
+
 ## [0.34.2] - 2026-11-13
 
 ### Fixed

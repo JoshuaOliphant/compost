@@ -8,7 +8,10 @@ or two for a fraction of a cent. Write the input JSON to a temp file and run:
 uv run ${CLAUDE_PLUGIN_ROOT}/scripts/jev.py <tool> --input <file>
 ```
 
-Exit 0 prints the judgment as JSON. Exit 2 means the input is malformed: fix it. Exit 3 means Jev
+Exit 0 prints the judgment as JSON. Exit 2 means the input is malformed: fix it, unless find-test
+says `no tests found`, which means Jev cannot read this suite (or it has no tests yet): do the step
+by hand. duplicate-test never exits 2 for that; it returns `"tests": []`, and a new test missing
+from that list (a doctest, say) means the same. Exit 3 means Jev
 is unavailable (no key, or the API failed): do the step by hand as the step describes. Jev only
 picks among tests the code lists and checks pairs the code chose; you still write every test, and
 the raw probabilities sit beside each decision so you can overrule it out loud.
