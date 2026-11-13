@@ -40,14 +40,16 @@ the work so each step can be checked before the next builds on it
      ticked: reviewed and landed on the feature branch (step 7).
    - An issue is **blocked** while any issue on its "Blocked by #n" lines is not done. The forge's
      own dependency count (open blockers) stays non-zero until the PR merges; don't read it.
-   - An issue is **taken** when a branch named for it (`<issue>-<slug>`, what `compost:build`
-     creates, and step 4 pushes) exists after `git fetch`, the issue isn't done, and the branch
-     isn't this run's own. This run's own are the branches this session made and, when this
-     session resumed from a `compost:pause` status comment (and posted the "resumed" comment
-     after it), the branches that comment lists. Git is the claim; a second session on the same
-     parent skips a taken issue. A claim expires when the parent issue has had no new comment for
-     a day, since a live run keeps posting rulings and review rounds there: take the issue over
-     from its branch's head.
+   - An issue is **taken** when a branch for it exists after `git fetch`, the issue isn't done,
+     and the branch isn't this run's own. Match by prefix, `refs/heads/<issue>-*`: `compost:build`
+     names the branch `<issue>-<slug>` and step 4 pushes it, but another session may derive a
+     different slug. This run's own are the branches this session made and, when this session
+     resumed from a `compost:pause` status comment (and posted the "resumed" comment after it),
+     the branches that comment lists. Git is the claim; a second session on the same parent skips
+     a taken issue. A claim expires when no comment on the parent from any session but this one
+     is under a day old: a live run keeps posting rulings and review rounds there, and your own
+     comments say nothing about whether the other session is alive. Take the issue over from its
+     branch's head.
    - The **frontier** is every open issue that is not done, not blocked, not taken, and not
      labelled `ready-for-human` (that label is for work only a person can do; list those issues
      under Risk in the close-out recap instead of building them).
@@ -162,9 +164,10 @@ the work so each step can be checked before the next builds on it
 
    compost's Stop hook holds you to this list during an implement run: when your last message waits
    on the user for anything else, Jev flags it and the hook sends you back to post a ruling and
-   continue. The run ends when `compost:finish` or `compost:pause` loads (resuming loads implement
-   again, which starts a new run), and a turn that answers a message the user
-   typed is attended, so waiting on them there is allowed.
+   continue. The run ends when `compost:finish` loads, or `compost:pause` once the user has sent a
+   message during the run; a pause you start on your own leaves the guard on, so stop only for the
+   list above (resuming loads implement again, which starts a new run). A turn that answers a
+   message the user typed is attended, so waiting on them there is allowed.
 
    When the run repeats a mistake (a command that needs a flag, a fixture that lies, a service that
    must be up), record the gotcha with `compound-knowledge:compound-capture` if it is installed, so

@@ -310,7 +310,9 @@ def main(argv: list[str] | None = None) -> int:
     superseded.add_argument("--claude-dir", type=Path, default=claude_config.CLAUDE_DIR)
     status = commands.add_parser("status", help="list upstream changes since each input's pin, by compost skill")
     status.add_argument("--references", action="store_true", help="also list changes in the reference sources")
-    move = commands.add_parser("advance", help="move SOURCE's pin to COMMIT, resolved to a full hash upstream")
+    move = commands.add_parser(
+        "advance", help="move SOURCE's pin to COMMIT, the full hash `status` printed (checked to exist upstream)"
+    )
     move.add_argument("source")
     move.add_argument("commit")
     notice = commands.add_parser("notice", help="write NOTICE from pile.toml")

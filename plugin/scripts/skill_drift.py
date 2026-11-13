@@ -92,6 +92,7 @@ def mark(claude_dir: Path, ids: list[str]) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile("w", dir=path.parent, delete=False, suffix=".tmp") as handle:
         handle.write(json.dumps(sorted(done), indent=2) + "\n")
+    os.chmod(handle.name, 0o644)  # a temp file is 0600; keep the mode a plain write gave
     os.replace(handle.name, path)
     return len(done)
 

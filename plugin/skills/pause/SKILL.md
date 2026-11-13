@@ -82,8 +82,8 @@ Pause only when asked or when the session has to end. "Keep going", "going to be
    ([prove it works](../../canon/prove-it-works.md)).
 
 5. **Continue.** Load `compost:implement` first, even when the next action belongs to another
-   skill: loading pause ended the run for compost's Stop hook, and only an implement load starts
-   it again. Then hand the next action to the skill it names, and post a one-line comment on the
+   skill: a pause the user asked for ended the run for compost's Stop hook, and only an implement
+   load starts it again. Then hand the next action to the skill it names, and post a one-line comment on the
    parent issue saying the run resumed, from which status comment, and in which session; that
    comment makes the status comment's branches this run's own (`compost:implement` step 2).
 

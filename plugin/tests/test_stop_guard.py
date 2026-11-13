@@ -153,6 +153,12 @@ LOADS_PAUSE = {
     "type": "assistant",
     "message": {"id": "p0", "content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "compost:pause"}}]},
 }
+SLASH_PAUSE = {
+    "type": "user",
+    "message": {
+        "content": "<command-message>compost:pause</command-message>\n<command-name>/compost:pause</command-name>"
+    },
+}
 SLASH_FINISH = {
     "type": "user",
     "message": {
@@ -179,26 +185,34 @@ def user(content, **extra) -> dict:
         [
             LOADS_IMPLEMENT,
             said("m1", "#13 landed."),
+            user("Stop here for today."),
             LOADS_PAUSE,
             said("m2", "Paused; resume from #14."),
             NOTIFIED,
             WAITS,
         ],
+        [LOADS_IMPLEMENT, said("m1", "#13 landed."), SLASH_PAUSE, said("m2", "Paused."), NOTIFIED, WAITS],
     ],
     ids=[
         "finish loaded after implement",
         "finish typed after implement",
         "finish then a notification",
-        "pause then a notification",
+        "pause the user asked for, then a notification",
+        "pause typed, then a notification",
     ],
 )
-def test_finish_or_pause_ends_the_run_so_a_stop_after_it_is_never_judged(transcript, entries):
+def test_finish_or_a_pause_the_user_asked_for_ends_the_run_so_a_stop_after_it_is_never_judged(transcript, entries):
     client = StubClient(lambda state, questions: {})
     assert stop_guard.decide({"transcript_path": transcript(*entries)}, lambda: client) is None
     assert client.calls == []
 
 
-@pytest.mark.parametrize("ended", [LOADS_FINISH, LOADS_PAUSE], ids=["after finish", "after pause"])
+def test_a_pause_the_agent_starts_on_its_own_leaves_the_run_guarded(transcript):
+    path = transcript(LOADS_IMPLEMENT, said("m1", "#13 landed."), LOADS_PAUSE, NOTIFIED, WAITS)
+    assert stop_guard.decide({"transcript_path": path}, judging(0.9, 0.1))["decision"] == "block"
+
+
+@pytest.mark.parametrize("ended", [LOADS_FINISH, SLASH_PAUSE], ids=["after finish", "after pause"])
 def test_an_implement_load_after_the_run_ended_starts_a_new_run(transcript, ended):
     path = transcript(LOADS_IMPLEMENT, ended, SLASH_IMPLEMENT, said("m1", "Which library do you prefer?"))
     assert stop_guard.decide({"transcript_path": path}, judging(0.9, 0.1)) == {
