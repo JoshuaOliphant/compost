@@ -7,7 +7,9 @@
 # ABOUTME: CLI: `patterns` groups open hits into cross-session patterns, `summary` is the mod's /drift, `mark` reviews.
 import argparse
 import json
+import os
 import sys
+import tempfile
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
@@ -88,7 +90,9 @@ def mark(claude_dir: Path, ids: list[str]) -> int:
     done = reviewed(claude_dir) | set(ids)
     path = log_dir(claude_dir) / REVIEWED
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(sorted(done), indent=2) + "\n")
+    with tempfile.NamedTemporaryFile("w", dir=path.parent, delete=False, suffix=".tmp") as handle:
+        handle.write(json.dumps(sorted(done), indent=2) + "\n")
+    os.replace(handle.name, path)
     return len(done)
 
 

@@ -64,7 +64,12 @@ so a skill already fixed stops producing patterns from its old text.
    - **A false flag.** The evidence does not show drift. Note it; enough of these on one kind
      mean the mod's threshold needs raising.
 4. **Act by owner.**
-   - `repo`, fault in the skill: branch `claude/skill-drift-<skill>` from the default branch,
+   - `repo`, fault in the skill, with a pull request from `claude/skill-drift-<skill>` still
+     open: the fix is in flight, and the new hits are on the text it replaces until it merges and
+     installs. Don't branch again. Read the hits against the open fix; when it already covers
+     them, comment their prompts and evidence on that pull request, and when it doesn't, push the
+     extra edit to its branch. The ruling is "fix in flight", with the link.
+   - `repo`, fault in the skill, nothing open: branch `claude/skill-drift-<skill>` from the default branch,
      edit the skill file, and when the skill is compost's run the regression checks in
      [turn's "Check compost's own text after a change"](../turn/SKILL.md#check-composts-own-text-after-a-change). Bump the plugin's version as `AGENTS.md` says, run the
      repo checks, commit (`fix(<plugin>): <what the skill now says>`), push, and open one draft
