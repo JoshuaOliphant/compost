@@ -28,6 +28,14 @@ def dedent(line: str, indent: int) -> str:
     return line[indent:] if line[:indent].isspace() else line
 
 
+def is_test_class(node: ast.ClassDef, test_classes: set[str]) -> bool:
+    """pytest collects `Test*` classes; unittest any TestCase subclass whatever its name (`GreetTest(TestCase)`).
+    A base counts when its name says Test (`TestCase`, `APITestCase`, `BaseTest`) or it is a test class above in
+    this module; a base imported under a name without Test is not followed."""
+    bases = [ast.unparse(base).rsplit(".", 1)[-1] for base in node.bases]
+    return node.name.startswith("Test") or any("Test" in base or base in test_classes for base in bases)
+
+
 def python_tests(source: str, relative: str, limit: int) -> dict[str, str]:
     try:
         tree = ast.parse(source)
@@ -35,9 +43,11 @@ def python_tests(source: str, relative: str, limit: int) -> dict[str, str]:
         return {}
     lines = source.splitlines()
     found = {}
+    test_classes: set[str] = set()
     for node in tree.body:
         members = [(node, "")]
-        if isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
+        if isinstance(node, ast.ClassDef) and is_test_class(node, test_classes):
+            test_classes.add(node.name)
             members = [(child, f"{node.name}::") for child in node.body]
         for member, prefix in members:
             if isinstance(member, ast.FunctionDef | ast.AsyncFunctionDef) and member.name.startswith("test_"):

@@ -51,14 +51,25 @@ no test counts until you have seen it fail for the right reason.
    - how tests are named, grouped, and split across files
 
    Write a placement map with one line per AC: the file and test it lands in, and the fixtures
-   it uses. Once the tests exist, post it on the issue as the AC table, in the `| AC | Test |`
+   it uses. Once the tests exist, post it on the issue as the AC table (a comment, made the way
+   `docs/agents/issue-tracker.md` says), in the `| AC | Test |`
    shape `compost:verify` step 1 shows, one row per AC-N with its test node id. That one comment
    is the issue's AC table from then on: `compost:verify` edits it rather than posting another.
 
-4. **Place each acceptance criterion.** Ask Jev first: run `find-test` with the repo and every
-   AC-N ([jev](references/jev.md)). `extend` names the test that already covers the criterion;
-   `add-beside` names the one to write next to. Read the named test before you act on it. Exit 3
-   means Jev is unavailable: place it from your survey. Either way, take the first of these that fits:
+4. **Place each acceptance criterion.** Ask Jev first, even when the placement looks obvious: it
+   answers in a second for a fraction of a cent, and its `covered` score is what tells a test to
+   extend from one to add beside. Write the criteria to a temp file and run `find-test`:
+
+   ```bash
+   criteria=$(mktemp)
+   echo '{"repo": ".", "criteria": ["AC-2: Given ..., When ..., Then ..."]}' > "$criteria"
+   uv run ${CLAUDE_PLUGIN_ROOT}/scripts/jev.py find-test --input "$criteria"
+   ```
+
+   `extend` names the test that already covers the criterion; `add-beside` names the one to write
+   next to ([jev](references/jev.md) has the full output). Read the named test before you act on
+   it. Exit 3 means Jev is unavailable: place it from your survey, and say so in your report.
+   Either way, take the first of these that fits:
    1. Change the expectation in a test that already covers the behavior.
    2. Add a case to an existing parametrized table.
    3. Write a test in the existing file, on existing fixtures. Extend a fixture or factory with a
@@ -141,9 +152,11 @@ no test counts until you have seen it fail for the right reason.
     finished branch.
 
 11. **Commit with the issue number.** Before committing, ask Jev whether a new or changed test
-    re-covers an existing one: run `duplicate-test` with the base the branch started from
-    ([jev](references/jev.md)), and fold every `fold into <test>` into that test as step 4 says.
-    Exit 3: compare each new test against its neighbours in the file yourself. When
+    re-covers an existing one, even when you added a single test: run
+    `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/jev.py duplicate-test --input <file>` on
+    `{"repo": ".", "base": "<the SHA the branch started from>"}` ([jev](references/jev.md)), and
+    fold every `fold into <test>` into that test as step 4 says. Exit 3: compare each new test
+    against its neighbours in the file yourself, and say so in your report. When
     `docs/agents/testing.md` records mutation testing for Python, also make each new test earn its place by
     mutation: collect per-test coverage and run `thin.py matrix --tests <new node ids>`, then
     `thin.py verdict`, as `compost:thin` does. A new test the verdict calls redundant or
