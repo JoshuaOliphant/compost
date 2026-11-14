@@ -2,6 +2,12 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.35.1] - 2026-11-13
+
+### Added
+
+- `pile.toml` watches swyxio/skills as a reference, pinned at the commit read, so `compost:turn` reports what it adds from here on. make-evals is filed as an add to `compost:diagnose` (#38).
+
 ## [0.35.0] - 2026-11-13
 
 ### Added
