@@ -2,6 +2,19 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.35.0] - 2026-11-13
+
+### Added
+
+- `scripts/frontier.py` computes `compost:implement`'s issue states from the tracker and git: `issues <parent>` prints each sub-issue as done, blocked, taken, frontier, or ready-for-human with the reason; `claim <decision>` prints the session holding a map decision's earliest live claim; `session` prints this clone's session id (kept in its common git dir, so the main checkout and its worktrees agree), or `COMPOST_SESSION` when set, for a second session in the same clone (prefixed on every call, since an `export` doesn't outlive one Bash call). It reads GitHub (`gh api`), GitLab (`glab api`), and local trackers, and reads a blocker that isn't on the parent's checklist, so a closed one from an earlier spec counts as done.
+
+### Changed
+
+- Every comment an implement run posts ends with `compost-session: <id>` (a local tracker adds the time from `date -u`), and starting an issue posts `Started <branch>` on it, then reruns `frontier.py issues`: the earliest live `Started` holds the issue (a later one takes over only after the holder has been silent a day), so a late starter backs off and a confirmed holder is never displaced. A branch is taken only while the session holding it is live, meaning some comment it tagged on the parent or any sub-issue is under a day old. Liveness now belongs to the claimant, so another session's comments no longer keep a dead claim alive, and comments on sub-issues (where rulings and review rounds go on GitHub) count. Resuming posts `Resumes: <id>` before loading implement, and pause's status comment carries its session tag; the `Resumes` line makes the paused session's branches this run's own; it replaces the branch list in the status comment as the record of ownership.
+- Map-decision claims use the same claimant-keyed liveness through `frontier.py claim`: the first claim holds until its session has been silent a day; a claim made after that takes over, and the old session coming back doesn't take it back. Rerun `compost:setup` to refresh `docs/agents/issue-tracker.md`. A claim posted by 0.34 names a branch or time rather than a tagged session, so it expires a day after posting even while that session works.
+- `compost:implement`'s rolling window starts a dependant once its blocker is ticked (reviewed and landed), not merely merged, matching the one definition of done. The draft PR's `Closes` line (implement and `compost:finish`) leaves out sub-issues another session holds, and the parent while any is held.
+- `compost:implement` says to load implement again after a mid-run `compost:finish`, and that the Stop hook sends a stop back only once.
+
 ## [0.34.3] - 2026-11-13
 
 ### Fixed

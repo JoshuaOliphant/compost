@@ -46,9 +46,12 @@ Used by `compost:slice` for map issues.
   line of `open`, `claimed`, or `resolved`.
 - **Frontier:** decisions that are `open`, or `claimed` with a claim that has expired, and whose
   `Blocked by` files are all `resolved`; lowest number wins.
-- **Claim:** set `Status: claimed`, add a `Claimed: <session> <ISO time>` line, and save; wait a
-  few seconds, then read the file back and keep the claim only if the line is still yours (two
-  sessions writing one file leave one line, so exactly one of them keeps it). A claim older than a day with
-  nothing after it has expired: take it over by rewriting the line.
+- **Claim:** set `Status: claimed`, add a `Claimed: <session> <time>` line (time as in Comment tags), and save; wait a
+  few seconds, then keep the claim only if compost's `frontier.py claim <file> --tracker local` prints your
+  session (two sessions writing one file leave one line, so exactly one of them keeps it). A claim
+  whose session has tagged nothing on the decision for a day has expired: take it over by
+  rewriting the line.
+- **Comment tags:** a comment ends with `compost-session: <id> <time>`, the time from
+  `date -u +%Y-%m-%dT%H:%M:%SZ`; it is the only clock a file has, so never guess it.
 - **Resolve:** append the answer under `## Answer`, set `Status: resolved`, then add the gist and
   link to the map's Decisions so far.
