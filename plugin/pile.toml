@@ -157,3 +157,11 @@ repo = "vercel-labs/skills"
 role = "reference"
 license = "MIT"
 pin = "7407f3893ad4dceab546ac002c3ef806e4000c73"
+
+[[source]]
+name = "swyx-skills"
+repo = "swyxio/skills"
+role = "reference"
+license = "MIT"
+pin = "da1b8a06f9063155365338d69508e7977e984af2"
+note = "Read at this pin. make-evals ruled an add to diagnose and skill-drift (#38). skill-cutter's acceptance-force classes are an adapt candidate against skill-drift, not yet filed. The rest are covered by review, thin, spec, and retro, or specific to swyx's tooling."
