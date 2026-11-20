@@ -49,3 +49,22 @@ as the `skill-drift` mod writes it to `~/.claude/skill-drift/`.
 
 **Pattern**: skill drift of one kind on one skill's current version, with hits from at least two
 sessions. The unit `compost:skill-drift` acts on; a lone hit is not one.
+
+**Pre-existing finding**: a real bug a reviewer finds at a line the diff under review did not change.
+The review records it apart and the branch never fixes it, so it neither blocks the change nor
+widens it. The workflow believes the label only where its record of the diff's changed lines shows
+the line untouched; anywhere else the finding is the diff's. In code: `preExisting` in
+`review-changes.js`.
+_Avoid_: old bug, unrelated finding, out-of-scope finding.
+
+**Review guide**: what a review judges a change by in this repo: what counts as a failure, how many
+minor findings the whole review keeps (the minor cap), and which files it skips. The repo root's
+`REVIEW.md` when there is one, else compost's defaults; the defaults are what the `REVIEW.md`
+starter writes out. In code: `guide` in `review-changes.js`.
+_Avoid_: review config, review rules, review policy.
+
+**Review round**: one pass of `compost:review` over an issue's branch, recorded as one issue comment
+headed `Review round <n>` with the head it reviewed and its findings and rulings. A later round
+reviews only the lines changed since that head and is told those rulings. `compost:implement` caps
+an issue at three. In code: `since` and `prior` in `review-changes.js`.
+_Avoid_: review pass, iteration.

@@ -3,7 +3,7 @@
 export const meta = {
   name: 'review-changes',
   description: 'Review a branch along two axes, Standards and Spec (one reviewer on both for a small, non-structural diff), then have skeptics try to refute every finding worth one (by Jev triage, else every blocker and major)',
-  whenToUse: 'After verify passes on an issue, or whenever a branch or work-in-progress diff needs review, whatever its size. Pass {base, head, issue, skeptics, jev, full}, all optional: base defaults to the merge-base with the default branch, head to HEAD, issue to one found in the commits or branch name, skeptics (votes per finding worth a skeptic) to 1, jev (the path to compost scripts/jev.py, which ranks files by structural risk) to none, full (force separate Standards and Spec reviewers on a small diff) to false. A diff of 50 changed lines or fewer that Jev ranks and finds not structural gets one reviewer covering both axes. A bare string is treated as base.',
+  whenToUse: 'compost:review is the normal entry point: it runs this workflow, runs the harness code review beside it, and works through the findings; call this directly only for the two axes alone. After verify passes on an issue, or whenever a branch or work-in-progress diff needs review, whatever its size. Pass {base, head, issue, spec, since, prior, skeptics, jev, full}, all optional: base defaults to the merge-base with the default branch, head to HEAD, issue to one found in the commits or branch name, spec (the issue text, fetched by the caller; scope then fetches nothing) to none, since (the head the last review round reviewed; reviewers then judge only what changed after it) and prior (the findings and rulings of that round, which reviewers and skeptics are told) to none, skeptics (votes per finding worth a skeptic) to 1, jev (the path to compost scripts/jev.py, which ranks files by structural risk) to this plugin\'s own copy, full (force separate Standards and Spec reviewers on a small diff) to false. A diff of 50 changed lines or fewer that Jev ranks and finds not structural gets one reviewer covering both axes. A bare string is treated as base.',
   phases: [
     { title: 'Scope', detail: 'pin the base, the diff, the spec, and the standards sources; rank files by structural risk' },
     { title: 'Standards', detail: 'reviewer against instructions files, CONTEXT.md, ADRs, and the canon (on a small diff, one light reviewer covers both axes here); skeptics refute each finding worth one' },
@@ -15,9 +15,30 @@ const input = typeof args === 'object' && args !== null ? args : { base: args }
 const skepticsPerFinding = input.skeptics || 1
 const head = input.head || 'HEAD'
 const jevScript = input.jev || ''
+// A caller holding the issue text (one whose tracker the lean scope agent cannot read, such as an MCP-only one) passes it in.
+const givenSpec = typeof input.spec === 'string' && input.spec.trim() ? input.spec : ''
+// The workflow runs the two axes and their skeptics; the harness's own code review is the caller's to run.
+const NOT_RUN = ['harness code review: not part of this workflow; compost:review runs it beside this one on a diff that changes executable code']
 const forceFull = Boolean(input.full)
+// A re-review round names the head the last round reviewed (since) and that round's findings with their rulings (prior).
+const since = typeof input.since === 'string' ? input.since.trim() : ''
+const prior = typeof input.prior === 'string' ? input.prior.trim() : ''
 // At or under this many changed lines, with Jev finding no structural file, one reviewer covers both axes.
 const LIGHT_MAX_CHANGED_LINES = 50
+
+// The new-side lines a diff changed, per file: what tells a finding about this diff from one about code it left alone.
+const CHANGED_SCHEMA = {
+  type: 'array',
+  description: 'For each changed file, the new-side line ranges its hunks cover, inclusive',
+  items: {
+    type: 'object',
+    required: ['file', 'lines'],
+    properties: {
+      file: { type: 'string' },
+      lines: { type: 'array', items: { type: 'array', items: { type: 'integer' }, minItems: 2, maxItems: 2 } },
+    },
+  },
+}
 
 const SCOPE_SCHEMA = {
   type: 'object',
@@ -30,6 +51,32 @@ const SCOPE_SCHEMA = {
     shortstat: { type: 'string', description: 'The line git diff --shortstat prints, verbatim; empty when it could not be read' },
     commits: { type: 'array', items: { type: 'string' } },
     files: { type: 'array', items: { type: 'string' } },
+    changed: CHANGED_SCHEMA,
+    dirty: { type: 'boolean', description: 'True when git status --porcelain shows uncommitted edits to a changed file' },
+    guide: {
+      type: 'object',
+      description: 'The review guide in force: the repo root REVIEW.md, or the defaults when it has none',
+      required: ['source', 'minorCap'],
+      properties: {
+        source: { type: 'string', enum: ['REVIEW.md', 'defaults'] },
+        minorCap: { type: 'integer', description: 'Most minor findings the whole review keeps' },
+        failure: { type: 'string', description: "REVIEW.md's Failure section, verbatim; empty for the defaults" },
+        skip: { type: 'string', description: "REVIEW.md's Skip section, verbatim; empty for the defaults" },
+        problem: { type: 'string', description: 'Why a REVIEW.md value could not be read; empty otherwise' },
+      },
+    },
+    skipped: { type: 'array', items: { type: 'string' }, description: 'The changed files a skip rule of the guide covers' },
+    delta: {
+      type: 'object',
+      description: 'Only when a since commit was given: the lines changed since the last round',
+      required: ['used', 'since', 'changed'],
+      properties: {
+        used: { type: 'boolean', description: 'false when since does not resolve or is not an ancestor of the head' },
+        since: { type: 'string', description: 'The resolved since SHA, or since as given when it did not resolve' },
+        changed: CHANGED_SCHEMA,
+        problem: { type: 'string', description: 'Why the delta was not used; empty otherwise' },
+      },
+    },
     standardsSources: { type: 'array', items: { type: 'string' } },
     spec: {
       type: 'object',
@@ -91,7 +138,11 @@ const FINDINGS_SCHEMA = {
         properties: {
           file: { type: 'string' },
           line: { type: ['integer', 'null'], description: 'null when the finding is about something absent from the diff' },
-          severity: { type: 'string', enum: ['blocker', 'major', 'minor'] },
+          severity: {
+            type: 'string',
+            enum: ['blocker', 'major', 'minor', 'pre-existing'],
+            description: 'pre-existing: a real bug at a line this diff did not change, recorded apart and never fixed on this branch',
+          },
           claim: { type: 'string' },
           evidence: { type: 'string', description: 'The rule or AC-N quoted with its file, plus the code quoted at file:line' },
           skeptic: { type: 'boolean', description: 'worth_skeptic from jev.py triage-finding; omit when Jev was unavailable' },
@@ -185,32 +236,39 @@ const issueHint = input.issue
   ? `The originating issue is \`${issueId}\` and no other: fetch it even if the conversation names a different one.`
   : 'No issue was given: look for issue references in the commit messages (#123, Closes #45) and in the branch name, then for a spec file under docs/, specs/, or .scratch/ matching the branch.'
 
-const riskStep = jevScript
-  ? `\n4. Rank the changed files by structural risk: write \`{"base": "<base-sha>", "head": "<head-sha>"}\` to a temp file and run \`uv run ${jevScript} review-risk --input <file>\`. Set risk to \`{ranked: true, structural, files}\` from its output, keeping each file's file, score, and structural. If it exits non-zero, set risk to \`{ranked: false, structural: false, files: [], problem: "<first line of stderr>"}\`.`
+const specStep = givenSpec
+  ? 'The spec was passed in by the caller: do not fetch any issue or spec file. Set spec to `{found: false, source: "", id: "", text: ""}`; the workflow uses the text it was given.'
+  : `${issueHint} Fetch it, with its comments, using the read command docs/agents/issue-tracker.md gives for this repo's tracker, and pass the id to it exactly as written: it may be dotted (bd-a1b2.3) or name another project (group/project#12), so never turn it into a number or drop its project. Only if that file is missing, use \`gh api repos/{owner}/{repo}/issues/<n>\` and \`gh api repos/{owner}/{repo}/issues/<n>/comments --paginate\`. Wherever the read goes through \`gh\`, use \`gh api\` (REST): \`gh issue view\` goes through GraphQL, which cloud sessions block. Copy the spec into spec.text with every heading in it, verbatim: its user stories, every AC-N, and any interfaces, under the headings they sit under (a heading can say which repository a criterion belongs to). If an issue was given and fetching it fails, set spec to \`{found: false, source: "", id: "", text: "", problem: "<the error you got>"}\` and carry on with the rest. Set spec.id to the id of the issue you fetched, as the tracker writes it, or "" for a spec file.`
+
+const jevCommand = jevScript ? `\`uv run ${jevScript} review-risk --input <file>\`` : 'review-risk with the jev.py your agent definition names'
+const deltaStep = since
+  ? `\n5. This is a re-review: the last round reviewed \`${since}\`. Resolve it with \`git rev-parse\` and check \`git merge-base --is-ancestor <since-sha> <head-sha>\`. If it does not resolve or is not an ancestor (the branch was rebased), set delta to \`{used: false, since: "${since}", changed: [], problem: "<why>"}\`. Otherwise set delta to \`{used: true, since: "<since-sha>", changed}\`, reading changed from \`git diff -U0 <since-sha> <head-sha> -- <the changed files>\` the same way as in step 1.`
   : ''
+const riskStep = `\n4. Rank the changed files by structural risk: write \`{"base": "<base-sha>", "head": "<head-sha>"}\` to a temp file and run ${jevCommand}. Set risk to \`{ranked: true, structural, files}\` from its output, keeping each file's file, score, and structural. If it exits non-zero, set risk to \`{ranked: false, structural: false, files: [], problem: "<first line of stderr>"}\`.`
 
 const scope = await agent(
   `Scope a code review of the changes up to \`${head}\`. Do not review anything yet.
 
 ${baseHint} The head under review is \`${head}\`.
-1. Resolve the fixed point and the head with \`git rev-parse\`. Record repo as the owner/name in \`git remote get-url origin\` (no host, no .git), or the name of the directory \`git rev-parse --show-toplevel\` prints when there is no origin. Record diffCommand as \`git diff <base-sha>...<head-sha>\` (three dots, against the merge-base), shortstat as the line \`git diff --shortstat <base-sha>...<head-sha>\` prints, verbatim, the commits from \`git log --oneline <base-sha>..<head-sha>\`, and the changed files from \`git diff --name-only <base-sha>...<head-sha>\`.
-2. ${issueHint} Fetch it, with its comments, using the read command docs/agents/issue-tracker.md gives for this repo's tracker, and pass the id to it exactly as written: it may be dotted (bd-a1b2.3) or name another project (group/project#12), so never turn it into a number or drop its project. Only if that file is missing, use \`gh api repos/{owner}/{repo}/issues/<n>\` and \`gh api repos/{owner}/{repo}/issues/<n>/comments --paginate\`. Wherever the read goes through \`gh\`, use \`gh api\` (REST): \`gh issue view\` goes through GraphQL, which cloud sessions block. Copy the spec into spec.text with every heading in it, verbatim: its user stories, every AC-N, and any interfaces, under the headings they sit under (a heading can say which repository a criterion belongs to). If an issue was given and fetching it fails, set spec to \`{found: false, source: "", id: "", text: "", problem: "<the error you got>"}\` and carry on with the rest. Set spec.id to the id of the issue you fetched, as the tracker writes it, or "" for a spec file.
-3. List the standards sources that exist: CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces).${riskStep}
+1. Resolve the fixed point and the head with \`git rev-parse\`. Set dirty to true when \`git status --porcelain\` lists a changed file with uncommitted edits. Record repo as the owner/name in \`git remote get-url origin\` (no host, no .git), or the name of the directory \`git rev-parse --show-toplevel\` prints when there is no origin. Record diffCommand as \`git diff <base-sha>...<head-sha>\` (three dots, against the merge-base), shortstat as the line \`git diff --shortstat <base-sha>...<head-sha>\` prints, verbatim, the commits from \`git log --oneline <base-sha>..<head-sha>\`, and the changed files from \`git diff --name-only <base-sha>...<head-sha>\`. Record changed from \`git diff -U0 <base-sha>...<head-sha>\`: for each file, every hunk header \`@@ -a,b +c,d @@\` gives the range [c, c+d-1] (d left out means 1), and a pure deletion (d is 0) gives [c, c+1], the lines around the cut.
+2. ${specStep}
+3. List the standards sources that exist: CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces). When the repo root has a REVIEW.md, list it too and set guide from it: source "REVIEW.md", failure and skip from its Failure and Skip sections verbatim, and minorCap from its Minor cap section as a whole number (if it holds none, use 5 and say why in guide.problem). Without one, set guide to \`{source: "defaults", minorCap: 5, failure: "", skip: ""}\`. Then set skipped to the changed files a skip rule covers: REVIEW.md's, or by default generated files (a generated-file header, *_pb2.py, minified bundles), vendored ones (vendor/, third_party/), and lock files (uv.lock, package-lock.json, *.lock, requirements*.lock).${riskStep}${deltaStep}
 
 If the fixed point does not resolve or the diff is empty, say so in problem and return every other field empty: base, head, repo, diffCommand, and shortstat as "", commits, files, and standardsSources as [], and spec as \`{found: false, source: "", id: "", text: ""}\`.`,
-  { label: 'scope', phase: 'Scope', schema: SCOPE_SCHEMA, effort: 'low' },
+  { label: 'scope', phase: 'Scope', schema: SCOPE_SCHEMA, effort: 'low', agentType: 'compost:scope' },
 )
 
 if (!scope || scope.problem || scope.files.length === 0) {
   const problem = scope ? scope.problem || 'The diff is empty.' : 'The scoping agent did not return.'
   log(problem)
-  return { complete: false, problem }
+  return { complete: false, problem, notRun: NOT_RUN }
 }
 
-const specSource = input.issue ? issueRef(issueId) : scope.spec.source
+const specSource = input.issue ? issueRef(issueId) : givenSpec ? 'the spec passed in' : scope.spec.source
+const specDoc = givenSpec ? { found: true, source: specSource, id: issueId, text: givenSpec } : scope.spec
 
 function issueFetchProblem() {
-  if (!input.issue) return ''
+  if (givenSpec || !input.issue) return ''
   if (!scope.spec.found) return scope.spec.problem || 'the scoping agent returned no spec'
   if (issueRef(scope.spec.id) !== specSource) return `the scoping agent fetched ${issueRef(scope.spec.id)} instead`
   return ''
@@ -222,16 +280,16 @@ if (specProblem) log(specProblem)
 
 log(`Reviewing ${scope.files.length} files across ${scope.commits.length} commits since ${scope.base.slice(0, 8)}`)
 
-const readAtHead = head === 'HEAD'
+// Line numbers decide pre-existing routing and the delta filter, so reviewers read the committed head whenever disk may differ.
+const readAtHead = head === 'HEAD' && !scope.dirty
   ? ''
   : `\nThe working tree may not be at the head under review: read changed files with \`git show ${scope.head}:<path>\`, not from disk.`
 
-const risk = jevScript && scope.risk && scope.risk.ranked
+const risk = scope.risk && scope.risk.ranked
   ? { ranked: true, structural: scope.risk.structural, files: scope.risk.files }
   : { ranked: false, structural: null, files: [], problem: riskProblem() }
 
 function riskProblem() {
-  if (!jevScript) return 'no jev path given'
   if (!scope.risk) return 'the scoping agent returned no risk ranking'
   return scope.risk.problem || 'review-risk failed'
 }
@@ -242,10 +300,52 @@ ${risk.files.map(f => `${f.file} (${f.score.toFixed(2)}${f.structural ? ', struc
   : `Changed files:
 ${scope.files.join('\n')}`
 
+// A delta the scoping agent could not establish is a full review, said so in the result.
+const delta = since
+  ? scope.delta && scope.delta.used && Array.isArray(scope.delta.changed)
+    ? { used: true, since: scope.delta.since, changed: scope.delta.changed }
+    : { used: false, since, problem: (scope.delta && scope.delta.problem) || 'the scoping agent returned no delta' }
+  : null
+if (delta && !delta.used) log(`Reviewing the whole branch: ${delta.problem}`)
+
+const deltaNote = delta && delta.used
+  ? `\nThis is a re-review. Judge only the lines changed since the last round, \`git diff ${delta.since} ${scope.head}\`; read the branch diff above for context. The workflow drops a finding at a line outside that diff, so a bug those lines cause elsewhere (a caller they break) is cited at the changed line that causes it, with the broken line in the evidence.`
+  : ''
+
+// Without a REVIEW.md, every repo gets the same short guide, which the starter compost:setup offers writes out.
+const DEFAULT_MINOR_CAP = 5
+const MINOR_ORDER = "List your most important minor first: the workflow keeps Standards' minors first, then Spec's, each in the order listed, up to the cap."
+
+const guide = scope.guide && ['REVIEW.md', 'defaults'].includes(scope.guide.source)
+  ? scope.guide
+  : { source: 'defaults', minorCap: DEFAULT_MINOR_CAP, problem: 'the scoping agent returned no review guide' }
+const minorCap = Number.isInteger(guide.minorCap) && guide.minorCap >= 0 ? guide.minorCap : DEFAULT_MINOR_CAP
+const guideProblem = guide.problem || (minorCap === guide.minorCap ? '' : `minor cap ${JSON.stringify(guide.minorCap)} is not a whole number; using ${DEFAULT_MINOR_CAP}`)
+const skippedFiles = new Set(Array.isArray(scope.skipped) ? scope.skipped : [])
+
+const guideNote = guide.source === 'REVIEW.md'
+  ? `\nReview guide: this repo's REVIEW.md, among the standards sources; read it whole, and it overrides your defaults where it speaks.
+- Failure: ${guide.failure || '(not stated; a change that breaks behaviour, loses or leaks data, or blocks a rollback)'}
+- Minors: at most ${minorCap} for the whole review. ${MINOR_ORDER}
+- Skip: ${guide.skip || '(not stated)'}`
+  : `\nReview guide (defaults; this repo has no REVIEW.md):
+- Failure: a change that breaks behaviour, loses or leaks data, or blocks a rollback.
+- Minors: at most ${minorCap} for the whole review. ${MINOR_ORDER}
+- Skip: generated, vendored, and lock files, and anything a configured linter or formatter enforces.
+- Evidence: every behaviour claim cites a file:line, not an inference from naming.`
+
+const skipNote = skippedFiles.size
+  ? `\nSkipped by the review guide; raise nothing in these: ${[...skippedFiles].join(', ')}`
+  : ''
+
+const priorNote = prior
+  ? `\nEarlier rounds' findings and their rulings:\n${prior}\nDo not raise one of these again unless the lines changed since the last round change it: a fix stands, a pushback stands with its reason, and a pre-existing finding is already recorded.`
+  : ''
+
 const diffContext = `Diff: \`${scope.diffCommand}\`${readAtHead}
 Commits:
 ${scope.commits.join('\n')}
-${fileList}`
+${fileList}${guideNote}${skipNote}${deltaNote}${priorNote}`
 
 const repoUnderReview = String(scope.repo || '')
 const IN_REPO = `This diff is in ${repoUnderReview || 'a repository the scoping agent could not name'}.`
@@ -277,11 +377,11 @@ Under checked, list each rule you read against the diff and each changed file yo
   {
     name: 'Spec',
     question: 'does the code do what the originating issue asked, no more and no less?',
-    active: scope.spec.found && !specProblem,
+    active: specDoc.found && !specProblem,
     problem: specProblem,
     schema: SPEC_FINDINGS_SCHEMA,
     checks: `Spec source: ${specSource}
-${scope.spec.text}
+${specDoc.text}
 
 ${SPEC_ONLY}
 
@@ -293,7 +393,7 @@ Report:
 - Behaviour in the diff nobody asked for (scope creep), at file:line.
 - Each AC-N that looks implemented but where the implementation looks wrong.
 
-Under checked, map every acceptance criterion not under elsewhere: one entry per AC-N, naming it and its verdict (met, partly met, unmet), at the test or code line that shows it. An AC-N with no code or test to point at is a finding (line null) whose claim names it instead.`,
+Under checked, map every acceptance criterion not under elsewhere, across the whole branch even on a re-review: one entry per AC-N, naming it and its verdict (met, partly met, unmet), at the test or code line that shows it. An AC-N with no code or test to point at is a finding (line null) whose claim names it instead.`,
   },
 ]
 
@@ -320,14 +420,15 @@ function skepticPrompt(axis, finding, elsewhere) {
   const placed = elsewhere.length
     ? `${IN_REPO} The spec places ${elsewhereNote(elsewhere)} in another repository, so this diff cannot meet them: a finding that one of them is missing here is refuted. Every other AC-N belongs to this repo.\n`
     : ''
-  const specText = axis.name === 'Spec' ? `\nThe spec the finding was judged against:\n${scope.spec.text}\n${SPEC_ONLY}\n${placed}` : ''
+  const specText = axis.name === 'Spec' ? `\nThe spec the finding was judged against:\n${specDoc.text}\n${SPEC_ONLY}\n${placed}` : ''
+  const ruled = prior
+    ? `\nEarlier rounds ruled on these findings:\n${prior}\nA finding that repeats one pushed back on there is refuted, unless the code it cites changed since ${delta && delta.used ? delta.since : 'the last round'}.\n`
+    : ''
   return `A reviewer made the ${axis.name} finding below about the diff \`${scope.diffCommand}\`. Your job is to refute it.${readAtHead}
-${specText}
+${specText}${ruled}
 Finding (${finding.severity}) at ${location}:
 Claim: ${finding.claim}
 Evidence: ${finding.evidence}
-
-Read the code at that location and whatever it depends on. Check that the quoted rule or AC-N exists and says what the reviewer claims, that the code does what the claim says, and that nothing elsewhere (a test, a caller, a documented exception, a later hunk) already answers it. A finding that is a style nit a configured linter owns, or that asks for something nobody uses (YAGNI), is refuted.
 
 Set refuted to true unless you confirmed the finding yourself against the code. When you are uncertain, it is refuted.`
 }
@@ -339,6 +440,7 @@ async function judge(axis, finding, index, elsewhere) {
         label: `${axis.name} skeptic ${index + 1}.${vote + 1}`,
         phase: axis.name,
         schema: VERDICT_SCHEMA,
+        agentType: 'compost:skeptic',
       }),
     ),
   )
@@ -355,6 +457,38 @@ async function judge(axis, finding, index, elsewhere) {
   }
 }
 
+// Reviewers cite paths from the repo root; a './' prefix or an absolute path is mapped back to the changed file it ends with.
+function repoPath(file) {
+  const path = String(file || '').replace(/^\.\//, '')
+  if (!path.startsWith('/')) return path
+  return scope.files.find(changedFile => path.endsWith(`/${changedFile}`)) || path
+}
+
+// A finding's line is changed when a hunk of the diff covers it; a null line is about something absent, never a changed line.
+function isChanged(changed, file, line) {
+  if (line === null || line === undefined) return false
+  const entry = (Array.isArray(changed) ? changed : []).find(e => e && e.file === file)
+  return Boolean(entry) && (entry.lines || []).some(([start, end]) => line >= start && line <= end)
+}
+
+// A pre-existing finding is believed only where the diff provably left the line alone; at a changed line, or one
+// nobody can place, it is the diff's and is judged as a major.
+function placedOutsideDiff(finding) {
+  return Array.isArray(scope.changed) && typeof finding.line === 'number' && !isChanged(scope.changed, finding.file, finding.line)
+}
+
+function routePreExisting(findings) {
+  const routed = { kept: [], preExisting: [] }
+  for (const finding of findings) {
+    if (finding.severity !== 'pre-existing') routed.kept.push(finding)
+    else if (placedOutsideDiff(finding)) routed.preExisting.push(finding)
+    else routed.kept.push({ ...finding, severity: 'major', skeptic: true })
+  }
+  return routed
+}
+
+const listingKey = finding => `${finding.file}:${finding.line}:${finding.claim}`
+
 function worthSkeptic(finding) {
   return typeof finding.skeptic === 'boolean' ? finding.skeptic : finding.severity !== 'minor'
 }
@@ -364,7 +498,7 @@ function unjudgedAfterThrow(finding) {
 }
 
 function failedAxis(name, status) {
-  return { axis: name, status: `failed: ${status}`, complete: false, survivors: [], refuted: [], unjudged: [] }
+  return { axis: name, status: `failed: ${status}`, complete: false, survivors: [], refuted: [], unjudged: [], preExisting: [] }
 }
 
 function changedLines(shortstat) {
@@ -381,10 +515,10 @@ const light = !forceFull
   && risk.structural === false
 
 const FILE_LINE = /[\w./-]+(:|#L)\d+/
-const specAcs = [...new Set(String(scope.spec.text || '').match(/\bAC-\d+\b/g) || [])]
+const specAcs = [...new Set(String(specDoc.text || '').match(/\bAC-\d+\b/g) || [])]
   .map(id => ({ id, named: new RegExp(`\\b${id}\\b`) }))
 
-const specLines = String(scope.spec.text || '').split('\n')
+const specLines = String(specDoc.text || '').split('\n')
 const headingLevel = line => ((line.match(/^\s*(#{1,6})\s/) || [])[1] || '').length
 
 // The line that defines an AC-N: one it leads, after markup only ("#### AC-3", "- **AC-3** Given"), or one where its id
@@ -455,7 +589,7 @@ function elsewhereNote(accepted) {
 }
 
 // Returns why the reviewer's record of what it checked falls short, or '' when it holds.
-function uncheckedReason(axis, review, placed) {
+function uncheckedReason(axis, review, placed, kept) {
   const entries = Array.isArray(review.checked) ? review.checked : []
   if (entries.length === 0) {
     return review.findings.length ? 'the reviewer did not say what it checked' : 'the reviewer returned no findings and no record of what it checked'
@@ -465,7 +599,7 @@ function uncheckedReason(axis, review, placed) {
   if (axis.name !== 'Spec') return ''
   // A finding about an AC-N (one with no line to cite, or one only partly met) maps it too. Its claim must
   // name the AC-N: evidence quotes AC-Ns in passing, which says nothing about whether they were checked.
-  const named = [...cited.map(entry => entry.item), ...review.findings.map(f => f.claim)].map(String)
+  const named = [...cited.map(entry => entry.item), ...kept.map(f => f.claim)].map(String)
   const unmapped = specAcs
     .filter(ac => !named.some(text => ac.named.test(text)) && !placed.accepted.some(entry => entry.ac === ac.id))
     .map(ac => ac.id)
@@ -477,15 +611,30 @@ function uncheckedReason(axis, review, placed) {
 async function settleAxis(review, axis) {
   if (review && review.skipped && axis.problem) return failedAxis(axis.name, axis.problem)
   if (review && review.skipped) {
-    return { axis: axis.name, status: 'skipped: no spec found', complete: true, survivors: [], refuted: [], unjudged: [] }
+    return { axis: axis.name, status: 'skipped: no spec found', complete: true, survivors: [], refuted: [], unjudged: [], preExisting: [] }
   }
   if (!review) return failedAxis(axis.name, 'the reviewer did not return')
   // A failed record fails the axis but keeps its findings: losing a real blocker is worse than a skimpy review.
   const placed = axis.name === 'Spec' ? partitionElsewhere(review.elsewhere) : null
-  const unchecked = uncheckedReason(axis, review, placed)
+  review = { ...review, findings: review.findings.map(finding => ({ ...finding, file: repoPath(finding.file) })) }
   const notVerifiableHere = placed && placed.accepted.length ? `; not verifiable here: ${elsewhereNote(placed.accepted)}` : ''
-  const serious = review.findings.filter(worthSkeptic)
-  const unverified = review.findings
+  const skippedOut = review.findings.filter(finding => skippedFiles.has(finding.file))
+  const skipOutNote = skippedOut.length ? `, ${skippedOut.length} in skipped files dropped` : ''
+  const routed = routePreExisting(review.findings.filter(finding => !skippedOut.includes(finding)))
+  const { preExisting } = routed
+  const preExistingNote = preExisting.length ? `, ${preExisting.length} pre-existing` : ''
+  // On a re-review, a finding at a line nobody touched since the last round was that round's to raise; a Spec
+  // finding that names an AC-N stays, since Spec maps every AC-N across the whole branch every round.
+  const namesAc = finding => axis.name === 'Spec' && specAcs.some(ac => ac.named.test(String(finding.claim)))
+  const outsideDelta = delta && delta.used
+    ? routed.kept.filter(finding => typeof finding.line === 'number' && !namesAc(finding) && !isChanged(delta.changed, finding.file, finding.line))
+    : []
+  const kept = routed.kept.filter(finding => !outsideDelta.includes(finding))
+  // Only a finding the workflow keeps maps an AC-N: one it dropped or set apart says nothing the caller will see.
+  const unchecked = uncheckedReason(axis, review, placed, kept)
+  const outsideNote = outsideDelta.length ? `, ${outsideDelta.length} outside the delta dropped` : ''
+  const serious = kept.filter(worthSkeptic)
+  const unverified = kept
     .filter(finding => !worthSkeptic(finding))
     .map(finding => ({ ...finding, unverified: true }))
   const judged = (await pipeline(serious, (finding, _item, index) => judge(axis, finding, index, placed ? placed.accepted : [])))
@@ -496,8 +645,8 @@ async function settleAxis(review, axis) {
   return {
     axis: axis.name,
     status: unchecked
-      ? `failed: ${unchecked}${notVerifiableHere}`
-      : `${light ? 'reviewed (light)' : 'reviewed'}: ${review.findings.length} findings raised, ${unverified.length} left unverified${notVerifiableHere}`,
+      ? `failed: ${unchecked}${skipOutNote}${preExistingNote}${outsideNote}${notVerifiableHere}`
+      : `${light ? 'reviewed (light)' : 'reviewed'}: ${review.findings.length} findings raised, ${unverified.length} left unverified${skipOutNote}${preExistingNote}${outsideNote}${notVerifiableHere}`,
     complete: !unchecked,
     checked: review.checked,
     ...(placed ? { elsewhere: placed.accepted } : {}),
@@ -507,6 +656,8 @@ async function settleAxis(review, axis) {
     ],
     refuted: withVerdict('refuted').map(j => ({ ...j.finding, refutedBecause: j.reasons, failedVotes: j.failed })),
     unjudged: unjudged.map(j => ({ ...j.finding, reasons: j.reasons, failedVotes: j.failed })),
+    preExisting,
+    listed: kept.map(listingKey),
   }
 }
 
@@ -542,6 +693,24 @@ const results = light ? await reviewLight() : await pipeline(AXES, reviewOne, se
 
 const [standards, spec] = results.map((result, i) => result || failedAxis(AXES[i].name, 'the review stage threw'))
 
+// The guide's minor cap holds for the whole review: Standards' minors first, each axis in the order its reviewer
+// listed them. Unjudged minors count too, since the caller treats them as survivors.
+let minorBudget = minorCap
+let minorsCut = 0
+for (const axisResult of [standards, spec]) {
+  const listed = axisResult.listed || []
+  const minors = [...axisResult.survivors, ...axisResult.unjudged]
+    .filter(finding => finding.severity === 'minor')
+    .sort((a, b) => listed.indexOf(listingKey(a)) - listed.indexOf(listingKey(b)))
+  const cut = minors.slice(minorBudget)
+  minorBudget = Math.max(0, minorBudget - minors.length)
+  minorsCut += cut.length
+  axisResult.survivors = axisResult.survivors.filter(finding => !cut.includes(finding))
+  axisResult.unjudged = axisResult.unjudged.filter(finding => !cut.includes(finding))
+  if (cut.length) axisResult.status += `, ${cut.length} minors cut by the cap`
+  delete axisResult.listed
+}
+
 function worst(axisResult) {
   const order = ['blocker', 'major', 'minor']
   const sorted = [...axisResult.survivors].sort((a, b) => order.indexOf(a.severity) - order.indexOf(b.severity))
@@ -556,11 +725,17 @@ return {
   specSource,
   risk,
   path: light ? 'light' : 'full',
+  ...(delta ? { delta: delta.used ? { used: true, since: delta.since } : delta } : {}),
   complete,
   ...(complete ? {} : { problem: [standards, spec].filter(a => !a.complete).map(a => `${a.axis} ${a.status}`).join('; ') }),
   standards,
   spec,
-  summary: [standards, spec]
-    .map(a => `${a.axis}: ${a.status}, ${a.survivors.length} survived, ${a.refuted.length} refuted, ${a.unjudged.length} unjudged; worst ${worst(a)}`)
-    .join('\n'),
+  guide: { source: guide.source, minorCap, ...(guideProblem ? { problem: guideProblem } : {}) },
+  notRun: NOT_RUN,
+  summary: [
+    ...[standards, spec]
+      .map(a => `${a.axis}: ${a.status}, ${a.survivors.length} survived, ${a.refuted.length} refuted, ${a.unjudged.length} unjudged; worst ${worst(a)}`),
+    `Review guide: ${guide.source}; minor cap ${minorCap}, ${minorsCut} cut${guideProblem ? ` (${guideProblem})` : ''}`,
+    `Not run here: ${NOT_RUN.join('; ')}`,
+  ].join('\n'),
 }

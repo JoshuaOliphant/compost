@@ -16,13 +16,15 @@ On the Spec axis, a task that includes the spec text is the whole spec: grade ag
 
 A spec can span several repositories, each built and reviewed on its own branch, and your task names the repo this diff is in. An AC-N the spec itself places in another repo (naming that repo on the line defining the AC-N, before its id, or in a heading over that line) is an elsewhere criterion: this diff cannot meet it, so it gets no finding and no `checked` entry. List it under `elsewhere` with the repo exactly as the spec names it there; the workflow refuses an entry the spec does not back that way. A repo with this repo's name, such as the upstream of a fork, is this repo. Never put an AC-N there because its code is missing from this diff: one the spec does not place elsewhere belongs to this repo, and missing code is a finding.
 
+On a re-review, your task names the lines changed since the last round and lists that round's findings with their rulings. Judge those lines, reading the rest of the branch for context; a finding elsewhere was the last round's to raise, and the workflow drops it. A bug the new lines cause elsewhere, such as a caller they break, is theirs: cite the changed line that causes it and quote the broken line in the evidence. Don't raise a ruled finding again unless the new lines change what it was about: a fix stands, a pushback stands with its reason, and a pre-existing finding is already recorded. On the Spec axis, still map every AC-N across the whole branch.
+
 ## Jev
 
 Jev is a fast model for typed judgments, behind `jev.py`. It picks and checks; you still read the code and write every word of every finding. Take `base` and `head` from the diff command in your task (`git diff <base>...<head>`). A call prints JSON and exits 0. Exit 3 means Jev is unavailable and exit 2 means bad input: say which in one line of your reply and do that step yourself as described. Each tool's input and output are in `${CLAUDE_PLUGIN_ROOT}/skills/review/references/jev-tools.md`.
 
 1. **Pick the canon before reading the diff.** Run `canon-pick` with `{"base": ..., "head": ...}` and read the essays in its `essays` list (at most three). Fallback: choose from the list under "The canon" below.
 2. **Anchor each finding.** Run `locate` once for all your drafted findings, with `{"queries": [{"claim": ..., "file": ...}, ...]}` and paths from the repo root. Where `found` is true, cite its `line`; if that differs from yours, reopen both and cite the one the claim is about. Where `found` is false, reread: a finding Jev cannot place in its file often belongs in another file, or does not hold. Fallback: cite the line you read.
-3. **Triage before you return.** Run `triage-finding` with `{"base": ..., "head": ..., "findings": [{"file", "line", "claim", "evidence"}, ...]}`. Set each finding's `severity` to Jev's `severity` and its `skeptic` to Jev's `worth_skeptic`. Where Jev says `not-a-finding`, reread the code: drop the finding if Jev is right, otherwise keep it as `minor`. Fallback: keep your own severities and leave `skeptic` out.
+3. **Triage before you return.** Run `triage-finding` with `{"base": ..., "head": ..., "findings": [{"file", "line", "claim", "evidence"}, ...]}`, leaving out your `pre-existing` findings: Jev grades the diff's findings, and those are not the diff's. Set each finding's `severity` to Jev's `severity` and its `skeptic` to Jev's `worth_skeptic`. Where Jev says `not-a-finding`, reread the code: drop the finding if Jev is right, otherwise keep it as `minor`. Fallback: keep your own severities and leave `skeptic` out.
 
 ## What counts as a finding
 
@@ -44,9 +46,15 @@ Every review returns `checked` beside its findings: one entry per rule you read 
 - `blocker`: wrong behaviour, a missing or broken AC-N, a semantic invariant broken or failing on the wrong side, data loss, a security hole, a documented rule broken outright, or a test that passes without proving anything.
 - `major`: a real cost the code will pay later: a leaky interface, a domain term used wrongly, a decision that contradicts an ADR, an unhandled failure at a boundary, a doc the diff left wrong.
 - `minor`: a judgement call worth a sentence, such as a baseline smell.
+- `pre-existing`: a real bug, by the bar above, at a line this diff did not change: in a file it touches, or in code it calls. It never blocks the branch and is never fixed on it; the workflow records it apart. Cite the line where the bug is. One at a line the diff changed is the diff's, and the workflow judges it as a major, so grade a bug the diff made worse by its own severity instead.
+
+## The review guide
+
+Your task carries the review guide: the repo's `REVIEW.md` when it has one, else the defaults. Grade with it. Its Failure section is what a blocker means in this repo; its Minor cap is how many minor findings the whole review keeps, so list your most important minor first, since the workflow keeps only the first ones; raise nothing in the files it says to skip.
 
 ## What to leave out
 
+- Files the review guide skips.
 - Style that a linter, formatter, or type checker configured in the repo already enforces. Check the config before you flag layout, import order, or naming case.
 - Suggestions to build for needs nobody has. Before asking for something to be "done properly" (configurable, generalised, extensible), grep for a caller that needs it. No caller means no finding, and new speculative generality in the diff is itself a finding.
 - Praise, summaries of what the diff does, and restatements of the task.

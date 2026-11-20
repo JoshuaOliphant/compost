@@ -57,15 +57,31 @@ fixing files nothing and says so in one line.
    - **Information access:** the agent needed a fact it could not reach: dev-server logs,
      read-only access to a service, a doc behind a login.
 
-5. **Place each fix where it costs least.** The implementing agent carries the most context
+5. **Check each cause against the run's own numbers.** A candidate that says a cost happened
+   because of something ("the review was expensive because it ran without Jev") is a causal claim,
+   and the fix it files is only as right as the cause. Before you keep one:
+   - Find the data that would show it: token counts per agent or per call in the transcript, the
+     diff size against the thresholds that pick a path (review's light path is 50 changed lines
+     or fewer), the workflow's result, the transcript line where the cost landed.
+   - Say what the run would have done without the cause, from the same data. If the cost would
+     have landed anyway, the cause is wrong. The Gather retro blamed the missing Jev for an
+     expensive review, but the diff was 260 changed lines, so the review took the full path with
+     Jev or without it; the cost was elsewhere.
+   - A candidate the data contradicts is restated with the cause the data shows, or dropped. One
+     with no data either way is filed without its cause: the issue names the cost and the moment,
+     says the cause is unchecked and what data would settle it, and proposes no fix yet.
+
+6. **Place each fix where it costs least.** The implementing agent carries the most context
    pressure: it explores, writes, and debugs. The reviewer reads a diff and carries the least. So
    a standard is enforced at review, not taught to the implementer, and `AGENTS.md` holds pointers
    rather than rules, since every agent in the repo pays for every line of it. Go as high as the
    fix allows: a check, then a standard the reviewer reads, then a pointer in `AGENTS.md`. A fact
    for the docs follows [core docs](../../canon/core-docs.md).
 
-6. **File the candidates, most severe first.** One issue per candidate in the repo's tracker, with
-   the session evidence, the category, and the fix with its placement. A candidate outside the
+7. **File the candidates, most severe first.** One issue per candidate in the repo's tracker, with
+   the session evidence, what step 5 found (the data that backs the cause and what the run would
+   have done without it, or, with no data, that the cause is unchecked and what would settle it),
+   the category, and the fix with its placement, if step 5 left one. A candidate outside the
    repo (the user's global `CLAUDE.md`, a personal skill, an MCP server's config) is not filed:
    write the proposed change as exact text in the report. End with one line per candidate:
    severity, category, and the issue link or proposal.
