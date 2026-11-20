@@ -2,6 +2,12 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.36.0] - 2026-11-20
+
+### Changed
+
+- `/compost:review-changes` judges only the criteria of the repo under review when a spec spans several repos (#40). Scoping records the repo (`owner/name` from origin), and the Spec reviewer lists each AC-N the spec places in another repo under `elsewhere`, with the spec text that places it, instead of reporting it unmet. The workflow keeps an entry only when that quote is in the spec and names both the other repo and the AC-N; a refused one leaves the AC-N unmapped and the axis failed, with the reason. Accepted ones come back as `spec.elsewhere` and in the Spec status ("AC-3 not verifiable here (agent-plugins)"), and the Spec skeptic refutes a finding that such an AC-N is missing here. `compost:review` lists them in its issue comment with the repo whose review covers them, and `compost:spec` names the repo in each criterion of a multi-repo spec.
+
 ## [0.35.1] - 2026-11-13
 
 ### Added
