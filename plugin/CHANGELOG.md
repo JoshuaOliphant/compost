@@ -6,7 +6,9 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 
 ### Changed
 
-- `/compost:review-changes` judges only the criteria of the repo under review when a spec spans several repos (#40). Scoping records the repo (`owner/name` from origin), and the Spec reviewer lists each AC-N the spec places in another repo under `elsewhere` instead of reporting it unmet. The workflow keeps an entry only when the spec names that repo on the AC-N's line before its id or in a heading over it, and it is not this repo's name (a fork's upstream counts as this repo); a refused one leaves the AC-N unmapped and the axis failed, with the reason. Accepted ones come back as `spec.elsewhere` and in the Spec status ("not verifiable here: AC-3 (agent-plugins)"), and the Spec skeptics are told those AC-N, so they refute a finding that one is missing here. `compost:review` lists them in its issue comment with the repo whose review covers them, and `compost:spec` names the repo in each criterion of a multi-repo spec.
+- `/compost:review-changes` judges only the criteria of the repo under review when a spec spans several repos (#40). Scoping records the repo (`owner/name` from origin) and copies the spec with its headings, and the Spec reviewer lists each AC-N the spec places in another repo under `elsewhere` instead of reporting it unmet. The workflow keeps an entry only when the spec names that repo on the AC-N's defining line before its id or in a heading over it, and it is not this repo's name (a fork's upstream counts as this repo); a refused one leaves the AC-N unmapped and the axis failed, with the reason. Accepted ones come back as `spec.elsewhere` and in the Spec status ("not verifiable here: AC-3 (agent-plugins)"), and the Spec skeptics are told those AC-N, so they refute a finding that one is missing here.
+- `compost:review` lists each elsewhere criterion in its issue comment with the repo whose review covers it, and its by-hand fallback names the repo to the Spec reviewer and checks `elsewhere` entries by the same rule.
+- `compost:spec` names the repo each criterion lives in when a spec spans several repos.
 
 ## [0.35.1] - 2026-11-13
 

@@ -385,6 +385,7 @@ test('an AC-N the spec places in another repo is listed as not verifiable here, 
   assert.equal(full.result.spec.status, 'reviewed: 0 findings raised, 0 left unverified; not verifiable here: AC-2 (agent-plugins)')
   assert.match(full.result.summary, /Spec: reviewed: 0 findings raised, 0 left unverified; not verifiable here: AC-2 \(agent-plugins\), 0 survived/)
   assert.match(full.prompts.scope, /git remote get-url origin/)
+  assert.match(full.prompts.scope, /every heading in it, verbatim/)
   assert.match(full.prompts['Spec reviewer'], /This diff is in JoshuaOliphant\/notes-fork\./)
   assert.match(full.prompts['Spec reviewer'], /under elsewhere/)
   assert.ok(full.schemas['Spec reviewer'].properties.elsewhere, 'the Spec reviewer can return elsewhere')
@@ -432,12 +433,17 @@ test('the spec places an AC-N elsewhere only on its own line before its id or in
     const checked = AC3_CHECKED.filter(item => !item.item.startsWith(ac))
     const elsewhere = ac === 'AC-2' ? [entry] : [ELSEWHERE, entry]
     const { result } = await run({ issue: 7 }, reviewers({ scope: SPLIT_SCOPE, spec: { findings: [], checked, elsewhere } }))
-    assert.equal(result.spec.status, `failed: the reviewer did not map ${ac} to the code (refused ${ac} elsewhere: ${why})`, why)
+    const note = ac === 'AC-2' ? '' : '; not verifiable here: AC-2 (agent-plugins)'
+    assert.equal(result.spec.status, `failed: the reviewer did not map ${ac} to the code (refused ${ac} elsewhere: ${why})${note}`, why)
     assert.equal(result.complete, false)
   }
   const later = { ...SPLIT_SCOPE, spec: { ...SPLIT_SCOPE.spec, text: '## In agent-plugins\n#### AC-2: two\n## In notes-fork\n#### AC-1: one' } }
   const sibling = await run({ issue: 7 }, reviewers({ scope: later, spec: { findings: [], checked: [{ item: 'spec read', at: 'docs/spec.md:1' }], elsewhere: [ELSEWHERE, { ac: 'AC-1', repo: 'agent-plugins' }] } }))
   assert.match(sibling.result.spec.status, /refused AC-1 elsewhere: the spec does not place it in agent-plugins/, 'a heading closed by a later one of its level does not place what follows')
+
+  const crossRef = { ...SPLIT_SCOPE, spec: { ...SPLIT_SCOPE.spec, text: 'As a user (see AC-2)\n## In notes-fork\n#### AC-1: keeps AC-2 working\n## In agent-plugins\n- **AC-2**: two' } }
+  const defined = await run({ issue: 7 }, reviewers({ scope: crossRef, spec: { findings: [], checked: [{ item: 'AC-1 met', at: 'tests/t.py:1' }], elsewhere: [ELSEWHERE] } }))
+  assert.equal(defined.result.complete, true, 'placement is read where the AC-N is defined, not where it is first mentioned')
 
   const unknownRepo = await run({ issue: 7 }, reviewers({ scope: { ...SPLIT_SCOPE, repo: '' }, spec: { findings: [], checked: AC3_CHECKED, elsewhere: [ELSEWHERE] } }))
   assert.equal(unknownRepo.result.spec.status, 'failed: the reviewer did not map AC-2 to the code (refused AC-2 elsewhere: the repo under review is unknown)')
@@ -452,7 +458,7 @@ test('the spec places an AC-N elsewhere only on its own line before its id or in
   assert.match(twoRepos.result.spec.status, /not verifiable here: AC-2 \(agent-plugins\); AC-3 \(notes-web\)$/)
   const oneRepo = { ...SPLIT_SCOPE, spec: { ...SPLIT_SCOPE.spec, text: '## In agent-plugins\n#### AC-1: one\n#### AC-2: two' } }
   const grouped = await run({ issue: 7 }, reviewers({ scope: oneRepo, spec: { findings: [], checked: [], elsewhere: [{ ac: 'AC-1', repo: 'agent-plugins' }, { ac: 'AC-2', repo: 'Agent-Plugins' }] } }))
-  assert.equal(grouped.result.spec.status, 'failed: the reviewer returned no findings and no record of what it checked', 'elsewhere is no record of what was checked')
+  assert.equal(grouped.result.spec.status, 'failed: the reviewer returned no findings and no record of what it checked; not verifiable here: AC-1, AC-2 (agent-plugins)', 'elsewhere is no record of what was checked, and a failed axis still says what lives elsewhere')
   const groupedChecked = await run({ issue: 7 }, reviewers({ scope: oneRepo, spec: { findings: [], checked: [{ item: 'spec read', at: 'docs/spec.md:1' }], elsewhere: [{ ac: 'AC-1', repo: 'agent-plugins' }, { ac: 'AC-2', repo: 'Agent-Plugins' }] } }))
   assert.match(groupedChecked.result.spec.status, /not verifiable here: AC-1, AC-2 \(agent-plugins\)$/, 'one repo spelled two ways is one group')
 })

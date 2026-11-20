@@ -194,7 +194,7 @@ const scope = await agent(
 
 ${baseHint} The head under review is \`${head}\`.
 1. Resolve the fixed point and the head with \`git rev-parse\`. Record repo as the owner/name in \`git remote get-url origin\` (no host, no .git), or the name of the directory \`git rev-parse --show-toplevel\` prints when there is no origin. Record diffCommand as \`git diff <base-sha>...<head-sha>\` (three dots, against the merge-base), shortstat as the line \`git diff --shortstat <base-sha>...<head-sha>\` prints, verbatim, the commits from \`git log --oneline <base-sha>..<head-sha>\`, and the changed files from \`git diff --name-only <base-sha>...<head-sha>\`.
-2. ${issueHint} Fetch it, with its comments, using the read command docs/agents/issue-tracker.md gives for this repo's tracker, and pass the id to it exactly as written: it may be dotted (bd-a1b2.3) or name another project (group/project#12), so never turn it into a number or drop its project. Only if that file is missing, use \`gh api repos/{owner}/{repo}/issues/<n>\` and \`gh api repos/{owner}/{repo}/issues/<n>/comments --paginate\`. Wherever the read goes through \`gh\`, use \`gh api\` (REST): \`gh issue view\` goes through GraphQL, which cloud sessions block. Copy its user stories, every AC-N, and any interfaces verbatim into spec.text. If an issue was given and fetching it fails, set spec to \`{found: false, source: "", id: "", text: "", problem: "<the error you got>"}\` and carry on with the rest. Set spec.id to the id of the issue you fetched, as the tracker writes it, or "" for a spec file.
+2. ${issueHint} Fetch it, with its comments, using the read command docs/agents/issue-tracker.md gives for this repo's tracker, and pass the id to it exactly as written: it may be dotted (bd-a1b2.3) or name another project (group/project#12), so never turn it into a number or drop its project. Only if that file is missing, use \`gh api repos/{owner}/{repo}/issues/<n>\` and \`gh api repos/{owner}/{repo}/issues/<n>/comments --paginate\`. Wherever the read goes through \`gh\`, use \`gh api\` (REST): \`gh issue view\` goes through GraphQL, which cloud sessions block. Copy the spec into spec.text with every heading in it, verbatim: its user stories, every AC-N, and any interfaces, under the headings they sit under (a heading can say which repository a criterion belongs to). If an issue was given and fetching it fails, set spec to \`{found: false, source: "", id: "", text: "", problem: "<the error you got>"}\` and carry on with the rest. Set spec.id to the id of the issue you fetched, as the tracker writes it, or "" for a spec file.
 3. List the standards sources that exist: CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces).${riskStep}
 
 If the fixed point does not resolve or the diff is empty, say so in problem and return every other field empty: base, head, repo, diffCommand, and shortstat as "", commits, files, and standardsSources as [], and spec as \`{found: false, source: "", id: "", text: ""}\`.`,
@@ -387,9 +387,17 @@ const specAcs = [...new Set(String(scope.spec.text || '').match(/\bAC-\d+\b/g) |
 const specLines = String(scope.spec.text || '').split('\n')
 const headingLevel = line => ((line.match(/^\s*(#{1,6})\s/) || [])[1] || '').length
 
-// The spec text that can place an AC-N in a repo: its own line before its id, and the headings over that line.
+// The line that defines an AC-N, its id followed by a colon ("#### AC-3:", "- **AC-3**:"), so a story or another
+// criterion that mentions it first does not decide where it lives. Without one, its first mention.
+function definitionOf(ac) {
+  const defines = new RegExp(`${ac.named.source}\\**\\s*:`)
+  const at = specLines.findIndex(line => defines.test(line))
+  return at >= 0 ? at : specLines.findIndex(line => ac.named.test(line))
+}
+
+// The spec text that can place an AC-N in a repo: its defining line before its id, and the headings over that line.
 function placementOf(ac) {
-  const at = specLines.findIndex(line => ac.named.test(line))
+  const at = definitionOf(ac)
   const placing = [specLines[at].slice(0, specLines[at].search(ac.named))]
   let level = headingLevel(specLines[at]) || 7
   for (const line of specLines.slice(0, at).reverse()) {
@@ -473,6 +481,7 @@ async function settleAxis(review, axis) {
   // A failed record fails the axis but keeps its findings: losing a real blocker is worse than a skimpy review.
   const placed = axis.name === 'Spec' ? sortElsewhere(review.elsewhere) : null
   const unchecked = uncheckedReason(axis, review, placed)
+  const notVerifiableHere = placed && placed.accepted.length ? `; not verifiable here: ${elsewhereNote(placed.accepted)}` : ''
   const serious = review.findings.filter(worthSkeptic)
   const unverified = review.findings
     .filter(finding => !worthSkeptic(finding))
@@ -485,8 +494,8 @@ async function settleAxis(review, axis) {
   return {
     axis: axis.name,
     status: unchecked
-      ? `failed: ${unchecked}`
-      : `${light ? 'reviewed (light)' : 'reviewed'}: ${review.findings.length} findings raised, ${unverified.length} left unverified${placed && placed.accepted.length ? `; not verifiable here: ${elsewhereNote(placed.accepted)}` : ''}`,
+      ? `failed: ${unchecked}${notVerifiableHere}`
+      : `${light ? 'reviewed (light)' : 'reviewed'}: ${review.findings.length} findings raised, ${unverified.length} left unverified${notVerifiableHere}`,
     complete: !unchecked,
     checked: review.checked,
     ...(placed ? { elsewhere: placed.accepted } : {}),
