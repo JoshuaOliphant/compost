@@ -171,7 +171,21 @@ def test_branching_skills_fast_forward_the_default_branch_and_rule_when_it_canno
         "git rev-list --count origin/<default>..",
         "git merge --ff-only origin/<default>",
         "branch from `origin/<default>`",
+        "when uncommitted changes block",
         keeps,
         rules,
     ):
         assert phrase in rule, f"{skill}'s {step!r} step lacks {phrase!r}"
+
+
+def test_stop_guard_reference_keeps_the_rules_step_9_points_to():
+    text = " ".join((PLUGIN_ROOT / "skills" / "implement" / "references" / "stop-guard.md").read_text().split())
+    for phrase in (
+        "stop only for the list",
+        "resuming loads implement again, which starts a new run",
+        "or the rest of the run is unguarded",
+        "keeping to the list is still on you",
+    ):
+        assert phrase in text, f"stop-guard.md lost {phrase!r}"
+    step9 = " ".join((PLUGIN_ROOT / "skills" / "implement" / "SKILL.md").read_text().split())
+    assert "(references/stop-guard.md)" in step9.split("**Decide, log, proceed.**", 1)[1].split("**Close out.**")[0]

@@ -66,10 +66,11 @@ the work so each step can be checked before the next builds on it
    issue; if you are already in one, use it. A new one starts from a fresh default branch: run
    `git fetch origin`; when the local default has commits origin lacks
    (`git rev-list --count origin/<default>..<default>` is not 0), branch from `origin/<default>`,
-   keep the local commits, and rule on it. Otherwise fast-forward it first, with
-   `git merge --ff-only origin/<default>` in the checkout that has it, or
-   `git fetch origin <default>:<default>` when none does, and branch from it. A resumed run fetches and merges a moved `origin/<default>` into the
-   feature branch before any lane starts. Open a draft PR only when the tracker closes work
+   keep the local commits, and rule on it. Otherwise fast-forward it, with
+   `git merge --ff-only origin/<default>` in the checkout that has it or
+   `git fetch origin <default>:<default>` when none does, and branch from it; when uncommitted
+   changes block that merge, branch from `origin/<default>` and rule on it too. A resumed run
+   fetches and merges a moved `origin/<default>` into the feature branch before any lane starts. Open a draft PR only when the tracker closes work
    through PRs (its reference in `docs/agents/issue-tracker.md` says an issue closes when its PR
    merges) or the user asks, once the first issue lands (step 5): the forge rejects a PR with no
    commits. Committing, pushing this branch, and the draft PR need no one's OK; merging the PR

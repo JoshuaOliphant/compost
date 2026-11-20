@@ -40,7 +40,8 @@ no test counts until you have seen it fail for the right reason.
    branch, run `git fetch origin` first. If it has commits origin lacks
    (`git rev-list --count origin/<default>..HEAD` is not 0, whether ahead or diverged), branch from
    `origin/<default>` instead of HEAD, leave the local branch and its unpushed commits alone, and
-   post a ruling on the issue. Otherwise `git merge --ff-only origin/<default>` and branch from HEAD.
+   post a ruling on the issue. Otherwise `git merge --ff-only origin/<default>` and branch from HEAD;
+   when uncommitted changes block that merge, branch from `origin/<default>` and rule on it too.
    The harness's worktree tool (such as `EnterWorktree`) branches from the default branch, not
    from HEAD, so a feature branch's earlier work would be missing; use it only to enter a worktree
    you created this way. Install
