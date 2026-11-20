@@ -201,11 +201,13 @@ def test_parse_time(text, expected):
 class Forge:
     """Answers the gh/glab/git commands frontier.py runs, from canned issues, the way the real CLIs print them."""
 
-    def __init__(self, issues: dict[int, dict], branches=(), session="s-me"):
-        self.issues, self.branches, self.session, self.calls = issues, branches, session, []
+    def __init__(self, issues: dict[int, dict], branches=(), session="s-me", remotes=""):
+        self.issues, self.branches, self.session, self.remotes, self.calls = issues, branches, session, remotes, []
 
     def __call__(self, args: list[str]) -> str:
         self.calls.append(args)
+        if args[:2] == ["git", "remote"]:
+            return self.remotes
         if args[:2] == ["git", "ls-remote"]:
             return "".join(f"abc123\trefs/heads/{name}\n" for name in self.branches)
         if args[:2] == ["git", "rev-parse"]:
@@ -256,6 +258,36 @@ def test_cli_issues_reads_the_forge_and_prints_each_state(tracker, capsys):
     assert frontier.main(["issues", "#1", "--tracker", tracker, "--session", "s-me"], forge, NOW) == 0
     assert capsys.readouterr().out.splitlines() == EXPECTED
     assert {call[0] for call in forge.calls} == {"git", "gh" if tracker == "github" else "glab"}
+
+
+FORK = "origin\tgit@github.com:me/proj.git (fetch)\norigin\tgit@github.com:me/proj.git (push)\n"
+
+
+@pytest.mark.parametrize(
+    ("remotes", "gh_repo", "repo", "note"),
+    [
+        (FORK + "upstream\thttps://github.com/them/proj (fetch)\n", None, "me/proj", "`upstream` remote (them/proj)"),
+        (FORK + "github\thttps://github.com/them/proj.git (fetch)\n", None, "me/proj", "`github` remote (them/proj)"),
+        (FORK + "upstream\thttps://github.com/Me/Proj.git (fetch)\n", None, "me/proj", None),
+        (FORK, None, "me/proj", None),
+        ("upstream\thttps://github.com/them/proj (fetch)\n", None, "{owner}/{repo}", None),
+        (FORK + "upstream\thttps://github.com/them/proj (fetch)\n", "me/proj", "{owner}/{repo}", None),
+    ],
+    ids=["upstream fork", "github fork", "same repo, other case", "origin only", "no origin", "GH_REPO set"],
+)
+def test_github_reads_origins_repo_and_says_when_gh_would_read_a_parent(
+    remotes, gh_repo, repo, note, monkeypatch, capsys
+):
+    monkeypatch.delenv("GH_REPO", raising=False)
+    if gh_repo:
+        monkeypatch.setenv("GH_REPO", gh_repo)
+    forge = Forge(ISSUES, ["main", "11-b"], remotes=remotes)
+    assert frontier.main(["issues", "#1", "--tracker", "github", "--session", "s-me"], forge, NOW) == 0
+    out, err = capsys.readouterr()
+    assert out.splitlines() == EXPECTED
+    paths = [arg for call in forge.calls if call[0] == "gh" for arg in call if arg.startswith("repos/")]
+    assert paths and all(path.startswith(f"repos/{repo}/issues/") for path in paths)
+    assert (f"GH_REPO={repo}" in err and note in err) if note else err == ""
 
 
 @pytest.mark.parametrize("tracker", ["github", "gitlab"])

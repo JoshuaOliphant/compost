@@ -24,7 +24,8 @@ fixing files nothing and says so in one line.
 ## Steps
 
 1. **Read the tracker.** Find it in `docs/agents/issue-tracker.md`. If that file is missing, run
-   `compost:setup` now, then continue.
+   `compost:setup` now, then continue. A GitHub one without the fork check takes it from
+   [setup's GitHub reference](../setup/references/issue-tracker-github.md).
 
 2. **Read the session's primary sources.** Default to the current session; when the user names
    another, find its transcript under `~/.claude/projects/<the cwd with / as ->/<session-id>.jsonl`.

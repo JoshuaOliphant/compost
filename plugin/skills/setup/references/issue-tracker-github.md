@@ -11,10 +11,11 @@ cloud sessions block with an HTTP 403; REST works there and locally.
 In a fork, `{owner}/{repo}` can name the upstream parent: `gh api` takes the first remote ranked
 `upstream`, then `github`, then `origin`, ignores `gh repo set-default`, and yields only to
 `GH_REPO`. Before the first `gh` call of a session or subagent, read or write, compare
-`gh api repos/{owner}/{repo} --jq .full_name` with the `owner/name` in `git remote get-url origin`.
-When they differ, prefix every `gh` call and every `frontier.py` run with `GH_REPO=<that
-owner/name>` (an `export` dies with its Bash call), so nothing is read from or filed in someone
-else's repo.
+`gh api repos/{owner}/{repo} --jq .full_name` with the `owner/name` in `git remote get-url origin`,
+ignoring case (a renamed repo answers with its new name and passes too). When they differ, prefix
+every `gh` call with `GH_REPO=<that owner/name>` (an `export` dies with its Bash call), so nothing
+is read from or filed in someone else's repo. `frontier.py` reads origin's repo by name on its
+own, and says so when gh would read another.
 
 - **Create:** `gh api repos/{owner}/{repo}/issues -f title="..." -f "labels[]=..." -F body=@-` with
   a heredoc body on stdin. It prints the new issue's JSON; `--jq .number` keeps just the number.

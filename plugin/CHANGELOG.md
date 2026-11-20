@@ -15,7 +15,7 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 ### Fixed
 
 - The GitLab tracker reference lists issues with `glab issue list -O json`; `-F` there picks `details`, `ids`, or `urls`, not JSON (OLI-34).
-- The GitHub tracker reference checks, before the first `gh` call of a session, that `{owner}/{repo}` is origin and not a fork's upstream parent (`gh api` ranks a remote named `upstream` first and ignores `gh repo set-default`); when they differ, every `gh` call and `frontier.py` run is prefixed with `GH_REPO=<origin's owner/name>`. `compost:setup` runs that check before it reads `has_issues` (OLI-31).
+- The GitHub tracker reference checks, before the first `gh` call of a session or subagent, that `{owner}/{repo}` is origin and not a fork's upstream parent (`gh api` ranks a remote named `upstream` first and ignores `gh repo set-default`), comparing names without case; when they differ, every `gh` call is prefixed with `GH_REPO=<origin's owner/name>`. `compost:setup` runs that check before it reads `has_issues`. `frontier.py` reads origin's repo by name unless `GH_REPO` is set, and prints a note on stderr when an `upstream` or `github` remote would have won. A tracker doc written before this release has no fork check: `compost:build`, `compost:spec`, `compost:slice`, and `compost:retro` take it from setup's reference, and rerunning `compost:setup` adds it to the doc (OLI-31).
 
 ## [0.37.0] - 2026-11-20
 
