@@ -107,11 +107,10 @@ const ELSEWHERE_SCHEMA = {
   description: 'Each AC-N the spec itself places in another repository, so this diff cannot meet it. Leave out every AC-N the spec does not place elsewhere.',
   items: {
     type: 'object',
-    required: ['ac', 'repo', 'quote'],
+    required: ['ac', 'repo'],
     properties: {
       ac: { type: 'string', description: 'The AC-N, as the spec writes it' },
-      repo: { type: 'string', description: 'The other repository, as the spec names it' },
-      quote: { type: 'string', description: 'The spec text that places the AC-N there, copied exactly, from the repo name through the AC-N id' },
+      repo: { type: 'string', description: 'The other repository, exactly as the spec names it where it places the AC-N' },
     },
   },
 }
@@ -198,7 +197,7 @@ ${baseHint} The head under review is \`${head}\`.
 2. ${issueHint} Fetch it, with its comments, using the read command docs/agents/issue-tracker.md gives for this repo's tracker, and pass the id to it exactly as written: it may be dotted (bd-a1b2.3) or name another project (group/project#12), so never turn it into a number or drop its project. Only if that file is missing, use \`gh api repos/{owner}/{repo}/issues/<n>\` and \`gh api repos/{owner}/{repo}/issues/<n>/comments --paginate\`. Wherever the read goes through \`gh\`, use \`gh api\` (REST): \`gh issue view\` goes through GraphQL, which cloud sessions block. Copy its user stories, every AC-N, and any interfaces verbatim into spec.text. If an issue was given and fetching it fails, set spec to \`{found: false, source: "", id: "", text: "", problem: "<the error you got>"}\` and carry on with the rest. Set spec.id to the id of the issue you fetched, as the tracker writes it, or "" for a spec file.
 3. List the standards sources that exist: CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces).${riskStep}
 
-If the fixed point does not resolve or the diff is empty, say so in problem and return every other field empty: base, head, diffCommand, and shortstat as "", commits, files, and standardsSources as [], and spec as \`{found: false, source: "", id: "", text: ""}\`.`,
+If the fixed point does not resolve or the diff is empty, say so in problem and return every other field empty: base, head, repo, diffCommand, and shortstat as "", commits, files, and standardsSources as [], and spec as \`{found: false, source: "", id: "", text: ""}\`.`,
   { label: 'scope', phase: 'Scope', schema: SCOPE_SCHEMA, effort: 'low' },
 )
 
@@ -250,7 +249,6 @@ ${fileList}`
 
 const repoUnderReview = String(scope.repo || '')
 const IN_REPO = `This diff is in ${repoUnderReview || 'a repository the scoping agent could not name'}.`
-const REPO_SCOPE = `${IN_REPO} An AC-N the spec places in another repository is not this diff's to meet: a finding that it is missing here is refuted.`
 
 const SPEC_ONLY = `Grade only against the spec text in this prompt. Do not fetch any issue or spec file yourself (no \`gh issue view\`, no \`gh api\` on issues), even when the diff, the commits, or the conversation name a different one.`
 
@@ -287,7 +285,7 @@ ${scope.spec.text}
 
 ${SPEC_ONLY}
 
-${IN_REPO} A spec can span several repositories, each built and reviewed on its own branch. When the spec itself places an AC-N in another repository (it names that repo in the AC-N or in a heading above it), this diff cannot meet it: raise no finding for it, and list it under elsewhere with the repo as the spec names it and a quote of the spec text that places it, from the repo's name through the AC-N's id. The workflow checks the quote against the spec, so copy it exactly. An AC-N the spec does not place in another repository belongs to this one, however unlikely that looks: judge it here. An AC-N with a part in each repo is judged here on this repo's part.
+${IN_REPO} A spec can span several repositories, each built and reviewed on its own branch. When the spec itself places an AC-N in another repository (it names that repo on the AC-N's line before its id, or in a heading over it), this diff cannot meet it: raise no finding for it, and list it under elsewhere with the repo exactly as the spec names it there. The workflow keeps an entry only when that name is on the AC-N's own line before its id or in a heading over it. An AC-N the spec does not place in another repository belongs to this one, however unlikely that looks: judge it here. An AC-N with a part in each repo is judged here on this repo's part.
 
 Report:
 - Each AC-N that is missing or only partly met. Quote the AC-N; point at the test that should prove it, or say none exists.
@@ -317,9 +315,12 @@ ${diffContext}
 ${sections}`
 }
 
-function skepticPrompt(axis, finding) {
+function skepticPrompt(axis, finding, elsewhere) {
   const location = finding.line === null ? finding.file : `${finding.file}:${finding.line}`
-  const specText = axis.name === 'Spec' ? `\nThe spec the finding was judged against:\n${scope.spec.text}\n${SPEC_ONLY}\n${REPO_SCOPE}\n` : ''
+  const placed = elsewhere.length
+    ? `${IN_REPO} The spec places ${elsewhereNote(elsewhere)} in another repository, so this diff cannot meet them: a finding that one of them is missing here is refuted. Every other AC-N belongs to this repo.\n`
+    : ''
+  const specText = axis.name === 'Spec' ? `\nThe spec the finding was judged against:\n${scope.spec.text}\n${SPEC_ONLY}\n${placed}` : ''
   return `A reviewer made the ${axis.name} finding below about the diff \`${scope.diffCommand}\`. Your job is to refute it.${readAtHead}
 ${specText}
 Finding (${finding.severity}) at ${location}:
@@ -331,10 +332,10 @@ Read the code at that location and whatever it depends on. Check that the quoted
 Set refuted to true unless you confirmed the finding yourself against the code. When you are uncertain, it is refuted.`
 }
 
-async function judge(axis, finding, index) {
+async function judge(axis, finding, index, elsewhere) {
   const votes = await parallel(
     Array.from({ length: skepticsPerFinding }, (_, vote) => () =>
-      agent(skepticPrompt(axis, finding), {
+      agent(skepticPrompt(axis, finding, elsewhere), {
         label: `${axis.name} skeptic ${index + 1}.${vote + 1}`,
         phase: axis.name,
         schema: VERDICT_SCHEMA,
@@ -383,45 +384,64 @@ const FILE_LINE = /[\w./-]+(:|#L)\d+/
 const specAcs = [...new Set(String(scope.spec.text || '').match(/\bAC-\d+\b/g) || [])]
   .map(id => ({ id, named: new RegExp(`\\b${id}\\b`) }))
 
-const squash = text => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase()
+const specLines = String(scope.spec.text || '').split('\n')
+const headingLevel = line => ((line.match(/^\s*(#{1,6})\s/) || [])[1] || '').length
 
-// Two names for one repo: owner/name against owner/name, else name against name, since a fork can share its upstream's name.
-function sameRepo(a, b) {
-  const [x, y] = [a, b].map(name => name.toLowerCase())
-  return x.includes('/') && y.includes('/') ? x === y : x.split('/').pop() === y.split('/').pop()
+// The spec text that can place an AC-N in a repo: its own line before its id, and the headings over that line.
+function placementOf(ac) {
+  const at = specLines.findIndex(line => ac.named.test(line))
+  const placing = [specLines[at].slice(0, specLines[at].search(ac.named))]
+  let level = headingLevel(specLines[at]) || 7
+  for (const line of specLines.slice(0, at).reverse()) {
+    const own = headingLevel(line)
+    if (own && own < level) {
+      placing.push(line)
+      level = own
+    }
+  }
+  return placing
 }
 
-// Returns why the spec text does not back placing this AC-N in another repo, or '' when it does.
-function elsewhereRefusal(entry) {
-  const repo = String(entry.repo || '').trim()
-  const quote = squash(entry.quote)
+const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const namesRepo = (text, repo) => new RegExp(`(^|[^\\w./-])${escapeRegExp(repo)}($|[^\\w./-])`, 'i').test(text)
+// A fork can share its upstream's name, and its origin is the fork: compare names alone, and on a tie judge the AC-N here.
+const repoName = repo => repo.toLowerCase().split('/').pop()
+
+// Returns why the spec does not place this AC-N in that other repo, or '' when it does.
+function elsewhereRefusal(ac, repo) {
   if (!repoUnderReview) return 'the repo under review is unknown'
   if (!repo) return 'it names no repo'
-  if (sameRepo(repo, repoUnderReview)) return `${repo} is the repo under review`
-  if (!quote || !squash(scope.spec.text).includes(quote)) return 'its quote is not in the spec text'
-  if (!quote.includes(repo.toLowerCase())) return `its quote does not name ${repo}`
-  if (!new RegExp(`\\b${String(entry.ac).toLowerCase()}\\b`).test(quote)) return `its quote does not name ${entry.ac}`
+  if (repoName(repo) === repoName(repoUnderReview)) return `${repo} is the repo under review`
+  if (!placementOf(ac).some(text => namesRepo(text, repo))) {
+    return `the spec does not place it in ${repo} (on its line before its id, or in a heading over it)`
+  }
   return ''
 }
 
-// Splits the reviewer's elsewhere list into the entries the spec text backs and why each other one was refused.
+// Splits the reviewer's elsewhere list into the entries the spec backs and the first reason each other AC-N was refused.
 function sortElsewhere(entries) {
   const accepted = []
   const refused = {}
   for (const entry of Array.isArray(entries) ? entries : []) {
-    if (!entry || accepted.some(kept => kept.ac === entry.ac)) continue
-    const why = elsewhereRefusal(entry)
-    if (why) refused[entry.ac] = why
-    else accepted.push(entry)
+    const ac = specAcs.find(known => entry && known.id.toLowerCase() === String(entry.ac || '').trim().toLowerCase())
+    if (!ac || accepted.some(kept => kept.ac === ac.id)) continue
+    const repo = String(entry.repo || '').trim()
+    const why = elsewhereRefusal(ac, repo)
+    if (!why) accepted.push({ ac: ac.id, repo })
+    else if (!refused[ac.id]) refused[ac.id] = why
   }
   return { accepted, refused }
 }
 
+// Groups the accepted AC-N by repo, in the order the reviewer listed them, under each repo's first spelling.
 function elsewhereNote(accepted) {
-  const repos = [...new Set(accepted.map(entry => entry.repo))]
-  return repos
-    .map(repo => `; ${accepted.filter(entry => entry.repo === repo).map(entry => entry.ac).join(', ')} not verifiable here (${repo})`)
-    .join('')
+  const groups = new Map()
+  for (const { ac, repo } of accepted) {
+    const key = repo.toLowerCase()
+    if (!groups.has(key)) groups.set(key, { repo, acs: [] })
+    groups.get(key).acs.push(ac)
+  }
+  return [...groups.values()].map(group => `${group.acs.join(', ')} (${group.repo})`).join('; ')
 }
 
 // Returns why the reviewer's record of what it checked falls short, or '' when it holds.
@@ -457,7 +477,7 @@ async function settleAxis(review, axis) {
   const unverified = review.findings
     .filter(finding => !worthSkeptic(finding))
     .map(finding => ({ ...finding, unverified: true }))
-  const judged = (await pipeline(serious, (finding, _item, index) => judge(axis, finding, index)))
+  const judged = (await pipeline(serious, (finding, _item, index) => judge(axis, finding, index, placed ? placed.accepted : [])))
     .map((j, i) => j || unjudgedAfterThrow(serious[i]))
   const withVerdict = verdict => judged.filter(j => j.verdict === verdict)
   const unjudged = withVerdict('unjudged')
@@ -466,7 +486,7 @@ async function settleAxis(review, axis) {
     axis: axis.name,
     status: unchecked
       ? `failed: ${unchecked}`
-      : `${light ? 'reviewed (light)' : 'reviewed'}: ${review.findings.length} findings raised, ${unverified.length} left unverified${placed ? elsewhereNote(placed.accepted) : ''}`,
+      : `${light ? 'reviewed (light)' : 'reviewed'}: ${review.findings.length} findings raised, ${unverified.length} left unverified${placed && placed.accepted.length ? `; not verifiable here: ${elsewhereNote(placed.accepted)}` : ''}`,
     complete: !unchecked,
     checked: review.checked,
     ...(placed ? { elsewhere: placed.accepted } : {}),

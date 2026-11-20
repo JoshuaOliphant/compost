@@ -29,7 +29,7 @@ checked by the reviewer.
 _Avoid_: business rule, policy (those change; an invariant doesn't), constraint.
 
 **Elsewhere criterion**: an AC-N the spec itself places in another repository than the one under
-review, by naming that repo in the criterion or in a heading over it. The Spec reviewer lists it
+review, by naming that repo on the criterion's line before its id or in a heading over it. The Spec reviewer lists it
 instead of judging it, and the other repo's review judges it. In code: `elsewhere` in
 `review-changes.js`.
 _Avoid_: out-of-scope AC, cross-repo AC.

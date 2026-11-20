@@ -372,64 +372,89 @@ test('a clean Spec review maps every AC-N in the spec, and one that leaves an AC
   assert.equal(prefixOnly.result.spec.status, 'failed: the reviewer did not map AC-1 to the code', 'AC-10 does not map AC-1')
 })
 
-const SPLIT_SPEC = 'AC-1: Given a list, When exported, Then a CSV downloads\n\n## In agent-plugins\n\nAC-2: Given the export skill, When loaded, Then it lists CSV'
-const SPLIT_QUOTE = '## In agent-plugins\nAC-2: Given the export skill'
+const SPLIT_SPEC = '## In notes-fork\n\n### 1. Export\n\n#### AC-1: Given a list, When exported, Then a CSV downloads\n\n## In agent-plugins\n\n### 2. Skill\n\n#### AC-2: Given the export skill, When loaded, Then it lists CSV\n- notes-web: AC-3: Given the web view, Then a webhook fires'
 const SPLIT_SCOPE = { ...SCOPE, repo: 'JoshuaOliphant/notes-fork', spec: { ...SCOPE.spec, text: SPLIT_SPEC } }
-const ELSEWHERE = { ac: 'AC-2', repo: 'agent-plugins', quote: SPLIT_QUOTE }
+const ELSEWHERE = { ac: 'AC-2', repo: 'agent-plugins' }
+const AC3_CHECKED = [...SPEC_CHECKED, { item: 'AC-3 met by test_webhook', at: 'tests/test_web.py:4' }]
 
 test('an AC-N the spec places in another repo is listed as not verifiable here, on the full and the light path', async () => {
-  const partlyAc1 = { ...BLOCKER, claim: 'AC-1 is partly met: commas are not escaped' }
-  const full = await run({ issue: 7 }, reviewers({ scope: SPLIT_SCOPE, spec: { findings: [partlyAc1], checked: SPEC_CHECKED, elsewhere: [ELSEWHERE] } }))
+  const unmetAc2 = { file: 'app/export.py', line: null, severity: 'blocker', claim: 'AC-2 has no code in this diff', evidence: 'AC-2 at #7' }
+  const full = await run({ issue: 7 }, reviewers({ scope: SPLIT_SCOPE, spec: { findings: [], checked: AC3_CHECKED, elsewhere: [ELSEWHERE] } }))
   assert.equal(full.result.complete, true)
   assert.deepEqual(full.result.spec.elsewhere, [ELSEWHERE])
-  assert.match(full.result.spec.status, /; AC-2 not verifiable here \(agent-plugins\)$/)
-  assert.match(full.result.summary, /Spec: reviewed: 1 findings raised, 0 left unverified; AC-2 not verifiable here \(agent-plugins\)/)
+  assert.equal(full.result.spec.status, 'reviewed: 0 findings raised, 0 left unverified; not verifiable here: AC-2 (agent-plugins)')
+  assert.match(full.result.summary, /Spec: reviewed: 0 findings raised, 0 left unverified; not verifiable here: AC-2 \(agent-plugins\), 0 survived/)
   assert.match(full.prompts.scope, /git remote get-url origin/)
   assert.match(full.prompts['Spec reviewer'], /This diff is in JoshuaOliphant\/notes-fork\./)
   assert.match(full.prompts['Spec reviewer'], /under elsewhere/)
   assert.ok(full.schemas['Spec reviewer'].properties.elsewhere, 'the Spec reviewer can return elsewhere')
-  assert.match(full.prompts['Spec skeptic 1.1'], /This diff is in JoshuaOliphant\/notes-fork\. An AC-N the spec places in another repository is not this diff's to meet/)
+  assert.equal(full.schemas['Standards reviewer'].properties.elsewhere, undefined)
 
-  const light = { findings: [], checked: CHECKED, elsewhere: [ELSEWHERE] }
+  const skeptics = await run({ issue: 7 }, reviewers({ scope: SPLIT_SCOPE, spec: { findings: [unmetAc2], checked: AC3_CHECKED, elsewhere: [ELSEWHERE] } }))
+  assert.match(skeptics.prompts['Spec skeptic 1.1'], /This diff is in JoshuaOliphant\/notes-fork\. The spec places AC-2 \(agent-plugins\) in another repository, so this diff cannot meet them: a finding that one of them is missing here is refuted\. Every other AC-N belongs to this repo\./)
+  const none = await run({ issue: 7 }, reviewers({ scope: SPLIT_SCOPE, spec: { findings: [unmetAc2], checked: AC3_CHECKED } }))
+  assert.equal(none.result.complete, true, 'the finding maps AC-2')
+  assert.doesNotMatch(none.prompts['Spec skeptic 1.1'], /another repository/, 'with nothing placed elsewhere, skeptics get no repo rule')
+
+  const light = { findings: [], checked: { ...CHECKED, Spec: AC3_CHECKED }, elsewhere: [ELSEWHERE] }
   const small = await run({ ...JEV, issue: 7 }, reviewers({ scope: { ...SMALL, ...SPLIT_SCOPE }, light }))
   assert.equal(small.result.path, 'light')
   assert.equal(small.result.complete, true)
   assert.deepEqual(small.result.spec.elsewhere, [ELSEWHERE])
-  assert.deepEqual(small.result.standards.elsewhere, undefined, 'elsewhere belongs to the Spec axis only')
+  assert.equal(small.result.standards.elsewhere, undefined, 'elsewhere belongs to the Spec axis only')
   assert.ok(small.schemas['Light reviewer'].properties.elsewhere, 'the light reviewer can return elsewhere')
   assert.match(small.prompts['Light reviewer'], /This diff is in JoshuaOliphant\/notes-fork\./)
 })
 
-test('a claim that an AC-N lives elsewhere counts only when the spec text names that other repo beside it', async () => {
-  const cases = [
-    [{ ...ELSEWHERE, quote: 'AC-2 belongs to agent-plugins' }, 'its quote is not in the spec text'],
-    [{ ...ELSEWHERE, quote: 'AC-2: Given the export skill' }, 'its quote does not name agent-plugins'],
-    [{ ...ELSEWHERE, quote: '## In agent-plugins' }, 'its quote does not name AC-2'],
-    [{ ...ELSEWHERE, repo: ' ' }, 'it names no repo'],
-    [{ ...ELSEWHERE, repo: 'notes-fork', quote: 'AC-2: Given the export skill' }, 'notes-fork is the repo under review'],
-    [{ ...ELSEWHERE, repo: 'joshuaoliphant/NOTES-FORK' }, 'joshuaoliphant/NOTES-FORK is the repo under review'],
+test('the spec places an AC-N elsewhere only on its own line before its id or in a heading over it', async () => {
+  const placed = [
+    [{ ac: 'AC-2', repo: 'Agent-Plugins' }, 'a heading over the AC-N, any case'],
+    [{ ac: 'ac-2 ', repo: 'agent-plugins' }, 'the AC-N id in any case or spacing'],
+    [{ ac: 'AC-3', repo: 'notes-web' }, 'its own line before its id'],
   ]
-  for (const [entry, why] of cases) {
-    const { result } = await run({ issue: 7 }, reviewers({ scope: SPLIT_SCOPE, spec: { findings: [], checked: SPEC_CHECKED, elsewhere: [entry] } }))
-    assert.equal(result.spec.status, `failed: the reviewer did not map AC-2 to the code (refused AC-2 elsewhere: ${why})`, why)
-    assert.deepEqual(result.spec.elsewhere, [])
+  for (const [entry, why] of placed) {
+    const ac = entry.ac.trim().toUpperCase()
+    const checked = AC3_CHECKED.filter(item => !item.item.startsWith(ac))
+    const elsewhere = ac === 'AC-2' ? [entry] : [ELSEWHERE, entry]
+    const { result } = await run({ issue: 7 }, reviewers({ scope: SPLIT_SCOPE, spec: { findings: [], checked, elsewhere } }))
+    assert.equal(result.complete, true, why)
+  }
+  const refused = [
+    [{ ac: 'AC-3', repo: 'web' }, 'AC-3', 'the spec does not place it in web (on its line before its id, or in a heading over it)'],
+    [{ ac: 'AC-3', repo: 'notes' }, 'AC-3', 'the spec does not place it in notes (on its line before its id, or in a heading over it)'],
+    [{ ac: 'AC-1', repo: 'agent-plugins' }, 'AC-1', 'the spec does not place it in agent-plugins (on its line before its id, or in a heading over it)'],
+    [{ ac: 'AC-2', repo: 'agent.plugins' }, 'AC-2', 'the spec does not place it in agent.plugins (on its line before its id, or in a heading over it)'],
+    [{ ac: 'AC-2', repo: ' ' }, 'AC-2', 'it names no repo'],
+    [{ ac: 'AC-2', repo: 'notes-fork' }, 'AC-2', 'notes-fork is the repo under review'],
+    [{ ac: 'AC-2', repo: 'upstream/NOTES-FORK' }, 'AC-2', 'upstream/NOTES-FORK is the repo under review'],
+  ]
+  for (const [entry, ac, why] of refused) {
+    const checked = AC3_CHECKED.filter(item => !item.item.startsWith(ac))
+    const elsewhere = ac === 'AC-2' ? [entry] : [ELSEWHERE, entry]
+    const { result } = await run({ issue: 7 }, reviewers({ scope: SPLIT_SCOPE, spec: { findings: [], checked, elsewhere } }))
+    assert.equal(result.spec.status, `failed: the reviewer did not map ${ac} to the code (refused ${ac} elsewhere: ${why})`, why)
     assert.equal(result.complete, false)
   }
-  const unknownRepo = await run({ issue: 7 }, reviewers({ scope: { ...SPLIT_SCOPE, repo: '' }, spec: { findings: [], checked: SPEC_CHECKED, elsewhere: [ELSEWHERE] } }))
+  const later = { ...SPLIT_SCOPE, spec: { ...SPLIT_SCOPE.spec, text: '## In agent-plugins\n#### AC-2: two\n## In notes-fork\n#### AC-1: one' } }
+  const sibling = await run({ issue: 7 }, reviewers({ scope: later, spec: { findings: [], checked: [{ item: 'spec read', at: 'docs/spec.md:1' }], elsewhere: [ELSEWHERE, { ac: 'AC-1', repo: 'agent-plugins' }] } }))
+  assert.match(sibling.result.spec.status, /refused AC-1 elsewhere: the spec does not place it in agent-plugins/, 'a heading closed by a later one of its level does not place what follows')
+
+  const unknownRepo = await run({ issue: 7 }, reviewers({ scope: { ...SPLIT_SCOPE, repo: '' }, spec: { findings: [], checked: AC3_CHECKED, elsewhere: [ELSEWHERE] } }))
   assert.equal(unknownRepo.result.spec.status, 'failed: the reviewer did not map AC-2 to the code (refused AC-2 elsewhere: the repo under review is unknown)')
 
-  const sameNameUpstream = { ...SPLIT_SCOPE, spec: { ...SPLIT_SCOPE.spec, text: 'AC-1: Given a list\nIn upstream/notes-fork: AC-2 lists CSV' } }
-  const upstream = { ac: 'AC-2', repo: 'upstream/notes-fork', quote: 'In upstream/notes-fork: AC-2' }
-  const fork = await run({ issue: 7 }, reviewers({ scope: sameNameUpstream, spec: { findings: [], checked: SPEC_CHECKED, elsewhere: [upstream] } }))
-  assert.equal(fork.result.complete, true, 'a fork\'s upstream with the same name but another owner is another repo')
+  const noise = [{ ac: 'AC-2', repo: 'notes-fork' }, ELSEWHERE, { ...ELSEWHERE, repo: 'AGENT-PLUGINS' }, { ac: 'AC-2)', repo: 'agent-plugins' }, { ac: 'AC-9', repo: 'x' }, null]
+  const deduped = await run({ issue: 7 }, reviewers({ scope: SPLIT_SCOPE, spec: { findings: [], checked: AC3_CHECKED, elsewhere: noise } }))
+  assert.deepEqual(deduped.result.spec.elsewhere, [ELSEWHERE], 'an AC-N is listed once; an id the spec lacks, regex characters and all, not at all')
+  const firstReason = await run({ issue: 7 }, reviewers({ scope: SPLIT_SCOPE, spec: { findings: [], checked: AC3_CHECKED, elsewhere: [{ ac: 'AC-2', repo: 'notes-fork' }, { ac: 'AC-2', repo: '' }] } }))
+  assert.match(firstReason.result.spec.status, /refused AC-2 elsewhere: notes-fork is the repo under review\)$/, 'the first refusal is the one reported')
 
-  const multiline = { ...ELSEWHERE, quote: '## In agent-plugins   AC-2: Given the export skill' }
-  const spaced = await run({ issue: 7 }, reviewers({ scope: SPLIT_SCOPE, spec: { findings: [], checked: SPEC_CHECKED, elsewhere: [multiline] } }))
-  assert.equal(spaced.result.complete, true, 'whitespace in the quote need not match the spec exactly')
-
-  const noise = [ELSEWHERE, { ...ELSEWHERE, quote: SPLIT_QUOTE.toUpperCase() }, { ...ELSEWHERE, ac: 'AC-9' }, null]
-  const deduped = await run({ issue: 7 }, reviewers({ scope: SPLIT_SCOPE, spec: { findings: [], checked: SPEC_CHECKED, elsewhere: noise } }))
-  assert.deepEqual(deduped.result.spec.elsewhere, [ELSEWHERE], 'an AC-N is listed once, and one the spec lacks not at all')
+  const twoRepos = await run({ issue: 7 }, reviewers({ scope: SPLIT_SCOPE, spec: { findings: [], checked: SPEC_CHECKED, elsewhere: [ELSEWHERE, { ac: 'AC-3', repo: 'notes-web' }] } }))
+  assert.match(twoRepos.result.spec.status, /not verifiable here: AC-2 \(agent-plugins\); AC-3 \(notes-web\)$/)
+  const oneRepo = { ...SPLIT_SCOPE, spec: { ...SPLIT_SCOPE.spec, text: '## In agent-plugins\n#### AC-1: one\n#### AC-2: two' } }
+  const grouped = await run({ issue: 7 }, reviewers({ scope: oneRepo, spec: { findings: [], checked: [], elsewhere: [{ ac: 'AC-1', repo: 'agent-plugins' }, { ac: 'AC-2', repo: 'Agent-Plugins' }] } }))
+  assert.equal(grouped.result.spec.status, 'failed: the reviewer returned no findings and no record of what it checked', 'elsewhere is no record of what was checked')
+  const groupedChecked = await run({ issue: 7 }, reviewers({ scope: oneRepo, spec: { findings: [], checked: [{ item: 'spec read', at: 'docs/spec.md:1' }], elsewhere: [{ ac: 'AC-1', repo: 'agent-plugins' }, { ac: 'AC-2', repo: 'Agent-Plugins' }] } }))
+  assert.match(groupedChecked.result.spec.status, /not verifiable here: AC-1, AC-2 \(agent-plugins\)$/, 'one repo spelled two ways is one group')
 })
 
 test('meta is a pure literal naming every phase the script uses', () => {
