@@ -52,6 +52,7 @@ const SCOPE_SCHEMA = {
     commits: { type: 'array', items: { type: 'string' } },
     files: { type: 'array', items: { type: 'string' } },
     changed: CHANGED_SCHEMA,
+    dirty: { type: 'boolean', description: 'True when git status --porcelain shows uncommitted edits to a changed file' },
     guide: {
       type: 'object',
       description: 'The review guide in force: the repo root REVIEW.md, or the defaults when it has none',
@@ -249,7 +250,7 @@ const scope = await agent(
   `Scope a code review of the changes up to \`${head}\`. Do not review anything yet.
 
 ${baseHint} The head under review is \`${head}\`.
-1. Resolve the fixed point and the head with \`git rev-parse\`. Record repo as the owner/name in \`git remote get-url origin\` (no host, no .git), or the name of the directory \`git rev-parse --show-toplevel\` prints when there is no origin. Record diffCommand as \`git diff <base-sha>...<head-sha>\` (three dots, against the merge-base), shortstat as the line \`git diff --shortstat <base-sha>...<head-sha>\` prints, verbatim, the commits from \`git log --oneline <base-sha>..<head-sha>\`, and the changed files from \`git diff --name-only <base-sha>...<head-sha>\`. Record changed from \`git diff -U0 <base-sha>...<head-sha>\`: for each file, every hunk header \`@@ -a,b +c,d @@\` gives the range [c, c+d-1] (d left out means 1), and a pure deletion (d is 0) gives [c, c+1], the lines around the cut.
+1. Resolve the fixed point and the head with \`git rev-parse\`. Set dirty to true when \`git status --porcelain\` lists a changed file with uncommitted edits. Record repo as the owner/name in \`git remote get-url origin\` (no host, no .git), or the name of the directory \`git rev-parse --show-toplevel\` prints when there is no origin. Record diffCommand as \`git diff <base-sha>...<head-sha>\` (three dots, against the merge-base), shortstat as the line \`git diff --shortstat <base-sha>...<head-sha>\` prints, verbatim, the commits from \`git log --oneline <base-sha>..<head-sha>\`, and the changed files from \`git diff --name-only <base-sha>...<head-sha>\`. Record changed from \`git diff -U0 <base-sha>...<head-sha>\`: for each file, every hunk header \`@@ -a,b +c,d @@\` gives the range [c, c+d-1] (d left out means 1), and a pure deletion (d is 0) gives [c, c+1], the lines around the cut.
 2. ${specStep}
 3. List the standards sources that exist: CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces). When the repo root has a REVIEW.md, list it too and set guide from it: source "REVIEW.md", failure and skip from its Failure and Skip sections verbatim, and minorCap from its Minor cap section as a whole number (if it holds none, use 5 and say why in guide.problem). Without one, set guide to \`{source: "defaults", minorCap: 5, failure: "", skip: ""}\`. Then set skipped to the changed files a skip rule covers: REVIEW.md's, or by default generated files (a generated-file header, *_pb2.py, minified bundles), vendored ones (vendor/, third_party/), and lock files (uv.lock, package-lock.json, *.lock, requirements*.lock).${riskStep}${deltaStep}
 
@@ -279,7 +280,8 @@ if (specProblem) log(specProblem)
 
 log(`Reviewing ${scope.files.length} files across ${scope.commits.length} commits since ${scope.base.slice(0, 8)}`)
 
-const readAtHead = head === 'HEAD'
+// Line numbers decide pre-existing routing and the delta filter, so reviewers read the committed head whenever disk may differ.
+const readAtHead = head === 'HEAD' && !scope.dirty
   ? ''
   : `\nThe working tree may not be at the head under review: read changed files with \`git show ${scope.head}:<path>\`, not from disk.`
 
@@ -307,11 +309,13 @@ const delta = since
 if (delta && !delta.used) log(`Reviewing the whole branch: ${delta.problem}`)
 
 const deltaNote = delta && delta.used
-  ? `\nThis is a re-review. Judge only the lines changed since the last round, \`git diff ${delta.since} ${scope.head}\`; read the branch diff above for context. The workflow drops a finding at a line outside that diff.`
+  ? `\nThis is a re-review. Judge only the lines changed since the last round, \`git diff ${delta.since} ${scope.head}\`; read the branch diff above for context. The workflow drops a finding at a line outside that diff, so a bug those lines cause elsewhere (a caller they break) is cited at the changed line that causes it, with the broken line in the evidence.`
   : ''
 
 // Without a REVIEW.md, every repo gets the same short guide, which the starter compost:setup offers writes out.
 const DEFAULT_MINOR_CAP = 5
+const MINOR_ORDER = "List your most important minor first: the workflow keeps Standards' minors first, then Spec's, each in the order listed, up to the cap."
+
 const guide = scope.guide && ['REVIEW.md', 'defaults'].includes(scope.guide.source)
   ? scope.guide
   : { source: 'defaults', minorCap: DEFAULT_MINOR_CAP, problem: 'the scoping agent returned no review guide' }
@@ -322,11 +326,11 @@ const skippedFiles = new Set(Array.isArray(scope.skipped) ? scope.skipped : [])
 const guideNote = guide.source === 'REVIEW.md'
   ? `\nReview guide: this repo's REVIEW.md, among the standards sources; read it whole, and it overrides your defaults where it speaks.
 - Failure: ${guide.failure || '(not stated; a change that breaks behaviour, loses or leaks data, or blocks a rollback)'}
-- Minors: at most ${minorCap} for the whole review. List your most important minor first: the workflow keeps only the first ones.
+- Minors: at most ${minorCap} for the whole review. ${MINOR_ORDER}
 - Skip: ${guide.skip || '(not stated)'}`
   : `\nReview guide (defaults; this repo has no REVIEW.md):
 - Failure: a change that breaks behaviour, loses or leaks data, or blocks a rollback.
-- Minors: at most ${minorCap} for the whole review. List your most important minor first: the workflow keeps only the first ones.
+- Minors: at most ${minorCap} for the whole review. ${MINOR_ORDER}
 - Skip: generated, vendored, and lock files, and anything a configured linter or formatter enforces.
 - Evidence: every behaviour claim cites a file:line, not an inference from naming.`
 
@@ -451,6 +455,13 @@ async function judge(axis, finding, index, elsewhere) {
     failed: votes.length - cast.length,
     reasons: cast.map(v => v.reason),
   }
+}
+
+// Reviewers cite paths from the repo root; a './' prefix or an absolute path is mapped back to the changed file it ends with.
+function repoPath(file) {
+  const path = String(file || '').replace(/^\.\//, '')
+  if (!path.startsWith('/')) return path
+  return scope.files.find(changedFile => path.endsWith(`/${changedFile}`)) || path
 }
 
 // A finding's line is changed when a hunk of the diff covers it; a null line is about something absent, never a changed line.
@@ -578,7 +589,7 @@ function elsewhereNote(accepted) {
 }
 
 // Returns why the reviewer's record of what it checked falls short, or '' when it holds.
-function uncheckedReason(axis, review, placed) {
+function uncheckedReason(axis, review, placed, kept) {
   const entries = Array.isArray(review.checked) ? review.checked : []
   if (entries.length === 0) {
     return review.findings.length ? 'the reviewer did not say what it checked' : 'the reviewer returned no findings and no record of what it checked'
@@ -588,7 +599,7 @@ function uncheckedReason(axis, review, placed) {
   if (axis.name !== 'Spec') return ''
   // A finding about an AC-N (one with no line to cite, or one only partly met) maps it too. Its claim must
   // name the AC-N: evidence quotes AC-Ns in passing, which says nothing about whether they were checked.
-  const named = [...cited.map(entry => entry.item), ...review.findings.map(f => f.claim)].map(String)
+  const named = [...cited.map(entry => entry.item), ...kept.map(f => f.claim)].map(String)
   const unmapped = specAcs
     .filter(ac => !named.some(text => ac.named.test(text)) && !placed.accepted.some(entry => entry.ac === ac.id))
     .map(ac => ac.id)
@@ -605,18 +616,22 @@ async function settleAxis(review, axis) {
   if (!review) return failedAxis(axis.name, 'the reviewer did not return')
   // A failed record fails the axis but keeps its findings: losing a real blocker is worse than a skimpy review.
   const placed = axis.name === 'Spec' ? partitionElsewhere(review.elsewhere) : null
-  const unchecked = uncheckedReason(axis, review, placed)
+  review = { ...review, findings: review.findings.map(finding => ({ ...finding, file: repoPath(finding.file) })) }
   const notVerifiableHere = placed && placed.accepted.length ? `; not verifiable here: ${elsewhereNote(placed.accepted)}` : ''
   const skippedOut = review.findings.filter(finding => skippedFiles.has(finding.file))
   const skipOutNote = skippedOut.length ? `, ${skippedOut.length} in skipped files dropped` : ''
   const routed = routePreExisting(review.findings.filter(finding => !skippedOut.includes(finding)))
   const { preExisting } = routed
   const preExistingNote = preExisting.length ? `, ${preExisting.length} pre-existing` : ''
-  // On a re-review, a finding at a line nobody touched since the last round was that round's to raise.
+  // On a re-review, a finding at a line nobody touched since the last round was that round's to raise; a Spec
+  // finding that names an AC-N stays, since Spec maps every AC-N across the whole branch every round.
+  const namesAc = finding => axis.name === 'Spec' && specAcs.some(ac => ac.named.test(String(finding.claim)))
   const outsideDelta = delta && delta.used
-    ? routed.kept.filter(finding => typeof finding.line === 'number' && !isChanged(delta.changed, finding.file, finding.line))
+    ? routed.kept.filter(finding => typeof finding.line === 'number' && !namesAc(finding) && !isChanged(delta.changed, finding.file, finding.line))
     : []
   const kept = routed.kept.filter(finding => !outsideDelta.includes(finding))
+  // Only a finding the workflow keeps maps an AC-N: one it dropped or set apart says nothing the caller will see.
+  const unchecked = uncheckedReason(axis, review, placed, kept)
   const outsideNote = outsideDelta.length ? `, ${outsideDelta.length} outside the delta dropped` : ''
   const serious = kept.filter(worthSkeptic)
   const unverified = kept

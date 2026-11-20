@@ -348,6 +348,46 @@ test('findings in files the guide skips are dropped before any skeptic, and revi
   assert.match(result.standards.status, /2 findings raised, 0 left unverified, 1 in skipped files dropped/)
 })
 
+test('on a re-review, a Spec finding that names an AC-N stays wherever its line is, and only kept findings map an AC-N', async () => {
+  const unmetAc = { ...BLOCKER, line: 40, claim: 'AC-1 is only partly met: no test exports a quoted title' }
+  const { result } = await run({ since: SINCE }, reviewers({
+    scope: { ...SCOPE, delta: DELTA },
+    standards: { findings: [{ ...BLOCKER, line: 40, claim: 'a style lapse at an untouched line' }], checked: STANDARDS_CHECKED },
+    spec: { findings: [unmetAc], checked: [{ item: 'read the export module', at: 'app/export.py:1' }] },
+  }))
+  assert.deepEqual(result.standards.survivors, [])
+  assert.deepEqual(result.spec.survivors.map(f => f.claim), [unmetAc.claim])
+  assert.equal(result.spec.complete, true)
+
+  const dropped = await run({}, reviewers({
+    scope: { ...SCOPE, files: ['app/export.py', 'gen/schema_pb2.py'], skipped: ['gen/schema_pb2.py'] },
+    spec: { findings: [{ ...unmetAc, file: 'gen/schema_pb2.py', line: 2 }], checked: [{ item: 'read the export module', at: 'app/export.py:1' }] },
+  }))
+  assert.match(dropped.result.spec.status, /^failed: the reviewer did not map AC-1 to the code/)
+})
+
+test('a finding cited with a ./ prefix or an absolute path is matched to the changed file it names', async () => {
+  for (const file of ['./app/export.py', '/home/dev/repo/app/export.py']) {
+    const { result, prompts } = await run({}, reviewers({
+      scope: { ...SCOPE, changed: CHANGED },
+      standards: { findings: [{ ...PRE_EXISTING, file, line: 12 }], checked: STANDARDS_CHECKED },
+    }))
+    assert.deepEqual(result.standards.preExisting, [], file)
+    assert.deepEqual(result.standards.survivors.map(f => [f.file, f.severity]), [['app/export.py', 'major']], file)
+    assert.ok(prompts['Standards skeptic 1.1'], file)
+  }
+})
+
+test('with uncommitted edits to a changed file, every agent reads the committed head, since line numbers decide routing', async () => {
+  const { prompts } = await run({}, reviewers({ scope: { ...SCOPE, dirty: true } }))
+  for (const label of ['Standards reviewer', 'Spec reviewer', 'Standards skeptic 1.1']) {
+    assert.match(prompts[label], new RegExp(`git show ${SCOPE.head}:<path>`), label)
+  }
+  const clean = await run({}, reviewers())
+  assert.doesNotMatch(clean.prompts['Standards reviewer'], /git show/)
+  assert.match(clean.prompts.scope, /git status --porcelain/)
+})
+
 test('a blocker whose every skeptic failed is unjudged, not refuted', async () => {
   const { result } = await run({}, reviewers({ skeptic: null }))
   assert.deepEqual(result.standards.refuted, [])
