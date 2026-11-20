@@ -7,6 +7,7 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 ### Changed
 
 - `/compost:review-changes` runs its scope agent and every skeptic as lean agent types, `compost:scope` and `compost:skeptic` (Read, Grep, Glob, Bash), instead of default workflow agents (OLI-66). A new `spec` argument carries the issue text from the caller, so the scope agent fetches nothing; `compost:review` passes it when the tracker reads issues through tools rather than a shell command (an MCP tracker such as Linear). Without a `jev` argument, scoping ranks the files with the plugin's own `jev.py`, so a direct call gets the same ranking and path as one from `compost:review`. Every result lists the harness code review under `notRun` and in its summary, and the workflow's `whenToUse` names `compost:review` as the entry point.
+- `compost:retro` checks each cause it names against the run's own numbers before it files a fix (OLI-69): the data that would show the cause, and what the run would have done without it. A candidate the data contradicts is restated with the cause the data shows, or dropped.
 
 ## [0.36.0] - 2026-11-20
 
