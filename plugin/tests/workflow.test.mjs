@@ -241,6 +241,88 @@ test('a since that does not resolve, is not an ancestor, or comes back unread gi
   }
 })
 
+const minors = (n, file = 'app/export.py') => Array.from({ length: n }, (_, i) => ({ ...MINOR, file, line: 30 + i, claim: `minor ${file} ${i}` }))
+const GUIDE = { source: 'REVIEW.md', minorCap: 2, failure: 'a change that drops a reading list entry', skip: 'migrations/' }
+
+test('without a REVIEW.md, every reviewer gets the default guide and the result names it', async () => {
+  const { result, prompts } = await run({}, reviewers({ scope: { ...SCOPE, guide: { source: 'defaults', minorCap: 5, failure: '', skip: '' } } }))
+  for (const label of ['Standards reviewer', 'Spec reviewer']) {
+    assert.match(prompts[label], /Review guide \(defaults; this repo has no REVIEW\.md\)/)
+    assert.match(prompts[label], /breaks behaviour, loses or leaks data, or blocks a rollback/)
+    assert.match(prompts[label], /at most 5 for the whole review/)
+    assert.match(prompts[label], /generated, vendored, and lock files/)
+    assert.match(prompts[label], /cites a file:line/)
+  }
+  assert.deepEqual(result.guide, { source: 'defaults', minorCap: 5 })
+  assert.match(result.summary, /Review guide: defaults; minor cap 5, 0 cut/)
+  assert.match(prompts.scope, /REVIEW\.md/)
+})
+
+test('a REVIEW.md sets what failure means, the minor cap, and what to skip, and the scope agent reads it', async () => {
+  const { result, prompts } = await run({}, reviewers({ scope: { ...SCOPE, guide: GUIDE } }))
+  assert.match(prompts['Standards reviewer'], /this repo's REVIEW\.md/)
+  assert.match(prompts['Standards reviewer'], /Failure: a change that drops a reading list entry/)
+  assert.match(prompts['Standards reviewer'], /at most 2 for the whole review/)
+  assert.match(prompts['Standards reviewer'], /Skip: migrations\//)
+  assert.deepEqual(result.guide, { source: 'REVIEW.md', minorCap: 2 })
+})
+
+test('a missing or unreadable guide falls back to the defaults and says why', async () => {
+  for (const [guide, problem] of [
+    [undefined, 'the scoping agent returned no review guide'],
+    [{ source: 'REVIEW.md', minorCap: -1 }, 'minor cap -1 is not a whole number; using 5'],
+    [{ source: 'REVIEW.md', minorCap: 3, problem: 'Minor cap says "a few"' }, 'Minor cap says "a few"'],
+  ]) {
+    const { result } = await run({}, reviewers({ scope: { ...SCOPE, guide } }))
+    assert.equal(result.guide.problem, problem)
+    assert.match(result.summary, new RegExp(`\\(${problem.replace(/[()"]/g, '.')}\\)`))
+  }
+})
+
+for (const [cap, standardsMinors, specMinors, keptStandards, keptSpec, cut] of [
+  [5, 7, 0, 5, 0, 2],
+  [2, 1, 1, 1, 1, 0],
+  [0, 2, 1, 0, 0, 3],
+  [3, 2, 2, 2, 1, 1],
+]) {
+  test(`a minor cap of ${cap} over ${standardsMinors} Standards and ${specMinors} Spec minors keeps ${keptStandards} and ${keptSpec}, Standards first`, async () => {
+    const { result } = await run({}, reviewers({
+      scope: { ...SCOPE, guide: { source: 'REVIEW.md', minorCap: cap } },
+      standards: { findings: [BLOCKER, ...minors(standardsMinors)], checked: STANDARDS_CHECKED },
+      spec: { findings: minors(specMinors, 'app/spec.py'), checked: SPEC_CHECKED },
+    }))
+    const keptMinors = axis => result[axis].survivors.filter(f => f.severity === 'minor').map(f => f.claim)
+    assert.deepEqual(keptMinors('standards'), minors(standardsMinors).slice(0, keptStandards).map(f => f.claim))
+    assert.deepEqual(keptMinors('spec'), minors(specMinors, 'app/spec.py').slice(0, keptSpec).map(f => f.claim))
+    assert.ok(result.standards.survivors.some(f => f.severity === 'blocker'), 'the cap leaves blockers alone')
+    assert.match(result.summary, new RegExp(`minor cap ${cap}, ${cut} cut`))
+    assert.equal('listed' in result.standards, false)
+    assert.equal('listed' in result.spec, false)
+  })
+}
+
+test('the minor cap keeps the reviewer\'s listed order, however the survivors were settled', async () => {
+  const listed = minors(3).reverse()
+  const { result } = await run({}, reviewers({
+    scope: { ...SCOPE, guide: { source: 'defaults', minorCap: 1 } },
+    standards: { findings: listed, checked: STANDARDS_CHECKED },
+  }))
+  assert.deepEqual(result.standards.survivors.map(f => f.claim), [listed[0].claim])
+  assert.match(result.standards.status, /2 minors cut by the cap/)
+})
+
+test('findings in files the guide skips are dropped before any skeptic, and reviewers are told which files those are', async () => {
+  const lockFinding = { ...BLOCKER, file: 'requirements.lock', line: 2, claim: 'pinned version is old' }
+  const { result, prompts } = await run({}, reviewers({
+    scope: { ...SCOPE, files: ['app/export.py', 'requirements.lock'], skipped: ['requirements.lock'] },
+    standards: { findings: [BLOCKER, lockFinding], checked: STANDARDS_CHECKED },
+  }))
+  assert.match(prompts['Standards reviewer'], /Skipped by the review guide; raise nothing in these: requirements\.lock/)
+  assert.deepEqual(result.standards.survivors.map(f => f.file), ['app/export.py'])
+  assert.equal(Object.keys(prompts).filter(label => label.includes('skeptic')).length, 1)
+  assert.match(result.standards.status, /2 findings raised, 0 left unverified, 1 in skipped files dropped/)
+})
+
 test('a blocker whose every skeptic failed is unjudged, not refuted', async () => {
   const { result } = await run({}, reviewers({ skeptic: null }))
   assert.deepEqual(result.standards.refuted, [])

@@ -25,3 +25,8 @@ Copy what you read verbatim where your task asks for it (the shortstat line, the
 its headings). The changed line ranges come from the hunk headers of `git diff -U0`, read as your
 task says; they decide which findings count as the diff's, so take them from the command's output,
 never from reading the code. A fact you could not read is reported as missing, never guessed.
+
+A `REVIEW.md` at the repo root is the review guide: read its Failure, Minor cap, and Skip sections
+into the guide your task asks for, verbatim, and list the file among the standards sources. A Minor
+cap that is not a whole number is reported as a problem, not rounded. Without one, the guide is the
+defaults your task gives.

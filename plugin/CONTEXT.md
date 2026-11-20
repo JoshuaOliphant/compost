@@ -57,6 +57,12 @@ the line untouched; anywhere else the finding is the diff's. In code: `preExisti
 `review-changes.js`.
 _Avoid_: old bug, unrelated finding, out-of-scope finding.
 
+**Review guide**: what a review judges a change by in this repo: what counts as a failure, how many
+minor findings the whole review keeps (the minor cap), and which files it skips. The repo root's
+`REVIEW.md` when there is one, else compost's defaults; the defaults are what the `REVIEW.md`
+starter writes out. In code: `guide` in `review-changes.js`.
+_Avoid_: review config, review rules, review policy.
+
 **Review round**: one pass of `compost:review` over an issue's branch, recorded as one issue comment
 headed `Review round <n>` with the head it reviewed and its findings and rulings. A later round
 reviews only the lines changed since that head and is told those rulings. `compost:implement` caps

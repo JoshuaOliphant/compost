@@ -80,6 +80,11 @@ edits the user made by hand.
    after setup; pruning is its own change, never part of this commit
    ([core docs](../../canon/core-docs.md)).
 
+   If the repo root has no `REVIEW.md`, say that compost's review then uses its defaults (what
+   counts as a failure, at most five minor findings, what to skip) and offer to write them out as
+   a `REVIEW.md` from [review-md](references/review-md.md), so the repo can tune them. Write it only
+   on a yes; unattended, don't write it and say so in the report.
+
 6. **Test convention and gates.** Work out the convention with the detection ladder in
    [testing](references/testing.md): adopt the pattern already in use, default by stack when there
    are no tests, and ask only for a greenfield repo with no clear stack. Then list the gates

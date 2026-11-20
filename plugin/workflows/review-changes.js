@@ -52,6 +52,19 @@ const SCOPE_SCHEMA = {
     commits: { type: 'array', items: { type: 'string' } },
     files: { type: 'array', items: { type: 'string' } },
     changed: CHANGED_SCHEMA,
+    guide: {
+      type: 'object',
+      description: 'The review guide in force: the repo root REVIEW.md, or the defaults when it has none',
+      required: ['source', 'minorCap'],
+      properties: {
+        source: { type: 'string', enum: ['REVIEW.md', 'defaults'] },
+        minorCap: { type: 'integer', description: 'Most minor findings the whole review keeps' },
+        failure: { type: 'string', description: "REVIEW.md's Failure section, verbatim; empty for the defaults" },
+        skip: { type: 'string', description: "REVIEW.md's Skip section, verbatim; empty for the defaults" },
+        problem: { type: 'string', description: 'Why a REVIEW.md value could not be read; empty otherwise' },
+      },
+    },
+    skipped: { type: 'array', items: { type: 'string' }, description: 'The changed files a skip rule of the guide covers' },
     delta: {
       type: 'object',
       description: 'Only when a since commit was given: the lines changed since the last round',
@@ -238,7 +251,7 @@ const scope = await agent(
 ${baseHint} The head under review is \`${head}\`.
 1. Resolve the fixed point and the head with \`git rev-parse\`. Record repo as the owner/name in \`git remote get-url origin\` (no host, no .git), or the name of the directory \`git rev-parse --show-toplevel\` prints when there is no origin. Record diffCommand as \`git diff <base-sha>...<head-sha>\` (three dots, against the merge-base), shortstat as the line \`git diff --shortstat <base-sha>...<head-sha>\` prints, verbatim, the commits from \`git log --oneline <base-sha>..<head-sha>\`, and the changed files from \`git diff --name-only <base-sha>...<head-sha>\`. Record changed from \`git diff -U0 <base-sha>...<head-sha>\`: for each file, every hunk header \`@@ -a,b +c,d @@\` gives the range [c, c+d-1] (d left out means 1), and a pure deletion (d is 0) gives [c, c+1], the lines around the cut.
 2. ${specStep}
-3. List the standards sources that exist: CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces).${riskStep}${deltaStep}
+3. List the standards sources that exist: CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces). When the repo root has a REVIEW.md, list it too and set guide from it: source "REVIEW.md", failure and skip from its Failure and Skip sections verbatim, and minorCap from its Minor cap section as a whole number (if it holds none, use 5 and say why in guide.problem). Without one, set guide to \`{source: "defaults", minorCap: 5, failure: "", skip: ""}\`. Then set skipped to the changed files a skip rule covers: REVIEW.md's, or by default generated files (a generated-file header, *_pb2.py, minified bundles), vendored ones (vendor/, third_party/), and lock files (uv.lock, package-lock.json, *.lock, requirements*.lock).${riskStep}${deltaStep}
 
 If the fixed point does not resolve or the diff is empty, say so in problem and return every other field empty: base, head, repo, diffCommand, and shortstat as "", commits, files, and standardsSources as [], and spec as \`{found: false, source: "", id: "", text: ""}\`.`,
   { label: 'scope', phase: 'Scope', schema: SCOPE_SCHEMA, effort: 'low', agentType: 'compost:scope' },
@@ -297,6 +310,30 @@ const deltaNote = delta && delta.used
   ? `\nThis is a re-review. Judge only the lines changed since the last round, \`git diff ${delta.since} ${scope.head}\`; read the branch diff above for context. The workflow drops a finding at a line outside that diff.`
   : ''
 
+// Without a REVIEW.md, every repo gets the same short guide, which the starter compost:setup offers writes out.
+const DEFAULT_MINOR_CAP = 5
+const guide = scope.guide && ['REVIEW.md', 'defaults'].includes(scope.guide.source)
+  ? scope.guide
+  : { source: 'defaults', minorCap: DEFAULT_MINOR_CAP, problem: 'the scoping agent returned no review guide' }
+const minorCap = Number.isInteger(guide.minorCap) && guide.minorCap >= 0 ? guide.minorCap : DEFAULT_MINOR_CAP
+const guideProblem = guide.problem || (minorCap === guide.minorCap ? '' : `minor cap ${JSON.stringify(guide.minorCap)} is not a whole number; using ${DEFAULT_MINOR_CAP}`)
+const skippedFiles = new Set(Array.isArray(scope.skipped) ? scope.skipped : [])
+
+const guideNote = guide.source === 'REVIEW.md'
+  ? `\nReview guide: this repo's REVIEW.md, among the standards sources; read it whole, and it overrides your defaults where it speaks.
+- Failure: ${guide.failure || '(not stated; a change that breaks behaviour, loses or leaks data, or blocks a rollback)'}
+- Minors: at most ${minorCap} for the whole review. List your most important minor first: the workflow keeps only the first ones.
+- Skip: ${guide.skip || '(not stated)'}`
+  : `\nReview guide (defaults; this repo has no REVIEW.md):
+- Failure: a change that breaks behaviour, loses or leaks data, or blocks a rollback.
+- Minors: at most ${minorCap} for the whole review. List your most important minor first: the workflow keeps only the first ones.
+- Skip: generated, vendored, and lock files, and anything a configured linter or formatter enforces.
+- Evidence: every behaviour claim cites a file:line, not an inference from naming.`
+
+const skipNote = skippedFiles.size
+  ? `\nSkipped by the review guide; raise nothing in these: ${[...skippedFiles].join(', ')}`
+  : ''
+
 const priorNote = prior
   ? `\nEarlier rounds' findings and their rulings:\n${prior}\nDo not raise one of these again unless the lines changed since the last round change it: a fix stands, a pushback stands with its reason, and a pre-existing finding is already recorded.`
   : ''
@@ -304,7 +341,7 @@ const priorNote = prior
 const diffContext = `Diff: \`${scope.diffCommand}\`${readAtHead}
 Commits:
 ${scope.commits.join('\n')}
-${fileList}${deltaNote}${priorNote}`
+${fileList}${guideNote}${skipNote}${deltaNote}${priorNote}`
 
 const repoUnderReview = String(scope.repo || '')
 const IN_REPO = `This diff is in ${repoUnderReview || 'a repository the scoping agent could not name'}.`
@@ -439,6 +476,8 @@ function routePreExisting(findings) {
   return routed
 }
 
+const listingKey = finding => `${finding.file}:${finding.line}:${finding.claim}`
+
 function worthSkeptic(finding) {
   return typeof finding.skeptic === 'boolean' ? finding.skeptic : finding.severity !== 'minor'
 }
@@ -568,7 +607,9 @@ async function settleAxis(review, axis) {
   const placed = axis.name === 'Spec' ? partitionElsewhere(review.elsewhere) : null
   const unchecked = uncheckedReason(axis, review, placed)
   const notVerifiableHere = placed && placed.accepted.length ? `; not verifiable here: ${elsewhereNote(placed.accepted)}` : ''
-  const routed = routePreExisting(review.findings)
+  const skippedOut = review.findings.filter(finding => skippedFiles.has(finding.file))
+  const skipOutNote = skippedOut.length ? `, ${skippedOut.length} in skipped files dropped` : ''
+  const routed = routePreExisting(review.findings.filter(finding => !skippedOut.includes(finding)))
   const { preExisting } = routed
   const preExistingNote = preExisting.length ? `, ${preExisting.length} pre-existing` : ''
   // On a re-review, a finding at a line nobody touched since the last round was that round's to raise.
@@ -589,8 +630,8 @@ async function settleAxis(review, axis) {
   return {
     axis: axis.name,
     status: unchecked
-      ? `failed: ${unchecked}${preExistingNote}${outsideNote}${notVerifiableHere}`
-      : `${light ? 'reviewed (light)' : 'reviewed'}: ${review.findings.length} findings raised, ${unverified.length} left unverified${preExistingNote}${outsideNote}${notVerifiableHere}`,
+      ? `failed: ${unchecked}${skipOutNote}${preExistingNote}${outsideNote}${notVerifiableHere}`
+      : `${light ? 'reviewed (light)' : 'reviewed'}: ${review.findings.length} findings raised, ${unverified.length} left unverified${skipOutNote}${preExistingNote}${outsideNote}${notVerifiableHere}`,
     complete: !unchecked,
     checked: review.checked,
     ...(placed ? { elsewhere: placed.accepted } : {}),
@@ -601,6 +642,7 @@ async function settleAxis(review, axis) {
     refuted: withVerdict('refuted').map(j => ({ ...j.finding, refutedBecause: j.reasons, failedVotes: j.failed })),
     unjudged: unjudged.map(j => ({ ...j.finding, reasons: j.reasons, failedVotes: j.failed })),
     preExisting,
+    listed: kept.map(listingKey),
   }
 }
 
@@ -636,6 +678,22 @@ const results = light ? await reviewLight() : await pipeline(AXES, reviewOne, se
 
 const [standards, spec] = results.map((result, i) => result || failedAxis(AXES[i].name, 'the review stage threw'))
 
+// The guide's minor cap holds for the whole review: Standards' minors first, each axis in the order its reviewer listed them.
+let minorBudget = minorCap
+let minorsCut = 0
+for (const axisResult of [standards, spec]) {
+  const listed = axisResult.listed || []
+  const minors = axisResult.survivors
+    .filter(finding => finding.severity === 'minor')
+    .sort((a, b) => listed.indexOf(listingKey(a)) - listed.indexOf(listingKey(b)))
+  const cut = minors.slice(minorBudget)
+  minorBudget = Math.max(0, minorBudget - minors.length)
+  minorsCut += cut.length
+  axisResult.survivors = axisResult.survivors.filter(finding => !cut.includes(finding))
+  if (cut.length) axisResult.status += `, ${cut.length} minors cut by the cap`
+  delete axisResult.listed
+}
+
 function worst(axisResult) {
   const order = ['blocker', 'major', 'minor']
   const sorted = [...axisResult.survivors].sort((a, b) => order.indexOf(a.severity) - order.indexOf(b.severity))
@@ -655,10 +713,12 @@ return {
   ...(complete ? {} : { problem: [standards, spec].filter(a => !a.complete).map(a => `${a.axis} ${a.status}`).join('; ') }),
   standards,
   spec,
+  guide: { source: guide.source, minorCap, ...(guideProblem ? { problem: guideProblem } : {}) },
   notRun: NOT_RUN,
   summary: [
     ...[standards, spec]
       .map(a => `${a.axis}: ${a.status}, ${a.survivors.length} survived, ${a.refuted.length} refuted, ${a.unjudged.length} unjudged; worst ${worst(a)}`),
+    `Review guide: ${guide.source}; minor cap ${minorCap}, ${minorsCut} cut${guideProblem ? ` (${guideProblem})` : ''}`,
     `Not run here: ${NOT_RUN.join('; ')}`,
   ].join('\n'),
 }

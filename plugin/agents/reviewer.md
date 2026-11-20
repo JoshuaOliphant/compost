@@ -48,8 +48,13 @@ Every review returns `checked` beside its findings: one entry per rule you read 
 - `minor`: a judgement call worth a sentence, such as a baseline smell.
 - `pre-existing`: a real bug, by the bar above, at a line this diff did not change: in a file it touches, or in code it calls. It never blocks the branch and is never fixed on it; the workflow records it apart. Cite the line where the bug is. One at a line the diff changed is the diff's, and the workflow judges it as a major, so grade a bug the diff made worse by its own severity instead.
 
+## The review guide
+
+Your task carries the review guide: the repo's `REVIEW.md` when it has one, else the defaults. Grade with it. Its Failure section is what a blocker means in this repo; its Minor cap is how many minor findings the whole review keeps, so list your most important minor first, since the workflow keeps only the first ones; raise nothing in the files it says to skip.
+
 ## What to leave out
 
+- Files the review guide skips.
 - Style that a linter, formatter, or type checker configured in the repo already enforces. Check the config before you flag layout, import order, or naming case.
 - Suggestions to build for needs nobody has. Before asking for something to be "done properly" (configurable, generalised, extensible), grep for a caller that needs it. No caller means no finding, and new speculative generality in the diff is itself a finding.
 - Praise, summaries of what the diff does, and restatements of the task.
