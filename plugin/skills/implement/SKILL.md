@@ -60,7 +60,7 @@ the work so each step can be checked before the next builds on it
 
    Compare the Files blocks of the frontier issues: issues whose file
    sets don't overlap can run at once; issues that share a file go into one lane and run in order.
-   How many issues you take on at once is your judgment; there is no size rule.
+   How many issues to take on at once is your call; there is no size rule.
 
 3. **Set up the feature branch.** Work in a worktree on a feature branch named for the parent
    issue; if you are already in one, use it. A new one branches from the default branch after
@@ -78,13 +78,13 @@ the work so each step can be checked before the next builds on it
      `compost:build`, then `compost:verify`; a subagent would only add a handoff.
    - **Several independent issues or lanes:** a lane earns a subagent when its work outweighs the
      handoff: a brief, a worktree, a merge, and a report to read. Lanes that are each a short edit
-     (a doc fix, a config value, a few lines in one file) don't; work them yourself, in order, as
+     (a doc fix, a config value, a few lines) don't; work them yourself, in order, as
      above. Spawn the rest, one subagent per lane in a single message, so the lanes run in
      parallel, each with `isolation: "worktree"` and in the background, without asking. A lane of
      one issue is just that issue; a worker with a longer lane works its issues in order. In a
      lane-routing run every lane spawns, whatever its size. With agent teams enabled
-     (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), spawn named teammates, which make their own
-     worktree.
+     (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), spawn named teammates; one can't take
+     `isolation`, so its brief makes the worktree.
    - Before starting an issue, in a lane or yourself, push its branch name at the feature SHA
      (`git push origin <feature SHA>:refs/heads/<issue>-<slug>`) and comment `Started
      <issue>-<slug>` on the issue, tagged with the session id, so a session in another clone sees
@@ -110,8 +110,8 @@ the work so each step can be checked before the next builds on it
    [references/task-brief.md](references/task-brief.md). Once its branch is
    merged, apply any AC-table row retirements it reports (`compost:verify` step 5), and refresh
    the committed AC-table cache if the verify command keeps one. Merge its branch into the feature
-   branch with `--no-ff`, then run the suite on the feature branch; a merge is a change like any
-   other. A red suite after a merge goes to `compost:diagnose`. When the repo's instructions want a
+   branch with `--no-ff`, then run the suite on the feature branch, as after any
+   change. A red suite after a merge goes to `compost:diagnose`. When the repo's instructions want a
    version bump for a changed package, commit it right after the first landing, before the first
    push, so the PR's checks are green from its first run, and again after any later landing that
    first changes another package; lanes leave versions alone. After the first landing, push the

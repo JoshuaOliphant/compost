@@ -90,9 +90,10 @@ yours to do without asking.
      timeout, a lost runner, a failed download) earns one fresh run of the failed jobs; the same
      failure twice was never a flake. A failure in code the diff never touched may be a stale
      base: `git fetch origin`, then `git merge-base --is-ancestor origin/<target> HEAD`, and on
-     exit 1 go back to step 4. On exit 0, read the target's own latest CI: red there too means
-     the target is broken, so file an issue for it and post a ruling, with no commit here; green
-     there means the diff broke code it didn't touch, which makes it the diff's failure. Only a
+     exit 1 go back to step 4. On exit 0, read the target's own latest CI: the same failure there
+     means the target is broken, so file an issue for it and post a ruling, with no commit here;
+     its absence there means the diff broke code it didn't touch, which makes it the diff's
+     failure. Only a
      failure the diff causes gets a commit, through `compost:diagnose` when the cause isn't
      plain, and `compost:verify` first.
 
