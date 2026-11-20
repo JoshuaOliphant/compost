@@ -42,8 +42,8 @@ the work so each step can be checked before the next builds on it
      compaction; a second session in the clone prefixes each `frontier.py` call with
      `COMPOST_SESSION=<new id>` (an `export` dies with its Bash call) and tags with it. End every
      comment the run posts, yours and workers', with `compost-session: <id>` (a local
-     tracker adds the time from `date -u +%Y-%m-%dT%H:%M:%SZ`): every session posts as the same
-     user, so the tag is how they tell each other apart.
+     tracker adds the time from `date -u +%Y-%m-%dT%H:%M:%SZ`), since every session posts as the
+     same user.
    - **Done:** closed, or ticked on the parent's checklist. A remote tracker closes an issue only
      when its PR merges, so in a run done means ticked: reviewed and landed (step 7).
    - **Blocked:** an issue on its "Blocked by" lines is not done; ignore the forge's dependency
@@ -64,17 +64,18 @@ the work so each step can be checked before the next builds on it
 
 3. **Set up the feature branch.** Work in a worktree on a feature branch named for the parent
    issue; if you are already in one, use it. A new one branches from the default branch after
-   `git fetch origin` and `git merge --ff-only origin/<default>`; when that can't fast-forward,
-   branch from `origin/<default>`, keep the local commits, and rule on it. A resumed run merges a
-   moved `origin/<default>` into the feature branch before any lane starts.
-   Open a draft PR only when the tracker closes work through PRs (its reference says an issue
-   closes when its PR merges) or the user asks for one, once the first issue lands (step 5): the
-   forge rejects a PR with no commits. Committing, pushing, and the draft PR need no one's OK;
-   merging does.
+   `git fetch origin` and, with the default branch checked out, `git merge --ff-only
+   origin/<default>`; when that can't fast-forward, branch from `origin/<default>`, keep the local
+   commits, and rule on it. A resumed run fetches and merges a moved `origin/<default>` into the
+   feature branch before any lane starts. Open a draft PR only when the tracker closes work
+   through PRs (its reference in `docs/agents/issue-tracker.md` says an issue closes when its PR
+   merges) or the user asks, once the first issue lands (step 5): the forge rejects a PR with no
+   commits. Committing, pushing this branch, and the draft PR need no one's OK; merging the PR
+   does.
 
 4. **Work the frontier.**
    - **One issue, or one lane, outside a lane-routing run:** do it yourself in this session. Load
-     `compost:build`, then `compost:verify`. A subagent for a single issue only adds a handoff.
+     `compost:build`, then `compost:verify`; a subagent would only add a handoff.
    - **Several independent issues or lanes:** a lane earns a subagent when its work outweighs the
      handoff: a brief, a worktree, a merge, and a report to read. Lanes that are each a short edit
      (a doc fix, a config value, a few lines in one file) don't; work them yourself, in order, as
@@ -82,8 +83,8 @@ the work so each step can be checked before the next builds on it
      parallel, each with `isolation: "worktree"` and in the background, without asking. A lane of
      one issue is just that issue; a worker with a longer lane works its issues in order. In a
      lane-routing run every lane spawns, whatever its size. With agent teams enabled
-     (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), spawn named teammates, each briefed to create its
-     own worktree, since a teammate spawn cannot take `isolation`.
+     (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), spawn named teammates, which make their own
+     worktree.
    - Before starting an issue, in a lane or yourself, push its branch name at the feature SHA
      (`git push origin <feature SHA>:refs/heads/<issue>-<slug>`) and comment `Started
      <issue>-<slug>` on the issue, tagged with the session id, so a session in another clone sees
@@ -97,7 +98,8 @@ the work so each step can be checked before the next builds on it
    - Leave `model` and `effort` unset on every spawn, so each lane inherits yours, except in a
      lane-routing run: its ask tiers the lanes or runs their untiered control, or the parent's
      latest "Lane routing:" comment is not "ended". Then
-     [references/lane-routing.md](references/lane-routing.md) decides how every lane spawns.
+     [references/lane-routing.md](references/lane-routing.md) decides how every lane spawns and
+     whether a leftover marker still applies.
    - Keep a rolling window, not batches: when an issue is ticked (step 7), spawn whatever that
      unblocked right away. A merge alone doesn't unblock, so a dependant never builds on work
      review may send back.
@@ -123,7 +125,7 @@ the work so each step can be checked before the next builds on it
    the one issue: for an issue landed by a merge, pass `base` as `<merge>^1`, `head` as
    `<merge>^2`, and `issue` as its number; for one built in this session, pass `base` as the parent of
    its first commit and `head` as its last. No issue skips review for being small: the workflow
-   gives a small diff its light path, one reviewer on both axes, and that is the cheap option.
+   gives a small diff its light path (one reviewer on both axes), the cheap option.
    Take its findings through the reception protocol there: check each against the code, fix what
    holds, and rule on what doesn't.
    - Fix findings where the work was done: resume the worker that built the issue with the findings
@@ -190,7 +192,7 @@ the work so each step can be checked before the next builds on it
 10. **Close out.** When the frontier is empty and every sub-issue is ticked, except those labelled
     `ready-for-human`, review the whole feature branch with `compost:review` (base the merge-base
     with the default branch, head the feature head): step 6 read each issue alone. Fix what holds
-    in one pass, with no second round, and post the rest as rulings. Then run `compost:verify` on
+    in one pass, with no re-review, and post the rest as rulings. Then run `compost:verify` on
     the whole feature branch, push, and hand off through `compost:finish`, whose recap is Goal,
     Decisions, Changes, Validation, Risk. The Decisions section lists every ruling comment, each with
     its cost if wrong. A lane-routing run lists its per-lane records in Validation. Without a

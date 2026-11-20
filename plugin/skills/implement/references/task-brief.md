@@ -82,8 +82,10 @@ NEEDS_CONTEXT only when every path forward is a guess, and put the specifics in 
 A worker's status text says what it means to have done; its branch shows what it did. Judge the
 branch.
 
-- **Progress is commits.** A worker that has pushed nothing for a long stretch, or that reruns the
-  same failing command, has stalled or is looping. Stop it and replace it; don't wait it out.
+- **Progress is commits.** Workers commit but don't push; their worktrees share this repo, so read
+  the branch here (`git log <feature SHA>..<branch>`). A worker with no new commit for a long
+  stretch, or that reruns the same failing command, has stalled or is looping. Stop it and replace
+  it; don't wait it out.
 - **Retry by cause.** Name why it stalled (missing context, an issue too big for one lane, a flaky
   tool) and change that before the retry, as BLOCKED does above. After two retries of one issue,
   take it out of the window and replan: slice it, or rule on it.

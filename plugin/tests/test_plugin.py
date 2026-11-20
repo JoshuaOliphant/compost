@@ -156,9 +156,21 @@ def test_implements_stop_list_opens_each_item_with_the_stop_hooks_allowed_stop_i
         assert item.startswith(stop), f"{item!r} should open with {stop!r}"
 
 
-@pytest.mark.parametrize("skill", ["implement", "build"])
-def test_branching_skills_fast_forward_the_default_branch_and_rule_when_it_cannot(skill):
+@pytest.mark.parametrize(
+    ("skill", "step", "keeps", "rules"),
+    [
+        ("implement", "Set up the feature branch.", "keep the local commits", "rule on it"),
+        ("build", "Isolate the work.", "unpushed commits alone", "post a ruling"),
+    ],
+)
+def test_branching_skills_fast_forward_the_default_branch_and_rule_when_it_cannot(skill, step, keeps, rules):
     text = " ".join((PLUGIN_ROOT / "skills" / skill / "SKILL.md").read_text().split())
-    rule = text[text.index("git fetch origin") :][:500]
-    for phrase in ("git merge --ff-only origin/<default>", "fast-forward", "branch from `origin/<default>`", "rul"):
-        assert phrase in rule, f"{skill}'s branching rule lacks {phrase!r}"
+    rule = re.split(r" \d+\. \*\*", text.split(f"**{step}**", 1)[1], maxsplit=1)[0]
+    for phrase in (
+        "git fetch origin",
+        "git merge --ff-only origin/<default>",
+        "branch from `origin/<default>`",
+        keeps,
+        rules,
+    ):
+        assert phrase in rule, f"{skill}'s {step!r} step lacks {phrase!r}"
