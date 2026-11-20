@@ -23,6 +23,11 @@ paragraph to justify itself, the code is what is wrong.
 - **Ask why until the answer is in the design, not the data.** "It crashed on a null" is the
   symptom. Why was it null? Why did nothing upstream reject it? The fix belongs at the first place
   the system should have known better, often a boundary that failed to parse its input.
+- **Ask whether the state is legitimate.** If the system may be in the state that broke the
+  code (an empty list, a missing optional field), the code that broke on it is the root cause, and
+  handling the state there is the fix. If the state should never exist, a check where it broke
+  hides the bug; find what produced the state. Guards, retries, swallowed errors, and clamped
+  values are the usual ways to hide one.
 - **Instrument instead of guessing.** Read the actual error, the full log, the real value. Add
   logging or a breakpoint to see what happened. Three guesses in a row is a sign to stop guessing.
 - **Suspect state when behavior changes across a restart.** Config files, caches, lock files, and
@@ -32,6 +37,8 @@ paragraph to justify itself, the code is what is wrong.
 ## In practice
 
 - Do not add a guard to silence a failure you do not understand. Understand it, then decide.
+- If the deciding fact took a deep dig to find, propose the cheap, always-on signal that would
+  have shown it at first look.
 - After fixing one instance, search for the same pattern elsewhere and fix those too, or file an
   issue listing them.
 - Never read past a failing log line or a warning. It carries the information you need.
