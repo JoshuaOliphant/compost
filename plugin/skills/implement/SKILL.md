@@ -21,17 +21,18 @@ the work so each step can be checked before the next builds on it
 ## Steps
 
 1. **Orient.** Read `docs/agents/issue-tracker.md` for the tracker and its commands; if it is absent,
-   run `compost:setup` now, then continue. Inside a run, setup's questions get its recommended
-   answer, posted as a ruling on the parent, and its irreversible step (uninstalling orphaned
-   plugins) is left for the user. If `docs/agents/observability.md` is absent, run
+   run `compost:setup` now, then continue. A GitHub one without the fork check takes it from
+   [setup's GitHub reference](../setup/references/issue-tracker-github.md). Inside a run, setup's
+   questions take its recommended answer, ruled on the parent; its irreversible step (uninstalling
+   orphaned plugins) waits for the user. If `docs/agents/observability.md` is absent, run
    `compost:setup`'s observability step on this branch before any worker branches from it. When
    `docs/agents/testing.md` names no verify command, build it the same way, by `compost:verify`'s
-   step 1, so parallel lanes don't each write their own. Read
-   the parent issue, every sub-issue, and every comment on them: an architectural parent
-   (`**Class:** architectural`) with no approval comment stops here for approval, unless the ask
-   that started this run said to build it; earlier rulings bind you, and a
-   status comment from `compost:pause` means you are resuming, so start from its next action. Read
-   `CONTEXT.md` and the ADRs in `docs/adr/` for the areas the issues touch. Run `git log` and `git worktree list` to see what already landed.
+   step 1, so lanes don't each write their own. Read the parent issue, every sub-issue, and every
+   comment on them: an architectural parent (`**Class:** architectural`) with no approval comment
+   stops for approval, unless the ask that started this run said to build it; earlier rulings
+   bind you, and a `compost:pause` status comment means you are resuming from its next action.
+   Read `CONTEXT.md` and the ADRs in `docs/adr/` for the areas the issues touch; `git log` and
+   `git worktree list` show what already landed.
 
 2. **Compute the frontier.** Run
    `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/frontier.py issues <parent> --tracker <github|gitlab|local>`
@@ -42,12 +43,12 @@ the work so each step can be checked before the next builds on it
      compaction; a second session in the clone prefixes each `frontier.py` call with
      `COMPOST_SESSION=<new id>` (an `export` dies with its Bash call) and tags with it. End every
      comment the run posts, yours and workers', with `compost-session: <id>` (a local
-     tracker adds the time from `date -u +%Y-%m-%dT%H:%M:%SZ`): every session posts as the same
-     user, so the tag is how they tell each other apart.
+     tracker adds the time from `date -u +%Y-%m-%dT%H:%M:%SZ`), since every session posts as the
+     same user.
    - **Done:** closed, or ticked on the parent's checklist. A remote tracker closes an issue only
      when its PR merges, so in a run done means ticked: reviewed and landed (step 7).
-   - **Blocked:** an issue on its "Blocked by" lines is not done. Don't read the forge's own
-     dependency count.
+   - **Blocked:** an issue on its "Blocked by" lines is not done; ignore the forge's dependency
+     count.
    - **Taken:** a remote branch `<issue>-*` exists and another live session holds it. The holder
      is the session on the earliest `Started <branch>` comment (step 4), unless it had been
      silent a day when a later one was posted; a session is live while some comment it tagged,
@@ -60,7 +61,7 @@ the work so each step can be checked before the next builds on it
 
    Compare the Files blocks of the frontier issues: issues whose file
    sets don't overlap can run at once; issues that share a file go into one lane and run in order.
-   How many issues you take on at once is your judgment; there is no size rule.
+   How many issues to take on at once is your call; there is no size rule.
 
 3. **Set up the feature branch.** Work in a worktree on a feature branch named for the parent
    issue; if you are already in one, use it. Open a draft PR only when the tracker closes work

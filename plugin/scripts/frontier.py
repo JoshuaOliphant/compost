@@ -221,7 +221,7 @@ def repo_of(url: str) -> str | None:
 def github_repo(run: Run) -> tuple[str, str | None]:
     """The repo to read, and a note when gh would read another one.
 
-    gh fills {owner}/{repo} from the remote ranked first by name (upstream, then github, then origin) and yields only
+    gh fills {owner}/{repo} from the first remote that exists of upstream, github, origin, and yields only
     to GH_REPO, so in a fork it names the parent. frontier.py reads origin's repo by name instead, and says so when an
     upstream or github remote would have won, because the agent's own gh calls need GH_REPO pinned too.
     """
@@ -233,13 +233,13 @@ def github_repo(run: Run) -> tuple[str, str | None]:
     origin = repo_of(remotes.get("origin", ""))
     if origin is None:
         return PLACEHOLDER, None
-    for name in ("upstream", "github"):
-        other = repo_of(remotes.get(name, ""))
-        if other and other.lower() != origin.lower():
-            return origin, (
-                f"gh's {PLACEHOLDER} reads the `{name}` remote ({other}) here, not origin ({origin}): "
-                f"prefix every gh call with GH_REPO={origin}"
-            )
+    name = next((name for name in ("upstream", "github") if name in remotes), None)
+    other = repo_of(remotes.get(name, "")) if name else None
+    if other and other.lower() != origin.lower():
+        return origin, (
+            f"gh's {PLACEHOLDER} reads the `{name}` remote ({other}) here, not origin ({origin}): "
+            f"prefix every gh call with GH_REPO={origin}"
+        )
     return origin, None
 
 

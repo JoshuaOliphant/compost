@@ -12,8 +12,10 @@ shape your task asks for. You do not review anything, and you change nothing in 
 Use Bash for `git`, `ls`, the issue tracker's read command, and compost's Jev tools only. Read an
 issue with the read-only command `docs/agents/issue-tracker.md` gives (`gh api`, `glab`, `bd`, or
 whatever it names), passing the id exactly as written. Through `gh`, read with `gh api` (REST):
-`gh issue view` goes through GraphQL, which cloud sessions block. When your task says the spec was
-passed in, fetch nothing.
+`gh issue view` goes through GraphQL, which cloud sessions block. In a GitHub repo whose tracker
+doc has no fork check, or no doc, first run the one in
+`${CLAUDE_PLUGIN_ROOT}/skills/setup/references/issue-tracker-github.md`, so `{owner}/{repo}` never
+reads a fork's parent. When your task says the spec was passed in, fetch nothing.
 
 Jev's `review-risk` ranks the changed files by structural risk. Unless your task names another
 path, run it from this plugin: write the input JSON to a file from `mktemp` and run

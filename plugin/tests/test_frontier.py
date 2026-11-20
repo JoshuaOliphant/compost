@@ -269,11 +269,25 @@ FORK = "origin\tgit@github.com:me/proj.git (fetch)\norigin\tgit@github.com:me/pr
         (FORK + "upstream\thttps://github.com/them/proj (fetch)\n", None, "me/proj", "`upstream` remote (them/proj)"),
         (FORK + "github\thttps://github.com/them/proj.git (fetch)\n", None, "me/proj", "`github` remote (them/proj)"),
         (FORK + "upstream\thttps://github.com/Me/Proj.git (fetch)\n", None, "me/proj", None),
+        (
+            FORK + "upstream\thttps://github.com/me/proj (fetch)\ngithub\thttps://github.com/them/proj (fetch)\n",
+            None,
+            "me/proj",
+            None,
+        ),
         (FORK, None, "me/proj", None),
         ("upstream\thttps://github.com/them/proj (fetch)\n", None, "{owner}/{repo}", None),
         (FORK + "upstream\thttps://github.com/them/proj (fetch)\n", "me/proj", "{owner}/{repo}", None),
     ],
-    ids=["upstream fork", "github fork", "same repo, other case", "origin only", "no origin", "GH_REPO set"],
+    ids=[
+        "upstream fork",
+        "github fork",
+        "same repo, other case",
+        "upstream is origin, github elsewhere",
+        "origin only",
+        "no origin",
+        "GH_REPO set",
+    ],
 )
 def test_github_reads_origins_repo_and_says_when_gh_would_read_a_parent(
     remotes, gh_repo, repo, note, monkeypatch, capsys
