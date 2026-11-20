@@ -421,10 +421,10 @@ test('the spec places an AC-N elsewhere only on its own line before its id or in
     assert.equal(result.complete, true, why)
   }
   const refused = [
-    [{ ac: 'AC-3', repo: 'web' }, 'AC-3', 'the spec does not place it in web (on its line before its id, or in a heading over it)'],
-    [{ ac: 'AC-3', repo: 'notes' }, 'AC-3', 'the spec does not place it in notes (on its line before its id, or in a heading over it)'],
-    [{ ac: 'AC-1', repo: 'agent-plugins' }, 'AC-1', 'the spec does not place it in agent-plugins (on its line before its id, or in a heading over it)'],
-    [{ ac: 'AC-2', repo: 'agent.plugins' }, 'AC-2', 'the spec does not place it in agent.plugins (on its line before its id, or in a heading over it)'],
+    [{ ac: 'AC-3', repo: 'web' }, 'AC-3', 'the spec does not place it in web (on its defining line before its id, or in a heading over that line)'],
+    [{ ac: 'AC-3', repo: 'notes' }, 'AC-3', 'the spec does not place it in notes (on its defining line before its id, or in a heading over that line)'],
+    [{ ac: 'AC-1', repo: 'agent-plugins' }, 'AC-1', 'the spec does not place it in agent-plugins (on its defining line before its id, or in a heading over that line)'],
+    [{ ac: 'AC-2', repo: 'agent.plugins' }, 'AC-2', 'the spec does not place it in agent.plugins (on its defining line before its id, or in a heading over that line)'],
     [{ ac: 'AC-2', repo: ' ' }, 'AC-2', 'it names no repo'],
     [{ ac: 'AC-2', repo: 'notes-fork' }, 'AC-2', 'notes-fork is the repo under review'],
     [{ ac: 'AC-2', repo: 'upstream/NOTES-FORK' }, 'AC-2', 'upstream/NOTES-FORK is the repo under review'],

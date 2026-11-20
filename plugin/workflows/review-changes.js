@@ -423,7 +423,7 @@ function elsewhereRefusal(ac, repo) {
   if (!repo) return 'it names no repo'
   if (repoName(repo) === repoName(repoUnderReview)) return `${repo} is the repo under review`
   if (!placementOf(ac).some(text => namesRepo(text, repo))) {
-    return `the spec does not place it in ${repo} (on its line before its id, or in a heading over it)`
+    return `the spec does not place it in ${repo} (on its defining line before its id, or in a heading over that line)`
   }
   return ''
 }
