@@ -1,34 +1,37 @@
-# Issue tracker: GitHub
+# Issue tracker: Linear
 
-Specs, slices, and maps for this repo live as GitHub issues. Use `gh api` (GitHub's REST API) for
-every operation. Run inside a clone, it fills `{owner}/{repo}` from `git remote -v`. The porcelain
-commands (`gh issue view`, `list`, `create`, `comment`, `edit`, `close`; `gh pr create`, `edit`,
-`view`, `ready`, `merge`, `close`; `gh repo view`) go through GraphQL, which Claude Code cloud sessions block with an HTTP 403; REST works there and locally.
+Specs, slices, and maps for this repo live as Linear issues in the Oliphant workspace: team `OLI`,
+project `Compost`. Use the Linear connector's tools (`mcp__Linear__*`); there is no CLI. Pull
+requests stay on GitHub (see Pull requests below). Issues filed before 2026-11-20 were migrated from
+GitHub issues of this repo; each links back to its GitHub issue, and the GitHub originals stay
+open until the user closes them.
+
+Always pass `team: "OLI"` and `project: "Compost"` when creating an issue. Identifiers look like
+`OLI-17`. The migrated issues carry a `repo:compost` label; give new ones the same label.
 
 ## Commands
 
-- **Create:** `gh api repos/{owner}/{repo}/issues -f title="..." -f "labels[]=..." -F body=@-` with
-  a heredoc body on stdin. It prints the new issue's JSON; `--jq .number` keeps just the number.
-- **Read:** `gh api repos/{owner}/{repo}/issues/<n> --jq '.title, .state, .body'`, then
-  `gh api repos/{owner}/{repo}/issues/<n>/comments --paginate --jq '.[] | .user.login, .body'`.
-- **List:** `gh api "repos/{owner}/{repo}/issues?state=open&labels=<label>" --paginate --jq '.[] | select(.pull_request | not) | {number, title, labels: [.labels[].name], assignees: [.assignees[].login]}'`.
-  The issues endpoint returns pull requests too; the `select` drops them.
-- **Comment:** `gh api repos/{owner}/{repo}/issues/<n>/comments -F body=@-` with a heredoc body.
-- **Labels:** `gh api repos/{owner}/{repo}/issues/<n>/labels -f "labels[]=..."` to add,
-  `gh api -X DELETE repos/{owner}/{repo}/issues/<n>/labels/<label>` to remove.
-- **Close:** comment first, then
-  `gh api -X PATCH repos/{owner}/{repo}/issues/<n> -f state=closed -f state_reason=completed`
-  (`not_planned` for a won't-do).
-- **Sub-issue:** `gh api --method POST repos/{owner}/{repo}/issues/<parent>/sub_issues -F sub_issue_id=<child-db-id>`.
-  Where sub-issues aren't enabled, add the child to a task list in the parent body and put
-  `Part of #<parent>` at the top of the child.
-- **Blocking:** `gh api --method POST repos/{owner}/{repo}/issues/<n>/dependencies/blocked_by -F issue_id=<blocker-db-id>`.
-  Always also write a `Blocked by #<n>` line in the body, so the edge is readable everywhere.
-- **Database id** (needed by the two calls above, not the `#number`):
-  `gh api repos/{owner}/{repo}/issues/<n> --jq .id`.
+- **Create:** `save_issue` with `team`, `project`, `title`, `description` (Markdown, real newlines),
+  `labels`. It returns the identifier.
+- **Read:** `get_issue` (`id: "OLI-17"`), then `list_comments` (`issueId`); `get_issue` does not
+  return comments.
+- **List:** `list_issues` with `team: "OLI"`, `project: "Compost"`, and `label`, `state`,
+  `parentId`, `query` as needed. Follow `cursor` while `hasNextPage` is true.
+- **Comment:** `save_comment` with `issueId` and `body`.
+- **Labels:** `save_issue` with `id` and `addLabels` / `removeLabels`. Never pass `labels` on an
+  update: it replaces the whole set.
+- **Close:** comment first, then `save_issue` with `id` and `state: "Done"` (`"Canceled"` for a
+  won't-do). States on this team: Backlog, Todo, In Progress, In Review, Done, Canceled,
+  Duplicate. Opening a pull request is not done: move the issue to `In Review` then, and to
+  `Done` when the pull request merges.
+- **Sub-issue:** `save_issue` with `parentId: "OLI-<parent>"` on create, or on an existing issue.
+- **Blocking:** `save_issue` with `blockedBy: ["OLI-<n>"]`. Also write a `Blocked by OLI-<n>`
+  line in the body, so the edge is readable everywhere.
+- **Branch name:** use the issue's `gitBranchName` from `get_issue`; it contains the identifier,
+  which links the branch and its pull request to the issue.
 
-GitHub numbers issues and pull requests in one sequence, so a bare `#42` may be either:
-`gh api repos/{owner}/{repo}/issues/42 --jq '.pull_request != null'` prints `true` for a pull request.
+A bare `#42` in an issue body links to a GitHub pull request or issue in whichever repo Linear
+guesses. Write `OLI-<n>` for Linear issues and a full URL for GitHub ones.
 
 ## Pull requests
 
@@ -48,7 +51,7 @@ Used by `compost:finish`. `{owner}/{repo}` fills in as above; `<n>` is the pull 
 
 ## Labels
 
-| Role | Label in this repo | Meaning |
+| Role | Label in this team | Meaning |
 |---|---|---|
 | Spec | `spec` | The parent issue holding a spec from `compost:spec` |
 | Ready for agent | `ready-for-agent` | A slice an agent can build without a person |
@@ -56,28 +59,27 @@ Used by `compost:finish`. `{owner}/{repo}` fills in as above; `<n>` is the pull 
 | Map | `map` | A map issue for long, foggy work |
 | Decision | `decision` | A decision sub-issue of a map |
 
-Edit the middle column if the repo already uses other names for these roles. `compost:setup`
-creates every label in the middle column that the repo lacks with
-`gh api repos/{owner}/{repo}/labels -f name=<name>`.
+All five exist on the OLI team. Linear's own `Bug`, `Feature` and `Improvement` labels are free for
+the user's triage; compost never reads them.
 
 ## Records
 
 - **Rulings** (a decision made without stopping: what, why, cost if wrong) are comments on the
   issue being worked, summarized in the pull request.
-- **Progress** is the checklist of slices on the parent issue plus the git log. Commits reference
-  the issue number; the issue closes when its pull request merges.
+- **Progress** is the sub-issues of the parent plus the git log. Commits and pull request bodies
+  name the issue (`OLI-<n>`); the issue reaches `Done` when its pull request merges.
 
 ## Map operations
 
 Used by `compost:slice` for map issues.
 
 - **Map:** one issue labelled `map`; its decisions are sub-issues labelled `decision`.
-- **Frontier:** the map's open sub-issues with no open blocker
-  (`issue_dependencies_summary.blocked_by` is 0, or every issue on the `Blocked by` line is
-  closed) and no live claim (see `compost:slice`'s map reference); first in map order wins.
-- **Claim:** post a comment `Claimed by <session>` (`gh api repos/{owner}/{repo}/issues/<n>/comments -f body=...`),
-  then keep the claim only if compost's `frontier.py claim <n> --tracker github` prints your session (the
-  earliest claim whose session is live). Every session runs as the same user, so an assignee
-  can't tell two of them apart.
+- **Frontier:** the map's open sub-issues (state not Done, Canceled, or Duplicate) with no open
+  blocker (every `blockedBy` issue is Done) and no live claim; first in map order wins.
+- **Claim:** post a comment `Claimed by <session>`, then read the comments back and keep the claim
+  only if yours is the earliest live one. `frontier.py` has no Linear backend (its `--tracker`
+  takes `github`, `gitlab`, or `local`), so this and the `implement` states are read by hand
+  with `list_issues` (`parentId`) and `get_issue` (`includeRelations`); do not pass
+  `--tracker` a value it doesn't know. `frontier.py session` still works for the session id.
 - **Resolve:** comment the answer and close the issue (Commands above), then add the gist and link
   to the map's Decisions so far.

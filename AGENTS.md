@@ -60,8 +60,8 @@ that way, bump past `main`'s version.
 
 ### Issue tracker
 
-GitHub issues via `gh`; specs are parent issues labelled `spec`, slices are sub-issues. See
-`docs/agents/issue-tracker.md`.
+Linear (team `OLI`, project `Compost`) via the Linear connector; specs are parent issues labelled
+`spec`, slices are sub-issues. Pull requests stay on GitHub. See `docs/agents/issue-tracker.md`.
 
 ### Domain docs
 
