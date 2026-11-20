@@ -47,7 +47,7 @@ Used by `compost:finish`. `{owner}/{repo}` fills in as above; `<n>` is the pull 
 - **Close without merging:** `gh api -X PATCH repos/{owner}/{repo}/pulls/<n> -f state=closed`.
 - **Merge state:** `gh api repos/{owner}/{repo}/pulls/<n> --jq '{mergeable, mergeable_state, sha: .head.sha}'`.
   `mergeable` is `null` while GitHub is still computing it; read it again.
-- **Checks:** `gh api repos/{owner}/{repo}/commits/<sha>/check-runs --jq '.check_runs[] | {id, name, status, conclusion}'`,
+- **Checks:** `gh api --paginate repos/{owner}/{repo}/commits/<sha>/check-runs --jq '.check_runs[] | {id, name, status, conclusion}'`,
   plus `gh api repos/{owner}/{repo}/commits/<sha>/status --jq '.statuses[] | {context, state}'` for CI
   that reports commit statuses.
 - **Failed log:** `gh api repos/{owner}/{repo}/actions/jobs/<check run id>/logs` (an Actions check

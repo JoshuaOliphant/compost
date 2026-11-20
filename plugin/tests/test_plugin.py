@@ -168,6 +168,7 @@ def test_branching_skills_fast_forward_the_default_branch_and_rule_when_it_canno
     rule = re.split(r" \d+\. \*\*", text.split(f"**{step}**", 1)[1], maxsplit=1)[0]
     for phrase in (
         "git fetch origin",
+        "git rev-list --count origin/<default>..",
         "git merge --ff-only origin/<default>",
         "branch from `origin/<default>`",
         keeps,

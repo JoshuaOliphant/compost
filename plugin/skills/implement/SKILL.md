@@ -63,10 +63,12 @@ the work so each step can be checked before the next builds on it
    How many issues to take on at once is your call; there is no size rule.
 
 3. **Set up the feature branch.** Work in a worktree on a feature branch named for the parent
-   issue; if you are already in one, use it. A new one branches from the default branch after
-   `git fetch origin` and, with the default branch checked out, `git merge --ff-only
-   origin/<default>`; when that can't fast-forward, branch from `origin/<default>`, keep the local
-   commits, and rule on it. A resumed run fetches and merges a moved `origin/<default>` into the
+   issue; if you are already in one, use it. A new one starts from a fresh default branch: run
+   `git fetch origin`; when the local default has commits origin lacks
+   (`git rev-list --count origin/<default>..<default>` is not 0), branch from `origin/<default>`,
+   keep the local commits, and rule on it. Otherwise fast-forward it first, with
+   `git merge --ff-only origin/<default>` in the checkout that has it, or
+   `git fetch origin <default>:<default>` when none does, and branch from it. A resumed run fetches and merges a moved `origin/<default>` into the
    feature branch before any lane starts. Open a draft PR only when the tracker closes work
    through PRs (its reference in `docs/agents/issue-tracker.md` says an issue closes when its PR
    merges) or the user asks, once the first issue lands (step 5): the forge rejects a PR with no
@@ -178,16 +180,13 @@ the work so each step can be checked before the next builds on it
      [codify the orchestration](../../canon/codify-the-orchestration.md), propose it in a ruling
      comment and carry on without it.
 
-   compost's Stop hook holds you to this list during a run: when your last message waits on the
-   user for anything else, Jev flags it and the hook sends you back, once, to post a ruling and
-   continue; it is a nudge, not a gate. The run ends when `compost:finish` loads, or
-   `compost:pause` once the user has written during the run; a pause you start yourself keeps the
-   guard on. A turn answering a message the user typed may wait on them. When `compost:finish`
-   loads mid-run (the user asked for the PR early), load `compost:implement` again before going on.
+   Keeping to this list is on you: compost's Stop hook only nudges.
+   [references/stop-guard.md](references/stop-guard.md) says when it is on and how the run ends.
 
-   When the run repeats a mistake (a command that needs a flag, a fixture that lies), record it
-   with `compound-knowledge:compound-capture` if installed, else on the parent issue; when a check
-   could catch it, file an issue for the check ([make mistakes impossible](../../canon/make-mistakes-impossible.md)).
+   When the run repeats a mistake (a command that needs a flag, a fixture that lies, a service that
+   must be up), record it with `compound-knowledge:compound-capture` if installed, else on the
+   parent issue. A note is the lowest level of fix: when a check could catch the mistake, file an
+   issue for that check ([make mistakes impossible](../../canon/make-mistakes-impossible.md)).
 
 10. **Close out.** When the frontier is empty and every sub-issue is ticked, except those labelled
     `ready-for-human`, review the whole feature branch with `compost:review` (base the merge-base

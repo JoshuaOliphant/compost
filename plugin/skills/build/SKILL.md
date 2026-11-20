@@ -37,9 +37,10 @@ no test counts until you have seen it fail for the right reason.
    worktree: work there. Otherwise create one without asking, branched from the current HEAD:
    `git worktree add .worktrees/<issue>-<slug> -b <issue>-<slug> HEAD` after
    `git check-ignore -q .worktrees/` confirms the directory is ignored. When HEAD is the default
-   branch, update it first: `git fetch origin`, then `git merge --ff-only origin/<default>`. If it
-   can't fast-forward (local commits ahead, or diverged), branch from `origin/<default>` instead of
-   HEAD, leave the local branch and its unpushed commits alone, and post a ruling on the issue.
+   branch, run `git fetch origin` first. If it has commits origin lacks
+   (`git rev-list --count origin/<default>..HEAD` is not 0, whether ahead or diverged), branch from
+   `origin/<default>` instead of HEAD, leave the local branch and its unpushed commits alone, and
+   post a ruling on the issue. Otherwise `git merge --ff-only origin/<default>` and branch from HEAD.
    The harness's worktree tool (such as `EnterWorktree`) branches from the default branch, not
    from HEAD, so a feature branch's earlier work would be missing; use it only to enter a worktree
    you created this way. Install
