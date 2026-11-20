@@ -285,7 +285,7 @@ ${scope.spec.text}
 
 ${SPEC_ONLY}
 
-${IN_REPO} A spec can span several repositories, each built and reviewed on its own branch. When the spec itself places an AC-N in another repository (it names that repo on the AC-N's line before its id, or in a heading over it), this diff cannot meet it: raise no finding for it, and list it under elsewhere with the repo exactly as the spec names it there. The workflow keeps an entry only when that name is on the AC-N's own line before its id or in a heading over it. An AC-N the spec does not place in another repository belongs to this one, however unlikely that looks: judge it here. An AC-N with a part in each repo is judged here on this repo's part.
+${IN_REPO} A spec can span several repositories, each built and reviewed on its own branch. When the spec itself places an AC-N in another repository (it names that repo on the line defining the AC-N, before its id, or in a heading over that line), this diff cannot meet it: raise no finding for it, and list it under elsewhere with the repo exactly as the spec names it there. The workflow keeps an entry only when that name is on the AC-N's defining line before its id or in a heading over that line. An AC-N the spec does not place in another repository belongs to this one, however unlikely that looks: judge it here. An AC-N with a part in each repo is judged here on this repo's part.
 
 Report:
 - Each AC-N that is missing or only partly met. Quote the AC-N; point at the test that should prove it, or say none exists.
@@ -387,11 +387,13 @@ const specAcs = [...new Set(String(scope.spec.text || '').match(/\bAC-\d+\b/g) |
 const specLines = String(scope.spec.text || '').split('\n')
 const headingLevel = line => ((line.match(/^\s*(#{1,6})\s/) || [])[1] || '').length
 
-// The line that defines an AC-N, its id followed by a colon ("#### AC-3:", "- **AC-3**:"), so a story or another
-// criterion that mentions it first does not decide where it lives. Without one, its first mention.
+// The line that defines an AC-N: one it leads, after markup only ("#### AC-3", "- **AC-3** Given"), or one where its id
+// is followed by a colon ("- web-ui: AC-3:"), so a story or another criterion that mentions it first does not decide
+// where it lives. Without one, its first mention.
 function definitionOf(ac) {
-  const defines = new RegExp(`${ac.named.source}\\**\\s*:`)
-  const at = specLines.findIndex(line => defines.test(line))
+  const leads = new RegExp(`^(\\s|#|[-*+]|\\[[ xX]\\]|\\d+\\.)*${ac.named.source}`)
+  const colon = new RegExp(`${ac.named.source}\\**\\s*:`)
+  const at = specLines.findIndex(line => leads.test(line) || colon.test(line))
   return at >= 0 ? at : specLines.findIndex(line => ac.named.test(line))
 }
 
@@ -427,7 +429,7 @@ function elsewhereRefusal(ac, repo) {
 }
 
 // Splits the reviewer's elsewhere list into the entries the spec backs and the first reason each other AC-N was refused.
-function sortElsewhere(entries) {
+function partitionElsewhere(entries) {
   const accepted = []
   const refused = {}
   for (const entry of Array.isArray(entries) ? entries : []) {
@@ -479,7 +481,7 @@ async function settleAxis(review, axis) {
   }
   if (!review) return failedAxis(axis.name, 'the reviewer did not return')
   // A failed record fails the axis but keeps its findings: losing a real blocker is worse than a skimpy review.
-  const placed = axis.name === 'Spec' ? sortElsewhere(review.elsewhere) : null
+  const placed = axis.name === 'Spec' ? partitionElsewhere(review.elsewhere) : null
   const unchecked = uncheckedReason(axis, review, placed)
   const notVerifiableHere = placed && placed.accepted.length ? `; not verifiable here: ${elsewhereNote(placed.accepted)}` : ''
   const serious = review.findings.filter(worthSkeptic)
