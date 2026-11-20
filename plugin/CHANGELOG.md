@@ -9,13 +9,13 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 - `compost:diagnose` and the fix-root-causes canon ask whether the state that broke the code is legitimate (OLI-24). If the system may be in it, handling it where it broke is the fix; if it should never exist, a guard there hides the bug and the fix is where the state was produced. When the deciding fact took a deep dig, diagnose proposes the cheap always-on signal that would have shown it at first look.
 - The benchmark checklist gains a "before you run" block (name the result that would change a decision and the noise floor, read the script, check `uptime`/`nproc`, interleave on a busy machine), a limiter that is a setting counts as an untuned side, question 3 checks the result against hard limits (bandwidth, cores, the share of time the changed piece took), and eval results get the same questions (OLI-23).
 - `compost:skill-drift` writes each fix in the form that matches the failure: a prohibition with its reason for a rule skipped under pressure, a recipe for output of the wrong shape, a required slot for a missing element, a condition on something observable for behaviour that depends on a case; no nuance or exemption clauses (OLI-21).
-- The make-mistakes-impossible canon adds the repeat rule (a mistake against a written rule is fixed a level higher), ratcheting checks for common patterns, line exceptions with a reason and an expiry date, and fixing or deleting tests that guard nothing; `compost:retro` applies the repeat rule when it places a fix (OLI-25).
+- The make-mistakes-impossible canon adds the repeat rule (a mistake against a written rule counts as a class at once and is fixed at the highest level that works, never with a second copy of the rule), ratcheting checks for common patterns, one-line check suppressions with a reason and an expiry date, and fixing or deleting tests that guard nothing; `compost:retro` applies the repeat rule when it places a fix (OLI-25).
 - `compost:deepen` says, for each candidate, what a test through the new seam catches and what it misses (OLI-30).
 
 ### Fixed
 
 - The GitLab tracker reference lists issues with `glab issue list -O json`; `-F` there picks `details`, `ids`, or `urls`, not JSON (OLI-34).
-- The GitHub tracker reference checks, before the first write of a session, that `{owner}/{repo}` is origin and not a fork's upstream parent, which `gh` ranks first, and writes origin's `owner/name` in the paths when they differ (OLI-31).
+- The GitHub tracker reference checks, before the first `gh` call of a session, that `{owner}/{repo}` is origin and not a fork's upstream parent (`gh api` ranks a remote named `upstream` first and ignores `gh repo set-default`); when they differ, every `gh` call and `frontier.py` run is prefixed with `GH_REPO=<origin's owner/name>`. `compost:setup` runs that check before it reads `has_issues` (OLI-31).
 
 ## [0.37.0] - 2026-11-20
 

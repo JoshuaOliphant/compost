@@ -41,12 +41,13 @@ rule.
   ([prove it works](prove-it-works.md)).
 - Fix the instance in front of you, then build the check or file an issue for it. The instance
   is today's work; the check is what stops tomorrow's.
-- A mistake against a rule already written down is a repeat: the prose failed once already. Fix
-  it a level higher in the same change, and drop the rule once a check makes the mistake
+- A mistake against a rule already written down is a repeat: the rule was the first slip's fix,
+  so this is the second and the class counts now. Fix it in the same change at the highest level
+  that works; a second copy of the rule is not that. Drop the rule once a check makes the mistake
   impossible.
 - When the pattern is already common, ratchet: the check fails only when a change adds an
   instance, so it can land today without fixing every old one first.
-- An exception goes on the offending line, with the reason and an expiry date, so it comes back
-  for review instead of becoming permanent.
+- A suppression of a check for one line (a lint `noqa`, a type `ignore`) goes on that line, with
+  the reason and an expiry date, so it comes back for review instead of becoming permanent.
 - Prefer a hook or CI step the repo already runs over a new tool. A check nobody runs is a rule
   with extra steps.

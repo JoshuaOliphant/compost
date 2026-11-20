@@ -1,17 +1,20 @@
 # Issue tracker: GitHub
 
 Specs, slices, and maps for this repo live as GitHub issues. Use `gh api` (GitHub's REST API) for
-every operation. Run inside a clone, it fills `{owner}/{repo}` from the clone's remotes. The porcelain
-commands (`gh issue view`, `list`, `create`, `comment`, `edit`, `close`; `gh pr create`, `edit`,
-`view`, `ready`, `merge`, `close`; `gh repo view`) go through GraphQL, which Claude Code cloud sessions block with an HTTP 403; REST works there and locally.
+every operation. Run inside a clone, it fills `{owner}/{repo}` from the clone's remotes. The
+porcelain commands (`gh issue view`, `list`, `create`, `comment`, `edit`, `close`; `gh pr create`,
+`edit`, `view`, `ready`, `merge`, `close`; `gh repo view`) go through GraphQL, which Claude Code
+cloud sessions block with an HTTP 403; REST works there and locally.
 
 ## Commands
 
-In a fork, `{owner}/{repo}` can name the upstream parent: `gh` ranks a remote named `upstream`
-above `origin`, and `gh repo set-default` or `GH_REPO` overrides both. Before the first write of a
-session, compare `gh api repos/{owner}/{repo} --jq .full_name` with the `owner/name` in
-`git remote get-url origin`. When they differ, write that `owner/name` into every path in place
-of `{owner}/{repo}`, so nothing is filed in someone else's repo.
+In a fork, `{owner}/{repo}` can name the upstream parent: `gh api` takes the first remote ranked
+`upstream`, then `github`, then `origin`, ignores `gh repo set-default`, and yields only to
+`GH_REPO`. Before the first `gh` call of a session, read or write, compare
+`gh api repos/{owner}/{repo} --jq .full_name` with the `owner/name` in `git remote get-url origin`.
+When they differ, prefix every `gh` call and every `frontier.py` run with `GH_REPO=<that
+owner/name>` (an `export` dies with its Bash call), so nothing is read from or filed in someone
+else's repo.
 
 - **Create:** `gh api repos/{owner}/{repo}/issues -f title="..." -f "labels[]=..." -F body=@-` with
   a heredoc body on stdin. It prints the new issue's JSON; `--jq .number` keeps just the number.
