@@ -20,6 +20,9 @@ const givenSpec = typeof input.spec === 'string' && input.spec.trim() ? input.sp
 // The workflow runs the two axes and their skeptics; the harness's own code review is the caller's to run.
 const NOT_RUN = ['harness code review: not part of this workflow; compost:review runs it beside this one on a diff that changes executable code']
 const forceFull = Boolean(input.full)
+// A re-review round names the head the last round reviewed (since) and that round's findings with their rulings (prior).
+const since = typeof input.since === 'string' ? input.since.trim() : ''
+const prior = typeof input.prior === 'string' ? input.prior.trim() : ''
 // At or under this many changed lines, with Jev finding no structural file, one reviewer covers both axes.
 const LIGHT_MAX_CHANGED_LINES = 50
 
@@ -49,6 +52,17 @@ const SCOPE_SCHEMA = {
     commits: { type: 'array', items: { type: 'string' } },
     files: { type: 'array', items: { type: 'string' } },
     changed: CHANGED_SCHEMA,
+    delta: {
+      type: 'object',
+      description: 'Only when a since commit was given: the lines changed since the last round',
+      required: ['used', 'since', 'changed'],
+      properties: {
+        used: { type: 'boolean', description: 'false when since does not resolve or is not an ancestor of the head' },
+        since: { type: 'string', description: 'The resolved since SHA, or since as given when it did not resolve' },
+        changed: CHANGED_SCHEMA,
+        problem: { type: 'string', description: 'Why the delta was not used; empty otherwise' },
+      },
+    },
     standardsSources: { type: 'array', items: { type: 'string' } },
     spec: {
       type: 'object',
@@ -213,6 +227,9 @@ const specStep = givenSpec
   : `${issueHint} Fetch it, with its comments, using the read command docs/agents/issue-tracker.md gives for this repo's tracker, and pass the id to it exactly as written: it may be dotted (bd-a1b2.3) or name another project (group/project#12), so never turn it into a number or drop its project. Only if that file is missing, use \`gh api repos/{owner}/{repo}/issues/<n>\` and \`gh api repos/{owner}/{repo}/issues/<n>/comments --paginate\`. Wherever the read goes through \`gh\`, use \`gh api\` (REST): \`gh issue view\` goes through GraphQL, which cloud sessions block. Copy the spec into spec.text with every heading in it, verbatim: its user stories, every AC-N, and any interfaces, under the headings they sit under (a heading can say which repository a criterion belongs to). If an issue was given and fetching it fails, set spec to \`{found: false, source: "", id: "", text: "", problem: "<the error you got>"}\` and carry on with the rest. Set spec.id to the id of the issue you fetched, as the tracker writes it, or "" for a spec file.`
 
 const jevCommand = jevScript ? `uv run ${jevScript} review-risk --input <file>` : 'review-risk with the jev.py your agent definition names'
+const deltaStep = since
+  ? `\n5. This is a re-review: the last round reviewed \`${since}\`. Resolve it with \`git rev-parse\` and check \`git merge-base --is-ancestor <since-sha> <head-sha>\`. If it does not resolve or is not an ancestor (the branch was rebased), set delta to \`{used: false, since: "${since}", changed: [], problem: "<why>"}\`. Otherwise set delta to \`{used: true, since: "<since-sha>", changed}\`, reading changed from \`git diff -U0 <since-sha> <head-sha> -- <the changed files>\` the same way as in step 1.`
+  : ''
 const riskStep = `\n4. Rank the changed files by structural risk: write \`{"base": "<base-sha>", "head": "<head-sha>"}\` to a temp file and run ${jevScript ? `\`${jevCommand}\`` : jevCommand}. Set risk to \`{ranked: true, structural, files}\` from its output, keeping each file's file, score, and structural. If it exits non-zero, set risk to \`{ranked: false, structural: false, files: [], problem: "<first line of stderr>"}\`.`
 
 const scope = await agent(
@@ -221,7 +238,7 @@ const scope = await agent(
 ${baseHint} The head under review is \`${head}\`.
 1. Resolve the fixed point and the head with \`git rev-parse\`. Record repo as the owner/name in \`git remote get-url origin\` (no host, no .git), or the name of the directory \`git rev-parse --show-toplevel\` prints when there is no origin. Record diffCommand as \`git diff <base-sha>...<head-sha>\` (three dots, against the merge-base), shortstat as the line \`git diff --shortstat <base-sha>...<head-sha>\` prints, verbatim, the commits from \`git log --oneline <base-sha>..<head-sha>\`, and the changed files from \`git diff --name-only <base-sha>...<head-sha>\`. Record changed from \`git diff -U0 <base-sha>...<head-sha>\`: for each file, every hunk header \`@@ -a,b +c,d @@\` gives the range [c, c+d-1] (d left out means 1), and a pure deletion (d is 0) gives [c, c+1], the lines around the cut.
 2. ${specStep}
-3. List the standards sources that exist: CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces).${riskStep}
+3. List the standards sources that exist: CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces).${riskStep}${deltaStep}
 
 If the fixed point does not resolve or the diff is empty, say so in problem and return every other field empty: base, head, repo, diffCommand, and shortstat as "", commits, files, and standardsSources as [], and spec as \`{found: false, source: "", id: "", text: ""}\`.`,
   { label: 'scope', phase: 'Scope', schema: SCOPE_SCHEMA, effort: 'low', agentType: 'compost:scope' },
@@ -268,10 +285,26 @@ ${risk.files.map(f => `${f.file} (${f.score.toFixed(2)}${f.structural ? ', struc
   : `Changed files:
 ${scope.files.join('\n')}`
 
+// A delta the scoping agent could not establish is a full review, said so in the result.
+const delta = since
+  ? scope.delta && scope.delta.used && Array.isArray(scope.delta.changed)
+    ? { used: true, since: scope.delta.since, changed: scope.delta.changed }
+    : { used: false, since, problem: (scope.delta && scope.delta.problem) || 'the scoping agent returned no delta' }
+  : null
+if (delta && !delta.used) log(`Reviewing the whole branch: ${delta.problem}`)
+
+const deltaNote = delta && delta.used
+  ? `\nThis is a re-review. Judge only the lines changed since the last round, \`git diff ${delta.since} ${scope.head}\`; read the branch diff above for context. The workflow drops a finding at a line outside that diff.`
+  : ''
+
+const priorNote = prior
+  ? `\nEarlier rounds' findings and their rulings:\n${prior}\nDo not raise one of these again unless the lines changed since the last round change it: a fix stands, a pushback stands with its reason, and a pre-existing finding is already recorded.`
+  : ''
+
 const diffContext = `Diff: \`${scope.diffCommand}\`${readAtHead}
 Commits:
 ${scope.commits.join('\n')}
-${fileList}`
+${fileList}${deltaNote}${priorNote}`
 
 const repoUnderReview = String(scope.repo || '')
 const IN_REPO = `This diff is in ${repoUnderReview || 'a repository the scoping agent could not name'}.`
@@ -319,7 +352,7 @@ Report:
 - Behaviour in the diff nobody asked for (scope creep), at file:line.
 - Each AC-N that looks implemented but where the implementation looks wrong.
 
-Under checked, map every acceptance criterion not under elsewhere: one entry per AC-N, naming it and its verdict (met, partly met, unmet), at the test or code line that shows it. An AC-N with no code or test to point at is a finding (line null) whose claim names it instead.`,
+Under checked, map every acceptance criterion not under elsewhere, across the whole branch even on a re-review: one entry per AC-N, naming it and its verdict (met, partly met, unmet), at the test or code line that shows it. An AC-N with no code or test to point at is a finding (line null) whose claim names it instead.`,
   },
 ]
 
@@ -347,8 +380,11 @@ function skepticPrompt(axis, finding, elsewhere) {
     ? `${IN_REPO} The spec places ${elsewhereNote(elsewhere)} in another repository, so this diff cannot meet them: a finding that one of them is missing here is refuted. Every other AC-N belongs to this repo.\n`
     : ''
   const specText = axis.name === 'Spec' ? `\nThe spec the finding was judged against:\n${specDoc.text}\n${SPEC_ONLY}\n${placed}` : ''
+  const ruled = prior
+    ? `\nEarlier rounds ruled on these findings:\n${prior}\nA finding that repeats one pushed back on there is refuted, unless the code it cites changed since ${delta && delta.used ? delta.since : 'the last round'}.\n`
+    : ''
   return `A reviewer made the ${axis.name} finding below about the diff \`${scope.diffCommand}\`. Your job is to refute it.${readAtHead}
-${specText}
+${specText}${ruled}
 Finding (${finding.severity}) at ${location}:
 Claim: ${finding.claim}
 Evidence: ${finding.evidence}
@@ -532,8 +568,15 @@ async function settleAxis(review, axis) {
   const placed = axis.name === 'Spec' ? partitionElsewhere(review.elsewhere) : null
   const unchecked = uncheckedReason(axis, review, placed)
   const notVerifiableHere = placed && placed.accepted.length ? `; not verifiable here: ${elsewhereNote(placed.accepted)}` : ''
-  const { kept, preExisting } = routePreExisting(review.findings)
+  const routed = routePreExisting(review.findings)
+  const { preExisting } = routed
   const preExistingNote = preExisting.length ? `, ${preExisting.length} pre-existing` : ''
+  // On a re-review, a finding at a line nobody touched since the last round was that round's to raise.
+  const outsideDelta = delta && delta.used
+    ? routed.kept.filter(finding => typeof finding.line === 'number' && !isChanged(delta.changed, finding.file, finding.line))
+    : []
+  const kept = routed.kept.filter(finding => !outsideDelta.includes(finding))
+  const outsideNote = outsideDelta.length ? `, ${outsideDelta.length} outside the delta dropped` : ''
   const serious = kept.filter(worthSkeptic)
   const unverified = kept
     .filter(finding => !worthSkeptic(finding))
@@ -546,8 +589,8 @@ async function settleAxis(review, axis) {
   return {
     axis: axis.name,
     status: unchecked
-      ? `failed: ${unchecked}${preExistingNote}${notVerifiableHere}`
-      : `${light ? 'reviewed (light)' : 'reviewed'}: ${review.findings.length} findings raised, ${unverified.length} left unverified${preExistingNote}${notVerifiableHere}`,
+      ? `failed: ${unchecked}${preExistingNote}${outsideNote}${notVerifiableHere}`
+      : `${light ? 'reviewed (light)' : 'reviewed'}: ${review.findings.length} findings raised, ${unverified.length} left unverified${preExistingNote}${outsideNote}${notVerifiableHere}`,
     complete: !unchecked,
     checked: review.checked,
     ...(placed ? { elsewhere: placed.accepted } : {}),
@@ -607,6 +650,7 @@ return {
   specSource,
   risk,
   path: light ? 'light' : 'full',
+  ...(delta ? { delta: delta.used ? { used: true, since: delta.since } : delta } : {}),
   complete,
   ...(complete ? {} : { problem: [standards, spec].filter(a => !a.complete).map(a => `${a.axis} ${a.status}`).join('; ') }),
   standards,

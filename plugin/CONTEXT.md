@@ -56,3 +56,9 @@ widens it. The workflow believes the label only where its record of the diff's c
 the line untouched; anywhere else the finding is the diff's. In code: `preExisting` in
 `review-changes.js`.
 _Avoid_: old bug, unrelated finding, out-of-scope finding.
+
+**Review round**: one pass of `compost:review` over an issue's branch, recorded as one issue comment
+headed `Review round <n>` with the head it reviewed and its findings and rulings. A later round
+reviews only the lines changed since that head and is told those rulings. `compost:implement` caps
+an issue at three. In code: `since` and `prior` in `review-changes.js`.
+_Avoid_: review pass, iteration.

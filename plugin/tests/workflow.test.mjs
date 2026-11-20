@@ -181,6 +181,66 @@ test('a failed or skipped axis carries an empty pre-existing list', async () => 
   assert.deepEqual([result.standards.preExisting, result.spec.preExisting], [[], []])
 })
 
+const SINCE = 's'.repeat(40)
+const DELTA = { used: true, since: SINCE, changed: [{ file: 'app/export.py', lines: [[12, 12]] }] }
+const PRIOR = '- major app/export.py:3 name drifts from CONTEXT.md: pushed back, the glossary term is Export'
+
+test('a re-review tells every reviewer to judge the lines changed since the last round, and Spec still maps every AC-N', async () => {
+  const { prompts, result } = await run({ issue: 7, since: 'abc1234' }, reviewers({ scope: { ...SCOPE, changed: CHANGED, delta: DELTA } }))
+  assert.match(prompts.scope, /This is a re-review: the last round reviewed `abc1234`/)
+  for (const label of ['Standards reviewer', 'Spec reviewer']) {
+    assert.match(prompts[label], new RegExp(`Judge only the lines changed since the last round, \`git diff ${SINCE} h{40}\``))
+  }
+  assert.match(prompts['Spec reviewer'], /map every acceptance criterion not under elsewhere, across the whole branch even on a re-review/)
+  assert.deepEqual(result.delta, { used: true, since: SINCE })
+  const first = await run({ issue: 7 }, reviewers())
+  assert.doesNotMatch(first.prompts.scope, /This is a re-review/)
+  assert.doesNotMatch(first.prompts['Standards reviewer'], /Judge only the lines changed/)
+  assert.equal(first.result.delta, undefined)
+})
+
+test('on a re-review, findings at lines untouched since the last round are dropped before any skeptic; a null line stays', async () => {
+  const stale = { ...BLOCKER, line: 20 }
+  const absent = { ...BLOCKER, line: null, claim: 'AC-1 has no test' }
+  for (const path of ['full', 'light']) {
+    const scope = { ...(path === 'light' ? SMALL : SCOPE), changed: CHANGED, delta: DELTA }
+    const findings = [BLOCKER, stale, absent, PRE_EXISTING]
+    const answer = path === 'light'
+      ? reviewers({ scope, light: { findings: findings.map(f => ({ ...f, axis: 'Standards' })), checked: CHECKED } })
+      : reviewers({ scope, standards: { findings, checked: STANDARDS_CHECKED } })
+    const { result, prompts } = await run({ ...JEV, since: 'abc1234' }, answer)
+    assert.equal(result.path, path)
+    assert.deepEqual(result.standards.survivors.map(f => f.line), [12, null], path)
+    assert.deepEqual(result.standards.preExisting.map(f => f.claim), [PRE_EXISTING.claim], path)
+    assert.equal(Object.keys(prompts).filter(label => label.includes('skeptic')).length, 2, path)
+    assert.match(result.standards.status, /4 findings raised, 0 left unverified, 1 pre-existing, 1 outside the delta dropped/, path)
+  }
+})
+
+test('prior rulings reach the reviewers and the skeptics, who refute a repeat of a pushed-back finding', async () => {
+  const { prompts } = await run({ since: 'abc1234', prior: PRIOR }, reviewers({ scope: { ...SCOPE, delta: DELTA } }))
+  for (const label of ['Standards reviewer', 'Spec reviewer', 'Standards skeptic 1.1']) {
+    assert.ok(prompts[label].includes(PRIOR), `${label} sees the prior rulings`)
+  }
+  assert.match(prompts['Standards skeptic 1.1'], new RegExp(`repeats one pushed back on there is refuted, unless the code it cites changed since ${SINCE}`))
+  const none = await run({}, reviewers())
+  assert.doesNotMatch(none.prompts['Standards skeptic 1.1'], /Earlier rounds ruled/)
+})
+
+test('a since that does not resolve, is not an ancestor, or comes back unread gives a whole-branch review that says why', async () => {
+  const cases = [
+    [{ used: false, since: 'abc1234', changed: [], problem: 'abc1234 is not an ancestor of the head' }, 'abc1234 is not an ancestor of the head'],
+    [undefined, 'the scoping agent returned no delta'],
+  ]
+  for (const [scopeDelta, problem] of cases) {
+    const stale = { ...BLOCKER, line: 20 }
+    const { result, prompts } = await run({ since: 'abc1234' }, reviewers({ scope: { ...SCOPE, changed: CHANGED, delta: scopeDelta }, standards: { findings: [stale], checked: STANDARDS_CHECKED } }))
+    assert.deepEqual(result.delta, { used: false, since: 'abc1234', problem })
+    assert.doesNotMatch(prompts['Standards reviewer'], /Judge only the lines changed/)
+    assert.deepEqual(result.standards.survivors.map(f => f.line), [20])
+  }
+})
+
 test('a blocker whose every skeptic failed is unjudged, not refuted', async () => {
   const { result } = await run({}, reviewers({ skeptic: null }))
   assert.deepEqual(result.standards.refuted, [])
