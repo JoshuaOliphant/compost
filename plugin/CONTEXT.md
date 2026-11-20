@@ -49,3 +49,10 @@ as the `skill-drift` mod writes it to `~/.claude/skill-drift/`.
 
 **Pattern**: skill drift of one kind on one skill's current version, with hits from at least two
 sessions. The unit `compost:skill-drift` acts on; a lone hit is not one.
+
+**Pre-existing finding**: a real bug a reviewer finds at a line the diff under review did not change.
+The review records it apart and the branch never fixes it, so it neither blocks the change nor
+widens it. The workflow believes the label only where its record of the diff's changed lines shows
+the line untouched; anywhere else the finding is the diff's. In code: `preExisting` in
+`review-changes.js`.
+_Avoid_: old bug, unrelated finding, out-of-scope finding.

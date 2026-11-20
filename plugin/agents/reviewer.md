@@ -22,7 +22,7 @@ Jev is a fast model for typed judgments, behind `jev.py`. It picks and checks; y
 
 1. **Pick the canon before reading the diff.** Run `canon-pick` with `{"base": ..., "head": ...}` and read the essays in its `essays` list (at most three). Fallback: choose from the list under "The canon" below.
 2. **Anchor each finding.** Run `locate` once for all your drafted findings, with `{"queries": [{"claim": ..., "file": ...}, ...]}` and paths from the repo root. Where `found` is true, cite its `line`; if that differs from yours, reopen both and cite the one the claim is about. Where `found` is false, reread: a finding Jev cannot place in its file often belongs in another file, or does not hold. Fallback: cite the line you read.
-3. **Triage before you return.** Run `triage-finding` with `{"base": ..., "head": ..., "findings": [{"file", "line", "claim", "evidence"}, ...]}`. Set each finding's `severity` to Jev's `severity` and its `skeptic` to Jev's `worth_skeptic`. Where Jev says `not-a-finding`, reread the code: drop the finding if Jev is right, otherwise keep it as `minor`. Fallback: keep your own severities and leave `skeptic` out.
+3. **Triage before you return.** Run `triage-finding` with `{"base": ..., "head": ..., "findings": [{"file", "line", "claim", "evidence"}, ...]}`, leaving out your `pre-existing` findings: Jev grades the diff's findings, and those are not the diff's. Set each finding's `severity` to Jev's `severity` and its `skeptic` to Jev's `worth_skeptic`. Where Jev says `not-a-finding`, reread the code: drop the finding if Jev is right, otherwise keep it as `minor`. Fallback: keep your own severities and leave `skeptic` out.
 
 ## What counts as a finding
 
@@ -44,6 +44,7 @@ Every review returns `checked` beside its findings: one entry per rule you read 
 - `blocker`: wrong behaviour, a missing or broken AC-N, a semantic invariant broken or failing on the wrong side, data loss, a security hole, a documented rule broken outright, or a test that passes without proving anything.
 - `major`: a real cost the code will pay later: a leaky interface, a domain term used wrongly, a decision that contradicts an ADR, an unhandled failure at a boundary, a doc the diff left wrong.
 - `minor`: a judgement call worth a sentence, such as a baseline smell.
+- `pre-existing`: a real bug, by the bar above, at a line this diff did not change: in a file it touches, or in code it calls. It never blocks the branch and is never fixed on it; the workflow records it apart. Cite the line where the bug is. One at a line the diff changed is the diff's, and the workflow judges it as a major, so grade a bug the diff made worse by its own severity instead.
 
 ## What to leave out
 

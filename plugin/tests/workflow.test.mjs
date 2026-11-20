@@ -140,6 +140,47 @@ test('every result names the harness code review as not run here, and whenToUse 
   assert.match(source, /whenToUse: 'compost:review is the normal entry point/)
 })
 
+const CHANGED = [{ file: 'app/export.py', lines: [[10, 14], [20, 21]] }]
+const PRE_EXISTING = { file: 'app/books.py', line: 13, severity: 'pre-existing', claim: 'total_pages skips the last book', evidence: 'app/books.py:13 range(len(books) - 1)' }
+
+test('a pre-existing finding at a line the diff left alone is recorded apart, with no skeptic, on either path', async () => {
+  const untouched = [PRE_EXISTING, { ...PRE_EXISTING, file: 'app/export.py', line: 3 }]
+  const full = await run({ issue: 7 }, reviewers({ scope: { ...SCOPE, changed: CHANGED }, standards: { findings: [BLOCKER, ...untouched], checked: STANDARDS_CHECKED } }))
+  assert.deepEqual(full.result.standards.preExisting, untouched)
+  assert.deepEqual(full.result.standards.survivors.map(f => f.claim), [BLOCKER.claim])
+  assert.deepEqual(Object.keys(full.prompts).filter(label => label.includes('skeptic')), ['Standards skeptic 1.1'])
+  assert.equal(full.result.complete, true)
+  assert.match(full.result.summary, /Standards: reviewed: 3 findings raised, 0 left unverified, 2 pre-existing, 1 survived/)
+  assert.deepEqual(full.result.spec.preExisting, [])
+
+  const light = await run(JEV, reviewers({
+    scope: { ...SMALL, changed: CHANGED },
+    light: { findings: [{ ...PRE_EXISTING, axis: 'Spec' }], checked: CHECKED },
+  }))
+  assert.equal(light.result.path, 'light')
+  assert.deepEqual(light.result.spec.preExisting.map(f => f.claim), [PRE_EXISTING.claim])
+  assert.equal(light.result.spec.survivors.length, 0)
+})
+
+test('a pre-existing finding at a changed line, with no line, or with no changed lines to check is judged as a major', async () => {
+  const cases = [
+    [{ ...SCOPE, changed: CHANGED }, { ...PRE_EXISTING, file: 'app/export.py', line: 12 }],
+    [{ ...SCOPE, changed: CHANGED }, { ...PRE_EXISTING, line: null }],
+    [SCOPE, PRE_EXISTING],
+  ]
+  for (const [scope, finding] of cases) {
+    const { result, prompts } = await run({}, reviewers({ scope, standards: { findings: [finding], checked: STANDARDS_CHECKED } }))
+    assert.deepEqual(result.standards.preExisting, [])
+    assert.equal(result.standards.survivors[0].severity, 'major', JSON.stringify(finding))
+    assert.match(prompts['Standards skeptic 1.1'], /Finding \(major\)/)
+  }
+})
+
+test('a failed or skipped axis carries an empty pre-existing list', async () => {
+  const { result } = await run({}, reviewers({ standards: null, scope: { ...SCOPE, spec: { found: false, source: '', id: '', text: '' } } }))
+  assert.deepEqual([result.standards.preExisting, result.spec.preExisting], [[], []])
+})
+
 test('a blocker whose every skeptic failed is unjudged, not refuted', async () => {
   const { result } = await run({}, reviewers({ skeptic: null }))
   assert.deepEqual(result.standards.refuted, [])

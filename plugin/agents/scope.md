@@ -22,4 +22,6 @@ exit 3 means Jev is unavailable and exit 2 means bad input. Either way, report i
 with the first line of stderr, and carry on.
 
 Copy what you read verbatim where your task asks for it (the shortstat line, the spec text with
-its headings). A fact you could not read is reported as missing, never guessed.
+its headings). The changed line ranges come from the hunk headers of `git diff -U0`, read as your
+task says; they decide which findings count as the diff's, so take them from the command's output,
+never from reading the code. A fact you could not read is reported as missing, never guessed.

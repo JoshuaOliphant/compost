@@ -23,6 +23,20 @@ const forceFull = Boolean(input.full)
 // At or under this many changed lines, with Jev finding no structural file, one reviewer covers both axes.
 const LIGHT_MAX_CHANGED_LINES = 50
 
+// The new-side lines a diff changed, per file: what tells a finding about this diff from one about code it left alone.
+const CHANGED_SCHEMA = {
+  type: 'array',
+  description: 'For each changed file, the new-side line ranges its hunks cover, inclusive',
+  items: {
+    type: 'object',
+    required: ['file', 'lines'],
+    properties: {
+      file: { type: 'string' },
+      lines: { type: 'array', items: { type: 'array', items: { type: 'integer' }, minItems: 2, maxItems: 2 } },
+    },
+  },
+}
+
 const SCOPE_SCHEMA = {
   type: 'object',
   required: ['base', 'head', 'repo', 'diffCommand', 'shortstat', 'commits', 'files', 'standardsSources', 'spec'],
@@ -34,6 +48,7 @@ const SCOPE_SCHEMA = {
     shortstat: { type: 'string', description: 'The line git diff --shortstat prints, verbatim; empty when it could not be read' },
     commits: { type: 'array', items: { type: 'string' } },
     files: { type: 'array', items: { type: 'string' } },
+    changed: CHANGED_SCHEMA,
     standardsSources: { type: 'array', items: { type: 'string' } },
     spec: {
       type: 'object',
@@ -95,7 +110,11 @@ const FINDINGS_SCHEMA = {
         properties: {
           file: { type: 'string' },
           line: { type: ['integer', 'null'], description: 'null when the finding is about something absent from the diff' },
-          severity: { type: 'string', enum: ['blocker', 'major', 'minor'] },
+          severity: {
+            type: 'string',
+            enum: ['blocker', 'major', 'minor', 'pre-existing'],
+            description: 'pre-existing: a real bug at a line this diff did not change, recorded apart and never fixed on this branch',
+          },
           claim: { type: 'string' },
           evidence: { type: 'string', description: 'The rule or AC-N quoted with its file, plus the code quoted at file:line' },
           skeptic: { type: 'boolean', description: 'worth_skeptic from jev.py triage-finding; omit when Jev was unavailable' },
@@ -200,7 +219,7 @@ const scope = await agent(
   `Scope a code review of the changes up to \`${head}\`. Do not review anything yet.
 
 ${baseHint} The head under review is \`${head}\`.
-1. Resolve the fixed point and the head with \`git rev-parse\`. Record repo as the owner/name in \`git remote get-url origin\` (no host, no .git), or the name of the directory \`git rev-parse --show-toplevel\` prints when there is no origin. Record diffCommand as \`git diff <base-sha>...<head-sha>\` (three dots, against the merge-base), shortstat as the line \`git diff --shortstat <base-sha>...<head-sha>\` prints, verbatim, the commits from \`git log --oneline <base-sha>..<head-sha>\`, and the changed files from \`git diff --name-only <base-sha>...<head-sha>\`.
+1. Resolve the fixed point and the head with \`git rev-parse\`. Record repo as the owner/name in \`git remote get-url origin\` (no host, no .git), or the name of the directory \`git rev-parse --show-toplevel\` prints when there is no origin. Record diffCommand as \`git diff <base-sha>...<head-sha>\` (three dots, against the merge-base), shortstat as the line \`git diff --shortstat <base-sha>...<head-sha>\` prints, verbatim, the commits from \`git log --oneline <base-sha>..<head-sha>\`, and the changed files from \`git diff --name-only <base-sha>...<head-sha>\`. Record changed from \`git diff -U0 <base-sha>...<head-sha>\`: for each file, every hunk header \`@@ -a,b +c,d @@\` gives the range [c, c+d-1] (d left out means 1), and a pure deletion (d is 0) gives [c, c+1], the lines around the cut.
 2. ${specStep}
 3. List the standards sources that exist: CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces).${riskStep}
 
@@ -361,6 +380,29 @@ async function judge(axis, finding, index, elsewhere) {
   }
 }
 
+// A finding's line is changed when a hunk of the diff covers it; a null line is about something absent, never a changed line.
+function isChanged(changed, file, line) {
+  if (line === null || line === undefined) return false
+  const entry = (Array.isArray(changed) ? changed : []).find(e => e && e.file === file)
+  return Boolean(entry) && (entry.lines || []).some(([start, end]) => line >= start && line <= end)
+}
+
+// A pre-existing finding is believed only where the diff provably left the line alone; at a changed line, or one
+// nobody can place, it is the diff's and is judged as a major.
+function placedOutsideDiff(finding) {
+  return Array.isArray(scope.changed) && typeof finding.line === 'number' && !isChanged(scope.changed, finding.file, finding.line)
+}
+
+function routePreExisting(findings) {
+  const routed = { kept: [], preExisting: [] }
+  for (const finding of findings) {
+    if (finding.severity !== 'pre-existing') routed.kept.push(finding)
+    else if (placedOutsideDiff(finding)) routed.preExisting.push(finding)
+    else routed.kept.push({ ...finding, severity: 'major', skeptic: true })
+  }
+  return routed
+}
+
 function worthSkeptic(finding) {
   return typeof finding.skeptic === 'boolean' ? finding.skeptic : finding.severity !== 'minor'
 }
@@ -370,7 +412,7 @@ function unjudgedAfterThrow(finding) {
 }
 
 function failedAxis(name, status) {
-  return { axis: name, status: `failed: ${status}`, complete: false, survivors: [], refuted: [], unjudged: [] }
+  return { axis: name, status: `failed: ${status}`, complete: false, survivors: [], refuted: [], unjudged: [], preExisting: [] }
 }
 
 function changedLines(shortstat) {
@@ -483,15 +525,17 @@ function uncheckedReason(axis, review, placed) {
 async function settleAxis(review, axis) {
   if (review && review.skipped && axis.problem) return failedAxis(axis.name, axis.problem)
   if (review && review.skipped) {
-    return { axis: axis.name, status: 'skipped: no spec found', complete: true, survivors: [], refuted: [], unjudged: [] }
+    return { axis: axis.name, status: 'skipped: no spec found', complete: true, survivors: [], refuted: [], unjudged: [], preExisting: [] }
   }
   if (!review) return failedAxis(axis.name, 'the reviewer did not return')
   // A failed record fails the axis but keeps its findings: losing a real blocker is worse than a skimpy review.
   const placed = axis.name === 'Spec' ? partitionElsewhere(review.elsewhere) : null
   const unchecked = uncheckedReason(axis, review, placed)
   const notVerifiableHere = placed && placed.accepted.length ? `; not verifiable here: ${elsewhereNote(placed.accepted)}` : ''
-  const serious = review.findings.filter(worthSkeptic)
-  const unverified = review.findings
+  const { kept, preExisting } = routePreExisting(review.findings)
+  const preExistingNote = preExisting.length ? `, ${preExisting.length} pre-existing` : ''
+  const serious = kept.filter(worthSkeptic)
+  const unverified = kept
     .filter(finding => !worthSkeptic(finding))
     .map(finding => ({ ...finding, unverified: true }))
   const judged = (await pipeline(serious, (finding, _item, index) => judge(axis, finding, index, placed ? placed.accepted : [])))
@@ -502,8 +546,8 @@ async function settleAxis(review, axis) {
   return {
     axis: axis.name,
     status: unchecked
-      ? `failed: ${unchecked}${notVerifiableHere}`
-      : `${light ? 'reviewed (light)' : 'reviewed'}: ${review.findings.length} findings raised, ${unverified.length} left unverified${notVerifiableHere}`,
+      ? `failed: ${unchecked}${preExistingNote}${notVerifiableHere}`
+      : `${light ? 'reviewed (light)' : 'reviewed'}: ${review.findings.length} findings raised, ${unverified.length} left unverified${preExistingNote}${notVerifiableHere}`,
     complete: !unchecked,
     checked: review.checked,
     ...(placed ? { elsewhere: placed.accepted } : {}),
@@ -513,6 +557,7 @@ async function settleAxis(review, axis) {
     ],
     refuted: withVerdict('refuted').map(j => ({ ...j.finding, refutedBecause: j.reasons, failedVotes: j.failed })),
     unjudged: unjudged.map(j => ({ ...j.finding, reasons: j.reasons, failedVotes: j.failed })),
+    preExisting,
   }
 }
 
