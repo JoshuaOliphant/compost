@@ -66,10 +66,12 @@ where seams go, and keeps heavy architecture out unless a dependency earns it. T
    adapters (typically production and test) make it real. Don't add a seam nothing varies across.
 
 5. **Present the candidates.** For each: the files, the problem (what hurts), the change (what
-   becomes one module, what goes behind the seam), the gain in locality, leverage, and tests, the
-   dependency categories, and a strength of *Strong*, *Worth exploring*, or *Speculative*. End with
-   the one you would tackle first and why. If a candidate contradicts an ADR, include it only when the
-   friction is real enough to reopen the ADR, and say which ADR and why. Don't propose interfaces yet.
+   becomes one module, what goes behind the seam), the gain in locality, leverage, and tests (with
+   a line on what a test through the new seam catches and what it misses: an in-memory adapter
+   misses the real store's constraints), the dependency categories, and a strength of *Strong*,
+   *Worth exploring*, or *Speculative*. End with the one you would tackle first and why. If a
+   candidate contradicts an ADR, include it only when the friction is real enough to reopen the
+   ADR, and say which ADR and why. Don't propose interfaces yet.
 
    Give this in the conversation. When the user is driving and the `mcp__compost__architecture_review`
    tool is available, also call it with the candidates and your recommendation: it draws them as
