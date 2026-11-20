@@ -23,7 +23,9 @@ Fix the class of mistake, not just the instance, and go as high up this list as 
    ([type-system discipline](type-system-discipline.md)).
 3. **A lint rule whose error names the fix.** "Use `load_config()`, not `open('config.toml')`"
    gets fixed on the spot; "style violation" gets suppressed.
-4. **A test.** It catches the mistake after it is written, and only where the test reaches.
+4. **A test.** It catches the mistake after it is written, and only where the test reaches. Fix
+   or delete a test that still passes when the behavior it checks breaks, or fails when only the
+   internals change; it guards nothing.
 5. **Docs, last.** A rule in prose is for what no check can see: judgment, taste, context.
 
 A **mechanical** mistake (a fixed syntactic pattern, a banned API, an import shape, a file in the
@@ -39,5 +41,12 @@ rule.
   ([prove it works](prove-it-works.md)).
 - Fix the instance in front of you, then build the check or file an issue for it. The instance
   is today's work; the check is what stops tomorrow's.
+- A mistake against a rule already written down is a repeat: the prose failed once already. Fix
+  it a level higher in the same change, and drop the rule once a check makes the mistake
+  impossible.
+- When the pattern is already common, ratchet: the check fails only when a change adds an
+  instance, so it can land today without fixing every old one first.
+- An exception goes on the offending line, with the reason and an expiry date, so it comes back
+  for review instead of becoming permanent.
 - Prefer a hook or CI step the repo already runs over a new tool. A check nobody runs is a rule
   with extra steps.
