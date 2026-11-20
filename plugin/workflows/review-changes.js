@@ -3,7 +3,7 @@
 export const meta = {
   name: 'review-changes',
   description: 'Review a branch along two axes, Standards and Spec (one reviewer on both for a small, non-structural diff), then have skeptics try to refute every finding worth one (by Jev triage, else every blocker and major)',
-  whenToUse: 'compost:review is the normal entry point: it runs this workflow, runs the harness code review beside it, and works through the findings; call this directly only for the two axes alone. After verify passes on an issue, or whenever a branch or work-in-progress diff needs review, whatever its size. Pass {base, head, issue, spec, skeptics, jev, full}, all optional: base defaults to the merge-base with the default branch, head to HEAD, issue to one found in the commits or branch name, spec (the issue text, fetched by the caller; scope then fetches nothing) to none, skeptics (votes per finding worth a skeptic) to 1, jev (the path to compost scripts/jev.py, which ranks files by structural risk) to this plugin\'s own copy, full (force separate Standards and Spec reviewers on a small diff) to false. A diff of 50 changed lines or fewer that Jev ranks and finds not structural gets one reviewer covering both axes. A bare string is treated as base.',
+  whenToUse: 'compost:review is the normal entry point: it runs this workflow, runs the harness code review beside it, and works through the findings; call this directly only for the two axes alone. After verify passes on an issue, or whenever a branch or work-in-progress diff needs review, whatever its size. Pass {base, head, issue, spec, since, prior, skeptics, jev, full}, all optional: base defaults to the merge-base with the default branch, head to HEAD, issue to one found in the commits or branch name, spec (the issue text, fetched by the caller; scope then fetches nothing) to none, since (the head the last review round reviewed; reviewers then judge only what changed after it) and prior (the findings and rulings of that round, which reviewers and skeptics are told) to none, skeptics (votes per finding worth a skeptic) to 1, jev (the path to compost scripts/jev.py, which ranks files by structural risk) to this plugin\'s own copy, full (force separate Standards and Spec reviewers on a small diff) to false. A diff of 50 changed lines or fewer that Jev ranks and finds not structural gets one reviewer covering both axes. A bare string is treated as base.',
   phases: [
     { title: 'Scope', detail: 'pin the base, the diff, the spec, and the standards sources; rank files by structural risk' },
     { title: 'Standards', detail: 'reviewer against instructions files, CONTEXT.md, ADRs, and the canon (on a small diff, one light reviewer covers both axes here); skeptics refute each finding worth one' },
@@ -239,11 +239,11 @@ const specStep = givenSpec
   ? 'The spec was passed in by the caller: do not fetch any issue or spec file. Set spec to `{found: false, source: "", id: "", text: ""}`; the workflow uses the text it was given.'
   : `${issueHint} Fetch it, with its comments, using the read command docs/agents/issue-tracker.md gives for this repo's tracker, and pass the id to it exactly as written: it may be dotted (bd-a1b2.3) or name another project (group/project#12), so never turn it into a number or drop its project. Only if that file is missing, use \`gh api repos/{owner}/{repo}/issues/<n>\` and \`gh api repos/{owner}/{repo}/issues/<n>/comments --paginate\`. Wherever the read goes through \`gh\`, use \`gh api\` (REST): \`gh issue view\` goes through GraphQL, which cloud sessions block. Copy the spec into spec.text with every heading in it, verbatim: its user stories, every AC-N, and any interfaces, under the headings they sit under (a heading can say which repository a criterion belongs to). If an issue was given and fetching it fails, set spec to \`{found: false, source: "", id: "", text: "", problem: "<the error you got>"}\` and carry on with the rest. Set spec.id to the id of the issue you fetched, as the tracker writes it, or "" for a spec file.`
 
-const jevCommand = jevScript ? `uv run ${jevScript} review-risk --input <file>` : 'review-risk with the jev.py your agent definition names'
+const jevCommand = jevScript ? `\`uv run ${jevScript} review-risk --input <file>\`` : 'review-risk with the jev.py your agent definition names'
 const deltaStep = since
   ? `\n5. This is a re-review: the last round reviewed \`${since}\`. Resolve it with \`git rev-parse\` and check \`git merge-base --is-ancestor <since-sha> <head-sha>\`. If it does not resolve or is not an ancestor (the branch was rebased), set delta to \`{used: false, since: "${since}", changed: [], problem: "<why>"}\`. Otherwise set delta to \`{used: true, since: "<since-sha>", changed}\`, reading changed from \`git diff -U0 <since-sha> <head-sha> -- <the changed files>\` the same way as in step 1.`
   : ''
-const riskStep = `\n4. Rank the changed files by structural risk: write \`{"base": "<base-sha>", "head": "<head-sha>"}\` to a temp file and run ${jevScript ? `\`${jevCommand}\`` : jevCommand}. Set risk to \`{ranked: true, structural, files}\` from its output, keeping each file's file, score, and structural. If it exits non-zero, set risk to \`{ranked: false, structural: false, files: [], problem: "<first line of stderr>"}\`.`
+const riskStep = `\n4. Rank the changed files by structural risk: write \`{"base": "<base-sha>", "head": "<head-sha>"}\` to a temp file and run ${jevCommand}. Set risk to \`{ranked: true, structural, files}\` from its output, keeping each file's file, score, and structural. If it exits non-zero, set risk to \`{ranked: false, structural: false, files: [], problem: "<first line of stderr>"}\`.`
 
 const scope = await agent(
   `Scope a code review of the changes up to \`${head}\`. Do not review anything yet.
@@ -260,7 +260,7 @@ If the fixed point does not resolve or the diff is empty, say so in problem and 
 if (!scope || scope.problem || scope.files.length === 0) {
   const problem = scope ? scope.problem || 'The diff is empty.' : 'The scoping agent did not return.'
   log(problem)
-  return { complete: false, problem }
+  return { complete: false, problem, notRun: NOT_RUN }
 }
 
 const specSource = input.issue ? issueRef(issueId) : givenSpec ? 'the spec passed in' : scope.spec.source
@@ -678,18 +678,20 @@ const results = light ? await reviewLight() : await pipeline(AXES, reviewOne, se
 
 const [standards, spec] = results.map((result, i) => result || failedAxis(AXES[i].name, 'the review stage threw'))
 
-// The guide's minor cap holds for the whole review: Standards' minors first, each axis in the order its reviewer listed them.
+// The guide's minor cap holds for the whole review: Standards' minors first, each axis in the order its reviewer
+// listed them. Unjudged minors count too, since the caller treats them as survivors.
 let minorBudget = minorCap
 let minorsCut = 0
 for (const axisResult of [standards, spec]) {
   const listed = axisResult.listed || []
-  const minors = axisResult.survivors
+  const minors = [...axisResult.survivors, ...axisResult.unjudged]
     .filter(finding => finding.severity === 'minor')
     .sort((a, b) => listed.indexOf(listingKey(a)) - listed.indexOf(listingKey(b)))
   const cut = minors.slice(minorBudget)
   minorBudget = Math.max(0, minorBudget - minors.length)
   minorsCut += cut.length
   axisResult.survivors = axisResult.survivors.filter(finding => !cut.includes(finding))
+  axisResult.unjudged = axisResult.unjudged.filter(finding => !cut.includes(finding))
   if (cut.length) axisResult.status += `, ${cut.length} minors cut by the cap`
   delete axisResult.listed
 }

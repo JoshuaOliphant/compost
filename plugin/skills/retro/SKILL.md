@@ -68,7 +68,8 @@ fixing files nothing and says so in one line.
      expensive review, but the diff was 260 changed lines, so the review took the full path with
      Jev or without it; the cost was elsewhere.
    - A candidate the data contradicts is restated with the cause the data shows, or dropped. One
-     with no data either way says so in its issue and stays at the lowest severity.
+     with no data either way is filed without its cause: the issue names the cost and the moment,
+     says the cause is unchecked and what data would settle it, and proposes no fix yet.
 
 6. **Place each fix where it costs least.** The implementing agent carries the most context
    pressure: it explores, writes, and debugs. The reviewer reads a diff and carries the least. So
@@ -79,7 +80,7 @@ fixing files nothing and says so in one line.
 
 7. **File the candidates, most severe first.** One issue per candidate in the repo's tracker, with
    the session evidence, the data that backs its cause and what the run would have done without
-   it (step 5), the category, and the fix with its placement. A candidate outside the
+   it (step 5), the category, and the fix with its placement (none yet when step 5 found no data). A candidate outside the
    repo (the user's global `CLAUDE.md`, a personal skill, an MCP server's config) is not filed:
    write the proposed change as exact text in the report. End with one line per candidate:
    severity, category, and the issue link or proposal.

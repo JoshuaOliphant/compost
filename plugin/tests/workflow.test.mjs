@@ -311,6 +311,31 @@ test('the minor cap keeps the reviewer\'s listed order, however the survivors we
   assert.match(result.standards.status, /2 minors cut by the cap/)
 })
 
+test('an unjudged minor counts against the cap like a survivor, in the reviewer\'s listed order', async () => {
+  const [unsure, plain] = minors(2)
+  const { result } = await run({}, reviewers({
+    scope: { ...SCOPE, guide: { source: 'defaults', minorCap: 1 } },
+    standards: { findings: [{ ...unsure, skeptic: true }, plain], checked: STANDARDS_CHECKED },
+    skeptic: null,
+  }))
+  assert.deepEqual(result.standards.unjudged.map(f => f.claim), [unsure.claim])
+  assert.deepEqual(result.standards.survivors.map(f => f.claim), [])
+  assert.match(result.summary, /minor cap 1, 1 cut/)
+})
+
+test('the default guide the reviewers get is the one the REVIEW.md starter writes out', async () => {
+  const starter = readFileSync(new URL('../skills/setup/references/review-md.md', import.meta.url), 'utf8')
+  const { prompts } = await run({}, reviewers())
+  const defaults = prompts['Standards reviewer'].split('Review guide (defaults; this repo has no REVIEW.md):\n')[1].split('\n').slice(0, 4)
+  const sections = Object.fromEntries(starter.split('\n## ').slice(1).map(part => [part.split('\n')[0], part.split('\n').slice(1).join(' ').trim()]))
+  const said = line => line.replace(/^- \w+: /, '').toLowerCase()
+  assert.equal(defaults.length, 4)
+  assert.equal(said(defaults[0]), sections.Failure.split('```')[0].trim().toLowerCase())
+  assert.match(defaults[1], new RegExp(`at most ${sections['Minor cap'].split(' ')[0]} for the whole review`))
+  assert.equal(said(defaults[2]), sections.Skip.toLowerCase())
+  assert.equal(said(defaults[3]), sections.Evidence.split('```')[0].trim().toLowerCase())
+})
+
 test('findings in files the guide skips are dropped before any skeptic, and reviewers are told which files those are', async () => {
   const lockFinding = { ...BLOCKER, file: 'requirements.lock', line: 2, claim: 'pinned version is old' }
   const { result, prompts } = await run({}, reviewers({
@@ -416,10 +441,12 @@ test('without an issue, the spec source is what scope found, and a missing spec 
   assert.equal(result.complete, true)
 })
 
+const NOT_RUN = 'harness code review: not part of this workflow; compost:review runs it beside this one on a diff that changes executable code'
+
 test('a failed scope or an empty diff returns the problem and spawns no reviewers', async () => {
   for (const [scope, problem] of [[null, 'The scoping agent did not return.'], [{ ...SCOPE, files: [] }, 'The diff is empty.']]) {
     const { result, prompts } = await run({}, reviewers({ scope }))
-    assert.deepEqual(result, { complete: false, problem })
+    assert.deepEqual(result, { complete: false, problem, notRun: [NOT_RUN] })
     assert.deepEqual(Object.keys(prompts), ['scope'])
   }
 })

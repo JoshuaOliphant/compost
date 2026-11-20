@@ -37,8 +37,12 @@ WORKFLOW_NAME = re.compile(r"export const meta = \{\s*name: '([^']+)'")
 
 
 def frontmatter(skill_dir):
-    text = (skill_dir / "SKILL.md").read_text()
-    assert text.startswith("---\n"), f"{skill_dir.name}: SKILL.md must open with frontmatter"
+    return file_frontmatter(skill_dir / "SKILL.md")
+
+
+def file_frontmatter(path):
+    text = path.read_text()
+    assert text.startswith("---\n"), f"{path}: must open with frontmatter"
     return yaml.safe_load(text[4 : text.index("\n---", 4)])
 
 
@@ -58,8 +62,7 @@ def test_skill_frontmatter_names_its_directory_and_says_when_to_use_it(skill_dir
 
 @pytest.mark.parametrize("agent", ["scope", "skeptic"])
 def test_workflow_helper_agents_are_lean(agent):
-    text = (PLUGIN_ROOT / "agents" / f"{agent}.md").read_text()
-    fields = yaml.safe_load(text[4 : text.index("\n---", 4)])
+    fields = file_frontmatter(PLUGIN_ROOT / "agents" / f"{agent}.md")
     assert fields["name"] == agent
     assert [tool.strip() for tool in fields["tools"].split(",")] == ["Read", "Grep", "Glob", "Bash"]
 
