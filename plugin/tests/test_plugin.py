@@ -56,6 +56,14 @@ def test_skill_frontmatter_names_its_directory_and_says_when_to_use_it(skill_dir
     assert len(fields["description"]) <= 1024
 
 
+@pytest.mark.parametrize("agent", ["scope", "skeptic"])
+def test_workflow_helper_agents_are_lean(agent):
+    text = (PLUGIN_ROOT / "agents" / f"{agent}.md").read_text()
+    fields = yaml.safe_load(text[4 : text.index("\n---", 4)])
+    assert fields["name"] == agent
+    assert [tool.strip() for tool in fields["tools"].split(",")] == ["Read", "Grep", "Glob", "Bash"]
+
+
 @pytest.mark.parametrize("document", MARKDOWN, ids=lambda path: str(path.relative_to(PLUGIN_ROOT)))
 def test_relative_links_resolve(document):
     targets = [target for target in LINK.findall(document.read_text()) if "://" not in target]

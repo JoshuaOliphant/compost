@@ -3,7 +3,7 @@
 export const meta = {
   name: 'review-changes',
   description: 'Review a branch along two axes, Standards and Spec (one reviewer on both for a small, non-structural diff), then have skeptics try to refute every finding worth one (by Jev triage, else every blocker and major)',
-  whenToUse: 'After verify passes on an issue, or whenever a branch or work-in-progress diff needs review, whatever its size. Pass {base, head, issue, skeptics, jev, full}, all optional: base defaults to the merge-base with the default branch, head to HEAD, issue to one found in the commits or branch name, skeptics (votes per finding worth a skeptic) to 1, jev (the path to compost scripts/jev.py, which ranks files by structural risk) to none, full (force separate Standards and Spec reviewers on a small diff) to false. A diff of 50 changed lines or fewer that Jev ranks and finds not structural gets one reviewer covering both axes. A bare string is treated as base.',
+  whenToUse: 'compost:review is the normal entry point: it runs this workflow, runs the harness code review beside it, and works through the findings; call this directly only for the two axes alone. After verify passes on an issue, or whenever a branch or work-in-progress diff needs review, whatever its size. Pass {base, head, issue, spec, skeptics, jev, full}, all optional: base defaults to the merge-base with the default branch, head to HEAD, issue to one found in the commits or branch name, spec (the issue text, fetched by the caller; scope then fetches nothing) to none, skeptics (votes per finding worth a skeptic) to 1, jev (the path to compost scripts/jev.py, which ranks files by structural risk) to this plugin\'s own copy, full (force separate Standards and Spec reviewers on a small diff) to false. A diff of 50 changed lines or fewer that Jev ranks and finds not structural gets one reviewer covering both axes. A bare string is treated as base.',
   phases: [
     { title: 'Scope', detail: 'pin the base, the diff, the spec, and the standards sources; rank files by structural risk' },
     { title: 'Standards', detail: 'reviewer against instructions files, CONTEXT.md, ADRs, and the canon (on a small diff, one light reviewer covers both axes here); skeptics refute each finding worth one' },
@@ -15,6 +15,10 @@ const input = typeof args === 'object' && args !== null ? args : { base: args }
 const skepticsPerFinding = input.skeptics || 1
 const head = input.head || 'HEAD'
 const jevScript = input.jev || ''
+// A caller holding the issue text (one whose tracker the lean scope agent cannot read, such as an MCP-only one) passes it in.
+const givenSpec = typeof input.spec === 'string' && input.spec.trim() ? input.spec : ''
+// The workflow runs the two axes and their skeptics; the harness's own code review is the caller's to run.
+const NOT_RUN = ['harness code review: not part of this workflow; compost:review runs it beside this one on a diff that changes executable code']
 const forceFull = Boolean(input.full)
 // At or under this many changed lines, with Jev finding no structural file, one reviewer covers both axes.
 const LIGHT_MAX_CHANGED_LINES = 50
@@ -185,20 +189,23 @@ const issueHint = input.issue
   ? `The originating issue is \`${issueId}\` and no other: fetch it even if the conversation names a different one.`
   : 'No issue was given: look for issue references in the commit messages (#123, Closes #45) and in the branch name, then for a spec file under docs/, specs/, or .scratch/ matching the branch.'
 
-const riskStep = jevScript
-  ? `\n4. Rank the changed files by structural risk: write \`{"base": "<base-sha>", "head": "<head-sha>"}\` to a temp file and run \`uv run ${jevScript} review-risk --input <file>\`. Set risk to \`{ranked: true, structural, files}\` from its output, keeping each file's file, score, and structural. If it exits non-zero, set risk to \`{ranked: false, structural: false, files: [], problem: "<first line of stderr>"}\`.`
-  : ''
+const specStep = givenSpec
+  ? 'The spec was passed in by the caller: do not fetch any issue or spec file. Set spec to `{found: false, source: "", id: "", text: ""}`; the workflow uses the text it was given.'
+  : `${issueHint} Fetch it, with its comments, using the read command docs/agents/issue-tracker.md gives for this repo's tracker, and pass the id to it exactly as written: it may be dotted (bd-a1b2.3) or name another project (group/project#12), so never turn it into a number or drop its project. Only if that file is missing, use \`gh api repos/{owner}/{repo}/issues/<n>\` and \`gh api repos/{owner}/{repo}/issues/<n>/comments --paginate\`. Wherever the read goes through \`gh\`, use \`gh api\` (REST): \`gh issue view\` goes through GraphQL, which cloud sessions block. Copy the spec into spec.text with every heading in it, verbatim: its user stories, every AC-N, and any interfaces, under the headings they sit under (a heading can say which repository a criterion belongs to). If an issue was given and fetching it fails, set spec to \`{found: false, source: "", id: "", text: "", problem: "<the error you got>"}\` and carry on with the rest. Set spec.id to the id of the issue you fetched, as the tracker writes it, or "" for a spec file.`
+
+const jevCommand = jevScript ? `uv run ${jevScript} review-risk --input <file>` : 'review-risk with the jev.py your agent definition names'
+const riskStep = `\n4. Rank the changed files by structural risk: write \`{"base": "<base-sha>", "head": "<head-sha>"}\` to a temp file and run ${jevScript ? `\`${jevCommand}\`` : jevCommand}. Set risk to \`{ranked: true, structural, files}\` from its output, keeping each file's file, score, and structural. If it exits non-zero, set risk to \`{ranked: false, structural: false, files: [], problem: "<first line of stderr>"}\`.`
 
 const scope = await agent(
   `Scope a code review of the changes up to \`${head}\`. Do not review anything yet.
 
 ${baseHint} The head under review is \`${head}\`.
 1. Resolve the fixed point and the head with \`git rev-parse\`. Record repo as the owner/name in \`git remote get-url origin\` (no host, no .git), or the name of the directory \`git rev-parse --show-toplevel\` prints when there is no origin. Record diffCommand as \`git diff <base-sha>...<head-sha>\` (three dots, against the merge-base), shortstat as the line \`git diff --shortstat <base-sha>...<head-sha>\` prints, verbatim, the commits from \`git log --oneline <base-sha>..<head-sha>\`, and the changed files from \`git diff --name-only <base-sha>...<head-sha>\`.
-2. ${issueHint} Fetch it, with its comments, using the read command docs/agents/issue-tracker.md gives for this repo's tracker, and pass the id to it exactly as written: it may be dotted (bd-a1b2.3) or name another project (group/project#12), so never turn it into a number or drop its project. Only if that file is missing, use \`gh api repos/{owner}/{repo}/issues/<n>\` and \`gh api repos/{owner}/{repo}/issues/<n>/comments --paginate\`. Wherever the read goes through \`gh\`, use \`gh api\` (REST): \`gh issue view\` goes through GraphQL, which cloud sessions block. Copy the spec into spec.text with every heading in it, verbatim: its user stories, every AC-N, and any interfaces, under the headings they sit under (a heading can say which repository a criterion belongs to). If an issue was given and fetching it fails, set spec to \`{found: false, source: "", id: "", text: "", problem: "<the error you got>"}\` and carry on with the rest. Set spec.id to the id of the issue you fetched, as the tracker writes it, or "" for a spec file.
+2. ${specStep}
 3. List the standards sources that exist: CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces).${riskStep}
 
 If the fixed point does not resolve or the diff is empty, say so in problem and return every other field empty: base, head, repo, diffCommand, and shortstat as "", commits, files, and standardsSources as [], and spec as \`{found: false, source: "", id: "", text: ""}\`.`,
-  { label: 'scope', phase: 'Scope', schema: SCOPE_SCHEMA, effort: 'low' },
+  { label: 'scope', phase: 'Scope', schema: SCOPE_SCHEMA, effort: 'low', agentType: 'compost:scope' },
 )
 
 if (!scope || scope.problem || scope.files.length === 0) {
@@ -207,10 +214,11 @@ if (!scope || scope.problem || scope.files.length === 0) {
   return { complete: false, problem }
 }
 
-const specSource = input.issue ? issueRef(issueId) : scope.spec.source
+const specSource = input.issue ? issueRef(issueId) : givenSpec ? 'the spec passed in' : scope.spec.source
+const specDoc = givenSpec ? { found: true, source: specSource, id: issueId, text: givenSpec } : scope.spec
 
 function issueFetchProblem() {
-  if (!input.issue) return ''
+  if (givenSpec || !input.issue) return ''
   if (!scope.spec.found) return scope.spec.problem || 'the scoping agent returned no spec'
   if (issueRef(scope.spec.id) !== specSource) return `the scoping agent fetched ${issueRef(scope.spec.id)} instead`
   return ''
@@ -226,12 +234,11 @@ const readAtHead = head === 'HEAD'
   ? ''
   : `\nThe working tree may not be at the head under review: read changed files with \`git show ${scope.head}:<path>\`, not from disk.`
 
-const risk = jevScript && scope.risk && scope.risk.ranked
+const risk = scope.risk && scope.risk.ranked
   ? { ranked: true, structural: scope.risk.structural, files: scope.risk.files }
   : { ranked: false, structural: null, files: [], problem: riskProblem() }
 
 function riskProblem() {
-  if (!jevScript) return 'no jev path given'
   if (!scope.risk) return 'the scoping agent returned no risk ranking'
   return scope.risk.problem || 'review-risk failed'
 }
@@ -277,11 +284,11 @@ Under checked, list each rule you read against the diff and each changed file yo
   {
     name: 'Spec',
     question: 'does the code do what the originating issue asked, no more and no less?',
-    active: scope.spec.found && !specProblem,
+    active: specDoc.found && !specProblem,
     problem: specProblem,
     schema: SPEC_FINDINGS_SCHEMA,
     checks: `Spec source: ${specSource}
-${scope.spec.text}
+${specDoc.text}
 
 ${SPEC_ONLY}
 
@@ -320,14 +327,12 @@ function skepticPrompt(axis, finding, elsewhere) {
   const placed = elsewhere.length
     ? `${IN_REPO} The spec places ${elsewhereNote(elsewhere)} in another repository, so this diff cannot meet them: a finding that one of them is missing here is refuted. Every other AC-N belongs to this repo.\n`
     : ''
-  const specText = axis.name === 'Spec' ? `\nThe spec the finding was judged against:\n${scope.spec.text}\n${SPEC_ONLY}\n${placed}` : ''
+  const specText = axis.name === 'Spec' ? `\nThe spec the finding was judged against:\n${specDoc.text}\n${SPEC_ONLY}\n${placed}` : ''
   return `A reviewer made the ${axis.name} finding below about the diff \`${scope.diffCommand}\`. Your job is to refute it.${readAtHead}
 ${specText}
 Finding (${finding.severity}) at ${location}:
 Claim: ${finding.claim}
 Evidence: ${finding.evidence}
-
-Read the code at that location and whatever it depends on. Check that the quoted rule or AC-N exists and says what the reviewer claims, that the code does what the claim says, and that nothing elsewhere (a test, a caller, a documented exception, a later hunk) already answers it. A finding that is a style nit a configured linter owns, or that asks for something nobody uses (YAGNI), is refuted.
 
 Set refuted to true unless you confirmed the finding yourself against the code. When you are uncertain, it is refuted.`
 }
@@ -339,6 +344,7 @@ async function judge(axis, finding, index, elsewhere) {
         label: `${axis.name} skeptic ${index + 1}.${vote + 1}`,
         phase: axis.name,
         schema: VERDICT_SCHEMA,
+        agentType: 'compost:skeptic',
       }),
     ),
   )
@@ -381,10 +387,10 @@ const light = !forceFull
   && risk.structural === false
 
 const FILE_LINE = /[\w./-]+(:|#L)\d+/
-const specAcs = [...new Set(String(scope.spec.text || '').match(/\bAC-\d+\b/g) || [])]
+const specAcs = [...new Set(String(specDoc.text || '').match(/\bAC-\d+\b/g) || [])]
   .map(id => ({ id, named: new RegExp(`\\b${id}\\b`) }))
 
-const specLines = String(scope.spec.text || '').split('\n')
+const specLines = String(specDoc.text || '').split('\n')
 const headingLevel = line => ((line.match(/^\s*(#{1,6})\s/) || [])[1] || '').length
 
 // The line that defines an AC-N: one it leads, after markup only ("#### AC-3", "- **AC-3** Given"), or one where its id
@@ -560,7 +566,10 @@ return {
   ...(complete ? {} : { problem: [standards, spec].filter(a => !a.complete).map(a => `${a.axis} ${a.status}`).join('; ') }),
   standards,
   spec,
-  summary: [standards, spec]
-    .map(a => `${a.axis}: ${a.status}, ${a.survivors.length} survived, ${a.refuted.length} refuted, ${a.unjudged.length} unjudged; worst ${worst(a)}`)
-    .join('\n'),
+  notRun: NOT_RUN,
+  summary: [
+    ...[standards, spec]
+      .map(a => `${a.axis}: ${a.status}, ${a.survivors.length} survived, ${a.refuted.length} refuted, ${a.unjudged.length} unjudged; worst ${worst(a)}`),
+    `Not run here: ${NOT_RUN.join('; ')}`,
+  ].join('\n'),
 }

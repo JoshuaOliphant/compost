@@ -25,9 +25,11 @@ const SPEC_CHECKED = [{ item: 'AC-1 met by test_export_csv', at: 'tests/test_exp
 async function run(args, answer) {
   const prompts = {}
   const schemas = {}
+  const agentTypes = {}
   const agent = async (prompt, opts) => {
     prompts[opts.label] = prompt
     schemas[opts.label] = opts.schema
+    agentTypes[opts.label] = opts.agentType
     return answer(opts.label, prompt)
   }
   const parallel = thunks => Promise.all(thunks.map(thunk => thunk().catch(() => null)))
@@ -42,7 +44,7 @@ async function run(args, answer) {
       }
     }))
   const result = await script(args, agent, parallel, pipeline, () => {}, () => {})
-  return { result, prompts, schemas }
+  return { result, prompts, schemas, agentTypes }
 }
 
 function reviewers({ standards = { findings: [BLOCKER, MINOR], checked: STANDARDS_CHECKED }, spec = { findings: [], checked: SPEC_CHECKED }, light = { findings: [], checked: { Standards: STANDARDS_CHECKED, Spec: SPEC_CHECKED } }, skeptic = { refuted: false, reason: 'confirmed' }, scope = SCOPE } = {}) {
@@ -85,11 +87,18 @@ test('given a jev path, scope ranks files by structural risk and reviewers read 
   assert.deepEqual(result.risk, risk)
 })
 
-test('without a jev path, or when review-risk fails, files keep scope order and structural risk is unknown', async () => {
+test('without a jev path, the scope agent ranks with the jev.py its agent definition names', async () => {
+  const risk = { ranked: true, structural: false, files: [{ file: 'app/export.py', score: 1.2, structural: false }] }
+  const { result, prompts } = await run({}, reviewers({ scope: { ...SCOPE, risk } }))
+  assert.match(prompts.scope, /run review-risk with the jev\.py your agent definition names/)
+  assert.doesNotMatch(prompts.scope, /uv run  review-risk/)
+  assert.deepEqual(result.risk, risk)
+})
+
+test('when review-risk fails or returns nothing, files keep scope order and structural risk is unknown', async () => {
   const plain = await run({}, reviewers())
-  assert.doesNotMatch(plain.prompts.scope, /review-risk/)
   assert.match(plain.prompts['Standards reviewer'], /Changed files:\napp\/export\.py/)
-  assert.deepEqual(plain.result.risk, { ranked: false, structural: null, files: [], problem: 'no jev path given' })
+  assert.deepEqual(plain.result.risk, { ranked: false, structural: null, files: [], problem: 'the scoping agent returned no risk ranking' })
   const failedRisk = { ranked: false, structural: false, files: [], problem: 'jev unavailable: no key' }
   const failed = await run({ jev: '/plugin/scripts/jev.py' }, reviewers({ scope: { ...SCOPE, risk: failedRisk } }))
   assert.equal(failed.result.risk.structural, null)
@@ -98,6 +107,37 @@ test('without a jev path, or when review-risk fails, files keep scope order and 
   assert.equal(silent.result.risk.problem, 'review-risk failed')
   const unranked = await run({ jev: '/plugin/scripts/jev.py' }, reviewers())
   assert.equal(unranked.result.risk.problem, 'the scoping agent returned no risk ranking')
+})
+
+test('scope and skeptics run as their own lean agent types, beside the reviewers', async () => {
+  const { agentTypes } = await run({ issue: 7 }, reviewers())
+  assert.deepEqual(agentTypes, {
+    scope: 'compost:scope',
+    'Standards reviewer': 'compost:reviewer',
+    'Spec reviewer': 'compost:reviewer',
+    'Standards skeptic 1.1': 'compost:skeptic',
+  })
+})
+
+test('a spec passed in is graded as given, and the scope agent is told not to fetch one', async () => {
+  const text = '## In ledger\nAC-1: Given a list, When exported, Then a CSV downloads'
+  const unfetched = { ...SCOPE, spec: { found: false, source: '', id: '', text: '' } }
+  for (const [args, source] of [[{ issue: 'OLI-66', spec: text }, 'OLI-66'], [{ spec: text }, 'the spec passed in']]) {
+    const { result, prompts } = await run(args, reviewers({ scope: unfetched, spec: { findings: [BLOCKER], checked: SPEC_CHECKED } }))
+    assert.match(prompts.scope, /The spec was passed in by the caller: do not fetch any issue or spec file/)
+    assert.doesNotMatch(prompts.scope, /read command docs\/agents\/issue-tracker\.md gives/)
+    assert.equal(result.specSource, source)
+    assert.ok(prompts['Spec reviewer'].includes(`Spec source: ${source}\n${text}`), 'the Spec reviewer grades the given text')
+    assert.ok(prompts['Spec skeptic 1.1'].includes(text), 'the Spec skeptic sees the given text')
+    assert.equal(result.spec.complete, true)
+  }
+})
+
+test('every result names the harness code review as not run here, and whenToUse sends callers to compost:review', async () => {
+  const { result } = await run({}, reviewers())
+  assert.deepEqual(result.notRun, ['harness code review: not part of this workflow; compost:review runs it beside this one on a diff that changes executable code'])
+  assert.match(result.summary, /\nNot run here: harness code review: not part of this workflow/)
+  assert.match(source, /whenToUse: 'compost:review is the normal entry point/)
 })
 
 test('a blocker whose every skeptic failed is unjudged, not refuted', async () => {
@@ -255,7 +295,7 @@ test('a structural file, Jev unavailable or never run, or a truthy full runs the
   const structural = { ranked: true, structural: true, files: [{ file: 'app/export.py', score: 3.1, structural: true }] }
   const cases = [
     [JEV, { ...SMALL, risk: structural }],
-    [{}, SMALL],
+    [{}, { ...SMALL, risk: undefined }],
     [JEV, { ...SMALL, risk: { ranked: false, structural: false, files: [], problem: 'jev unavailable' } }],
     [JEV, { ...SMALL, risk: undefined }],
     [{ ...JEV, full: true }, SMALL],
