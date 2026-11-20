@@ -430,7 +430,7 @@ Finding (${finding.severity}) at ${location}:
 Claim: ${finding.claim}
 Evidence: ${finding.evidence}
 
-Read the code it cites and what that depends on, and check that the rule or AC-N exists and says what is claimed; a nit a configured linter owns, or an ask for something nobody uses, is refuted. Set refuted to true unless you confirmed the finding yourself against the code. When you are uncertain, it is refuted.`
+Read the code it cites and what that depends on, and check that the rule or AC-N exists and says what is claimed and that nothing elsewhere (a test, a caller, a later hunk) already answers it; a nit a configured linter owns, or an ask for something nobody uses, is refuted. Set refuted to true unless you confirmed the finding yourself against the code. When you are uncertain, it is refuted.`
 }
 
 async function judge(axis, finding, index, elsewhere) {
