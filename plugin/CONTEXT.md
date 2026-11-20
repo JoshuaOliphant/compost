@@ -28,6 +28,13 @@ charge"). Listed under Semantic invariants in the context's `CONTEXT.md`, set by
 checked by the reviewer.
 _Avoid_: business rule, policy (those change; an invariant doesn't), constraint.
 
+**Elsewhere criterion**: an AC-N the spec itself places in another repository than the one under
+review, by naming that repo on the line defining the criterion, before its id, or in a heading over
+that line. The Spec reviewer lists it
+instead of judging it, and the other repo's review judges it. In code: `elsewhere` in
+`review-changes.js`.
+_Avoid_: out-of-scope AC, cross-repo AC.
+
 **Core docs**: the few docs that hold what code can't say: `README.md`, `AGENTS.md`, `CONTEXT.md`,
 `docs/adr/`, plus what a repo lists in `docs/agents/docs.md`. Checked by `compost:prune`, fixed in
 place, never deleted.

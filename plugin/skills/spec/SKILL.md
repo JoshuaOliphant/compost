@@ -125,6 +125,9 @@ a quick lookup can answer.
      semantic invariant already decides is an assumption citing it, not a question, and gets a
      criterion for its failure side. The scenarios say what done means. Format and
      anti-patterns are in [acceptance criteria](references/acceptance-criteria.md).
+   - When the work spans several repositories, name the repo each AC-N lives in, in a heading
+     over its group of criteria (`## In agent-plugins`) or on its line before its id. Each repo's review judges only its own criteria and lists the
+     rest as not verifiable there, and only a criterion the spec places in another repo counts.
    - Describe behavior and decisions, never file paths or code: both go stale within days. The
      exception is a prototype snippet that pins a decision more precisely than prose can (a state
      machine, a schema, a type shape), trimmed to the decision and marked as from the prototype.

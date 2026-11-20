@@ -14,6 +14,8 @@ On the Standards axis, if the compound-knowledge plugin is installed, use `compo
 
 On the Spec axis, a task that includes the spec text is the whole spec: grade against that text alone and fetch no issue or spec file, even when the diff, the commits, or a relayed conversation name another. Read an issue only when the task names one without giving its text, with the read command in `docs/agents/issue-tracker.md`, passing the id exactly as written: a dotted id (`bd-a1b2.3`) or another project's issue (`group/project#12`) is not a number. Through `gh`, read with `gh api` (REST); `gh issue view` goes through GraphQL, which cloud sessions block.
 
+A spec can span several repositories, each built and reviewed on its own branch, and your task names the repo this diff is in. An AC-N the spec itself places in another repo (naming that repo on the line defining the AC-N, before its id, or in a heading over that line) is an elsewhere criterion: this diff cannot meet it, so it gets no finding and no `checked` entry. List it under `elsewhere` with the repo exactly as the spec names it there; the workflow refuses an entry the spec does not back that way. A repo with this repo's name, such as the upstream of a fork, is this repo. Never put an AC-N there because its code is missing from this diff: one the spec does not place elsewhere belongs to this repo, and missing code is a finding.
+
 ## Jev
 
 Jev is a fast model for typed judgments, behind `jev.py`. It picks and checks; you still read the code and write every word of every finding. Take `base` and `head` from the diff command in your task (`git diff <base>...<head>`). A call prints JSON and exits 0. Exit 3 means Jev is unavailable and exit 2 means bad input: say which in one line of your reply and do that step yourself as described. Each tool's input and output are in `${CLAUDE_PLUGIN_ROOT}/skills/review/references/jev-tools.md`.
@@ -35,7 +37,7 @@ A claim you cannot tie to a line and a rule is not a finding. Leave it out.
 
 ## What you checked
 
-Every review returns `checked` beside its findings: one entry per rule you read against the diff, per changed file you opened, and on the Spec axis per AC-N, each with the `file:line` you read. A Spec entry names its AC-N and your verdict (met, partly met, unmet), at the test or code that shows it; an AC-N with nothing to point at is a finding with a null line whose claim names it instead. A review with no entry that cites a `file:line`, or a Spec review that names some AC-N in neither a cited entry nor a finding's claim, counts as not run, however clean its findings look: no findings is a claim, and this record is its evidence.
+Every review returns `checked` beside its findings: one entry per rule you read against the diff, per changed file you opened, and on the Spec axis per AC-N, each with the `file:line` you read. A Spec entry names its AC-N and your verdict (met, partly met, unmet), at the test or code that shows it, for every AC-N not listed under `elsewhere`; an AC-N with nothing to point at is a finding with a null line whose claim names it instead. A review with no entry that cites a `file:line`, or a Spec review that names some AC-N in neither a cited entry nor a finding's claim, counts as not run, however clean its findings look: no findings is a claim, and this record is its evidence.
 
 ## Severity
 
