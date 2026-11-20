@@ -26,12 +26,12 @@ the work so each step can be checked before the next builds on it
    plugins) is left for the user. If `docs/agents/observability.md` is absent, run
    `compost:setup`'s observability step on this branch before any worker branches from it. When
    `docs/agents/testing.md` names no verify command, build it the same way, by `compost:verify`'s
-   step 1, so parallel lanes don't each write their own. Read
-   the parent issue, every sub-issue, and every comment on them: an architectural parent
-   (`**Class:** architectural`) with no approval comment stops here for approval, unless the ask
-   that started this run said to build it; earlier rulings bind you, and a
-   status comment from `compost:pause` means you are resuming, so start from its next action. Read
-   `CONTEXT.md` and the ADRs in `docs/adr/` for the areas the issues touch. Run `git log` and `git worktree list` to see what already landed.
+   step 1, so parallel lanes don't each write their own. Read the parent issue, every sub-issue,
+   and every comment on them: an architectural parent (`**Class:** architectural`) with no
+   approval comment stops here for approval, unless the ask that started this run said to build
+   it; earlier rulings bind you, and a status comment from `compost:pause` means you are resuming,
+   so start from its next action. Read `CONTEXT.md` and the ADRs in `docs/adr/` for the areas the
+   issues touch. Run `git log` and `git worktree list` to see what already landed.
 
 2. **Compute the frontier.** Run
    `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/frontier.py issues <parent> --tracker <github|gitlab|local>`
@@ -46,8 +46,8 @@ the work so each step can be checked before the next builds on it
      user, so the tag is how they tell each other apart.
    - **Done:** closed, or ticked on the parent's checklist. A remote tracker closes an issue only
      when its PR merges, so in a run done means ticked: reviewed and landed (step 7).
-   - **Blocked:** an issue on its "Blocked by" lines is not done. Don't read the forge's own
-     dependency count.
+   - **Blocked:** an issue on its "Blocked by" lines is not done; ignore the forge's dependency
+     count.
    - **Taken:** a remote branch `<issue>-*` exists and another live session holds it. The holder
      is the session on the earliest `Started <branch>` comment (step 4), unless it had been
      silent a day when a later one was posted; a session is live while some comment it tagged,
@@ -63,11 +63,14 @@ the work so each step can be checked before the next builds on it
    How many issues you take on at once is your judgment; there is no size rule.
 
 3. **Set up the feature branch.** Work in a worktree on a feature branch named for the parent
-   issue; if you are already in one, use it. Open a draft PR only when the tracker closes work
-   through PRs (its reference in `docs/agents/issue-tracker.md` says an issue closes when its pull
-   request merges) or the user asks for one. That PR waits until the first issue lands on the
-   branch (step 5), because the forge rejects a PR with no commits over its base. Committing,
-   pushing this branch, and opening the draft PR need no one's OK; merging it does.
+   issue; if you are already in one, use it. A new one branches from the default branch after
+   `git fetch origin` and `git merge --ff-only origin/<default>`; when that can't fast-forward,
+   branch from `origin/<default>`, keep the local commits, and rule on it. A resumed run merges a
+   moved `origin/<default>` into the feature branch before any lane starts.
+   Open a draft PR only when the tracker closes work through PRs (its reference says an issue
+   closes when its PR merges) or the user asks for one, once the first issue lands (step 5): the
+   forge rejects a PR with no commits. Committing, pushing, and the draft PR need no one's OK;
+   merging does.
 
 4. **Work the frontier.**
    - **One issue, or one lane, outside a lane-routing run:** do it yourself in this session. Load
@@ -78,9 +81,9 @@ the work so each step can be checked before the next builds on it
      above. Spawn the rest, one subagent per lane in a single message, so the lanes run in
      parallel, each with `isolation: "worktree"` and in the background, without asking. A lane of
      one issue is just that issue; a worker with a longer lane works its issues in order. In a
-     lane-routing run every lane spawns, whatever its size. When agent teams are enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), spawn them
-     as named teammates instead; a teammate spawn cannot take `isolation`, so its brief tells it to
-     create its own worktree first.
+     lane-routing run every lane spawns, whatever its size. With agent teams enabled
+     (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), spawn named teammates, each briefed to create its
+     own worktree, since a teammate spawn cannot take `isolation`.
    - Before starting an issue, in a lane or yourself, push its branch name at the feature SHA
      (`git push origin <feature SHA>:refs/heads/<issue>-<slug>`) and comment `Started
      <issue>-<slug>` on the issue, tagged with the session id, so a session in another clone sees
@@ -92,24 +95,25 @@ the work so each step can be checked before the next builds on it
      acceptance criteria, its Interfaces block, the `CONTEXT.md` terms it uses, and pointers to any
      rulings that touch it. Size the brief to the issue; a one-file change gets a paragraph.
    - Leave `model` and `effort` unset on every spawn, so each lane inherits yours, except in a
-     lane-routing run. A run is one when its ask is to tier the lanes by model or to run the
-     untiered control a tiered run is compared against, or when the parent's latest "Lane
-     routing:" comment is not "ended". In a lane-routing run,
-     [references/lane-routing.md](references/lane-routing.md) decides how every lane spawns, a
-     lone lane included, and whether a leftover marker still applies.
+     lane-routing run: its ask tiers the lanes or runs their untiered control, or the parent's
+     latest "Lane routing:" comment is not "ended". Then
+     [references/lane-routing.md](references/lane-routing.md) decides how every lane spawns.
    - Keep a rolling window, not batches: when an issue is ticked (step 7), spawn whatever that
      unblocked right away. A merge alone doesn't unblock, so a dependant never builds on work
      review may send back.
 
 5. **Land each finished issue.** A completion is an event to handle, not a review to do inline.
-   Read the worker's short report; if it says `DONE_WITH_CONCERNS`, read the concerns first.
-   Once its branch is merged, apply any AC-table row retirements it reports (`compost:verify`
-   step 5), and refresh the committed AC-table cache if the verify command keeps one. Merge
-   its branch into the feature branch with `--no-ff`, then run the suite on the feature branch; a
-   merge is a change like any other. A red suite after a merge goes to `compost:diagnose`. When the
-   repo's instructions want a version bump for a changed package, commit it right after the first
-   landing, before the first push, so the PR's checks are green from its first run, and again
-   after any later landing that first changes another package; lanes still leave versions alone. After the first landing, push the branch and, when step 3 calls for a PR,
+   Read the worker's report (concerns first on `DONE_WITH_CONCERNS`), then its diff: the report
+   is a claim. Judge workers by commits, not words; stalls, retries, and late returns follow
+   [references/task-brief.md](references/task-brief.md). Once its branch is
+   merged, apply any AC-table row retirements it reports (`compost:verify` step 5), and refresh
+   the committed AC-table cache if the verify command keeps one. Merge its branch into the feature
+   branch with `--no-ff`, then run the suite on the feature branch; a merge is a change like any
+   other. A red suite after a merge goes to `compost:diagnose`. When the repo's instructions want a
+   version bump for a changed package, commit it right after the first landing, before the first
+   push, so the PR's checks are green from its first run, and again after any later landing that
+   first changes another package; lanes leave versions alone. After the first landing, push the
+   branch and, when step 3 calls for a PR,
    open a draft PR whose body closes the parent and every sub-issue ("Closes #12, closes #13"),
    leaving out `ready-for-human` sub-issues and any another session holds (`frontier.py` reads
    it taken), and the parent while any of those is open.
@@ -119,8 +123,9 @@ the work so each step can be checked before the next builds on it
    the one issue: for an issue landed by a merge, pass `base` as `<merge>^1`, `head` as
    `<merge>^2`, and `issue` as its number; for one built in this session, pass `base` as the parent of
    its first commit and `head` as its last. No issue skips review for being small: the workflow
-   gives a small diff its light path, one reviewer on both axes, and that is the cheap option. Take its findings through the reception protocol there: check each against the
-   code, fix what holds, and rule on what doesn't.
+   gives a small diff its light path, one reviewer on both axes, and that is the cheap option.
+   Take its findings through the reception protocol there: check each against the code, fix what
+   holds, and rule on what doesn't.
    - Fix findings where the work was done: resume the worker that built the issue with the findings
      verbatim, or fix them yourself when you built it. Each fix is seen failing before it passes, then
      `compost:verify` runs again. A worker's fixes land on its own branch, so land it again (step 5)
@@ -132,11 +137,11 @@ the work so each step can be checked before the next builds on it
      ruling. A loop that won't converge is a design problem, not an effort problem.
 
 7. **Record progress.** When an issue passes review, tick it on the parent's checklist (only this
-   skill ticks the parent; workers tick their own issue's AC boxes) and comment on
-   the issue with its commits and the verification you ran. With no PR to close it, close the issue
-   the way the tracker says; with a local tracker that is `Status: closed` and a closing note in the
-   issue file. Then recompute the frontier and go back to step 4. The checklist and git log are the
-   progress record; there is no other.
+   skill ticks the parent; workers tick their own issue's AC boxes) and comment on the issue with
+   its commits and the verification you ran. With no PR to close it, close the issue the way the
+   tracker says; with a local tracker that is `Status: closed` and a closing note in the issue
+   file. Then recompute the frontier and go back to step 4. The checklist and git log are the only
+   progress record.
 
 8. **Step sideways when the work calls for it.** A defect you can't fix on sight goes to
    `compost:diagnose`; a question about a module's shape or an interface goes to `compost:deepen`.
@@ -167,27 +172,25 @@ the work so each step can be checked before the next builds on it
    - approval of an architectural spec: one never approved (step 1), or one the work shows has
      to change;
    - starting a Claude Code workflow the agent wrote itself, since one can spawn dozens of agents
-     (the plugin's own `/compost:review-changes` needs no ask). When a job fits [codify the orchestration](../../canon/codify-the-orchestration.md),
-     propose it in a ruling comment and carry on without it.
+     (the plugin's own `/compost:review-changes` needs no ask). When a job fits
+     [codify the orchestration](../../canon/codify-the-orchestration.md), propose it in a ruling
+     comment and carry on without it.
 
-   compost's Stop hook holds you to this list during an implement run: when your last message waits
-   on the user for anything else, Jev flags it and the hook sends you back to post a ruling and
-   continue. The run ends when `compost:finish` loads, or `compost:pause` once the user has sent a
-   message during the run; a pause you start on your own leaves the guard on, so stop only for the
-   list above (resuming loads implement again, which starts a new run). A turn answering a
-   message the user typed may wait on them. When `compost:finish`
-   loads mid-run (the user asked for the PR early), load `compost:implement` again before you go
-   on, or the rest of the run is unguarded. The hook sends a stop back once and lets the next one
-   through, so it is a nudge, not a gate: keeping to the list is still on you.
+   compost's Stop hook holds you to this list during a run: when your last message waits on the
+   user for anything else, Jev flags it and the hook sends you back, once, to post a ruling and
+   continue; it is a nudge, not a gate. The run ends when `compost:finish` loads, or
+   `compost:pause` once the user has written during the run; a pause you start yourself keeps the
+   guard on. A turn answering a message the user typed may wait on them. When `compost:finish`
+   loads mid-run (the user asked for the PR early), load `compost:implement` again before going on.
 
-   When the run repeats a mistake (a command that needs a flag, a fixture that lies, a service that
-   must be up), record the gotcha with `compound-knowledge:compound-capture` if it is installed, so
-   the next run starts knowing it; otherwise note it on the parent issue. A note is the lowest level
-   of fix: when a check could catch the mistake instead, file an issue for that check
-   ([make mistakes impossible](../../canon/make-mistakes-impossible.md)).
+   When the run repeats a mistake (a command that needs a flag, a fixture that lies), record it
+   with `compound-knowledge:compound-capture` if installed, else on the parent issue; when a check
+   could catch it, file an issue for the check ([make mistakes impossible](../../canon/make-mistakes-impossible.md)).
 
 10. **Close out.** When the frontier is empty and every sub-issue is ticked, except those labelled
-    `ready-for-human`, run `compost:verify` on
+    `ready-for-human`, review the whole feature branch with `compost:review` (base the merge-base
+    with the default branch, head the feature head): step 6 read each issue alone. Fix what holds
+    in one pass, with no second round, and post the rest as rulings. Then run `compost:verify` on
     the whole feature branch, push, and hand off through `compost:finish`, whose recap is Goal,
     Decisions, Changes, Validation, Risk. The Decisions section lists every ruling comment, each with
     its cost if wrong. A lane-routing run lists its per-lane records in Validation. Without a

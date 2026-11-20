@@ -1,6 +1,6 @@
 # ABOUTME: Checks the plugin as shipped: frontmatter, links, compost:<name> and ${CLAUDE_PLUGIN_ROOT} references,
 # ABOUTME: pile.toml feeds and NOTICE, the lane-routing table's values, implement's stop list against the Stop hook's,
-# ABOUTME: and that git tracks every shipped file. Runs on the real files.
+# ABOUTME: that branching skills update the default branch first, and that git tracks every shipped file. Runs on the real files.
 import itertools
 import os
 import re
@@ -154,3 +154,11 @@ def test_implements_stop_list_opens_each_item_with_the_stop_hooks_allowed_stop_i
     assert len(items) == len(meta.ALLOWED_STOPS)
     for item, stop in zip(items, meta.ALLOWED_STOPS, strict=True):
         assert item.startswith(stop), f"{item!r} should open with {stop!r}"
+
+
+@pytest.mark.parametrize("skill", ["implement", "build"])
+def test_branching_skills_fast_forward_the_default_branch_and_rule_when_it_cannot(skill):
+    text = " ".join((PLUGIN_ROOT / "skills" / skill / "SKILL.md").read_text().split())
+    rule = text[text.index("git fetch origin") :][:500]
+    for phrase in ("git merge --ff-only origin/<default>", "fast-forward", "branch from `origin/<default>`", "rul"):
+        assert phrase in rule, f"{skill}'s branching rule lacks {phrase!r}"

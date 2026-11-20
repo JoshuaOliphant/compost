@@ -67,6 +67,11 @@ a quick lookup can answer.
    When the deeper ask ran, its adoption question joins the first round and its outcome becomes a
    bullet in the refined prompt.
 
+   One question stands in every interview's first round, with a recommended answer like any
+   other: what would make this a failure even if it technically works (a slower checkout, a
+   setting nobody finds, a second source of truth). The answers are the spec's Anti-goals, the
+   outcomes the acceptance criteria could all pass and still produce.
+
    Gaps too small to be worth a question become assumptions: pick the conservative reading, list
    it, and keep going. The user corrects assumptions by reading the spec.
 
@@ -109,12 +114,15 @@ a quick lookup can answer.
    can picture), build a throwaway prototype, keep it on a `prototype/<slug>` branch as evidence,
    and link the branch from the spec ([prototype](references/prototype.md)).
 
-6. **Architectural only: propose two or three approaches.** Give each its trade-offs, lead with
-   the one you recommend and why, and cut every feature nobody asked for from all of them
-   ([subtract before you add](../../canon/subtract-before-you-add.md)). Break the recommended
-   design into units that each have one purpose and a well-defined interface, so each can be
-   understood and tested without reading its internals. In existing code, follow the patterns
-   already there, and include targeted improvements only where they serve this change.
+6. **Propose approaches.** Architectural work gets two or three. Give each its trade-offs, lead
+   with the one you recommend and why, and cut every feature nobody asked for from all of them
+   ([subtract before you add](../../canon/subtract-before-you-add.md)). Bounded work with more than
+   one defensible way to build it gets the same, as a recommendation rather than a gate: name the
+   one you will build and why, list the others in a line each, and go on unless the user picks
+   another; one obvious way skips this step. For architectural work, break the recommended design
+   into units that each have one purpose and a well-defined interface, so each can be understood
+   and tested without reading its internals. In existing code, follow the patterns already there,
+   and include targeted improvements only where they serve this change.
 
 7. **Write the spec** with the template in [parent issue](references/parent-issue.md): the
    concise sections for bounded work, the full ones for architectural work.

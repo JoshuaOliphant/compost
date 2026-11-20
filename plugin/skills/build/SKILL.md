@@ -36,9 +36,13 @@ no test counts until you have seen it fail for the right reason.
    If `git_dir` differs from `common_dir` and you are not in a submodule, you are already in a
    worktree: work there. Otherwise create one without asking, branched from the current HEAD:
    `git worktree add .worktrees/<issue>-<slug> -b <issue>-<slug> HEAD` after
-   `git check-ignore -q .worktrees/` confirms the directory is ignored. The harness's worktree tool
-   (such as `EnterWorktree`) branches from the default branch, not from HEAD, so a feature branch's
-   earlier work would be missing; use it only to enter a worktree you created this way. Install
+   `git check-ignore -q .worktrees/` confirms the directory is ignored. When HEAD is the default
+   branch, update it first: `git fetch origin`, then `git merge --ff-only origin/<default>`. If it
+   can't fast-forward (local commits ahead, or diverged), branch from `origin/<default>` instead of
+   HEAD, leave the local branch and its unpushed commits alone, and post a ruling on the issue.
+   The harness's worktree tool (such as `EnterWorktree`) branches from the default branch, not
+   from HEAD, so a feature branch's earlier work would be missing; use it only to enter a worktree
+   you created this way. Install
    dependencies with the project's own tool and run the suite once for a baseline. A red baseline
    makes every later failure ambiguous, and it is pre-existing by definition: file an issue for
    each failing test, fix one in its own `fix:` commit only if it blocks a gate, and post a ruling

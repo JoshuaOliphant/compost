@@ -51,7 +51,7 @@ Bounded work uses the sections marked **bounded**. Architectural work uses all o
 ### 2. As a <actor>, ...
 
 ## Approaches considered
-<!-- architectural -->
+<!-- architectural; bounded when step 6 weighed more than one -->
 - **<Approach A> (chosen):** <what it is>. Wins on <...>, costs <...>.
 - **<Approach B>:** <what it is>. Rejected because <...>.
 
@@ -77,6 +77,10 @@ Bounded work uses the sections marked **bounded**. Architectural work uses all o
 ## Out of scope
 <!-- bounded, architectural -->
 - <what this spec deliberately leaves out, and where it goes instead if anywhere>
+
+## Anti-goals
+<!-- bounded, architectural -->
+- <an outcome that makes this a failure even with every AC passing, and how the work avoids it>
 
 ## Evidence
 <!-- only when a prototype or spike settled something -->
