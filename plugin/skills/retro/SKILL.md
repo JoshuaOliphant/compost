@@ -79,8 +79,9 @@ fixing files nothing and says so in one line.
    for the docs follows [core docs](../../canon/core-docs.md).
 
 7. **File the candidates, most severe first.** One issue per candidate in the repo's tracker, with
-   the session evidence, the data that backs its cause and what the run would have done without
-   it (step 5), the category, and the fix with its placement (none yet when step 5 found no data). A candidate outside the
+   the session evidence, what step 5 found (the data that backs the cause and what the run would
+   have done without it, or, with no data, that the cause is unchecked and what would settle it),
+   the category, and the fix with its placement, if step 5 left one. A candidate outside the
    repo (the user's global `CLAUDE.md`, a personal skill, an MCP server's config) is not filed:
    write the proposed change as exact text in the report. End with one line per candidate:
    severity, category, and the issue link or proposal.

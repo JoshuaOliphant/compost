@@ -135,10 +135,12 @@ test('a spec passed in is graded as given, and the scope agent is told not to fe
 
 test('every result names the harness code review as not run here, and whenToUse sends callers to compost:review', async () => {
   const { result } = await run({}, reviewers())
-  assert.deepEqual(result.notRun, ['harness code review: not part of this workflow; compost:review runs it beside this one on a diff that changes executable code'])
+  assert.deepEqual(result.notRun, [NOT_RUN])
   assert.match(result.summary, /\nNot run here: harness code review: not part of this workflow/)
   assert.match(source, /whenToUse: 'compost:review is the normal entry point/)
 })
+
+const NOT_RUN = 'harness code review: not part of this workflow; compost:review runs it beside this one on a diff that changes executable code'
 
 const CHANGED = [{ file: 'app/export.py', lines: [[10, 14], [20, 21]] }]
 const PRE_EXISTING = { file: 'app/books.py', line: 13, severity: 'pre-existing', claim: 'total_pages skips the last book', evidence: 'app/books.py:13 range(len(books) - 1)' }
@@ -480,8 +482,6 @@ test('without an issue, the spec source is what scope found, and a missing spec 
   assert.equal(result.specSource, '')
   assert.equal(result.complete, true)
 })
-
-const NOT_RUN = 'harness code review: not part of this workflow; compost:review runs it beside this one on a diff that changes executable code'
 
 test('a failed scope or an empty diff returns the problem and spawns no reviewers', async () => {
   for (const [scope, problem] of [[null, 'The scoping agent did not return.'], [{ ...SCOPE, files: [] }, 'The diff is empty.']]) {
