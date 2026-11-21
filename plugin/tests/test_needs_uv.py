@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import needs_uv
 import pytest
 from conftest import PLUGIN_ROOT
+from test_stop_guard import LOADS_IMPLEMENT, said
 
 SCRIPTS = PLUGIN_ROOT / "scripts"
 MISSING = "compost_no_such_module"
@@ -132,13 +133,10 @@ def test_jev_py_under_bare_python_re_execs_under_uv_and_lists_the_tools():
 @pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv on PATH")
 def test_stop_guard_under_bare_python_re_execs_under_uv_before_reading_its_input(tmp_path, monkeypatch):
     """stop_guard.py reads the hook's input on stdin; a re-exec after that read would leave the new process none."""
-    loads = {
-        "type": "assistant",
-        "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "compost:implement"}}]},
-    }
-    asks = {"type": "assistant", "message": {"id": "m1", "content": [{"type": "text", "text": "Which library?"}]}}
     transcript = tmp_path / "session.jsonl"
-    transcript.write_text(f"{json.dumps(loads)}\n{json.dumps(asks)}\n")
+    transcript.write_text(
+        "".join(json.dumps(entry) + "\n" for entry in (LOADS_IMPLEMENT, said("m1", "Which library?")))
+    )
     # A message to judge, so the guard reaches Jev; a closed local port keeps the judgment offline.
     monkeypatch.setenv("TYPESAFE_BASE_URL", "http://127.0.0.1:9")
     monkeypatch.setenv("TYPESAFE_API_KEY", "unit-test")
