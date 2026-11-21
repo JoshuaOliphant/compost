@@ -9,6 +9,12 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 - The stop-guard Stop hook loads Jev and the TypeSafe SDK only when it has a message to judge (OLI-78). It runs on every turn of every session but acts only during a `compost:implement` run; with no run open it now takes about 55 ms instead of 250 ms (median, same machine). It looks the SDK up with `find_spec` first, so under plain python3 the re-exec under uv still happens before it reads the hook's input. Behavior during an implement run is unchanged.
 - `compost:diagnose`'s agent-eval rung lists harness checks to make before trusting its rate (OLI-79): count no-answer trials apart from failures, start each trial clean, check the model that served it, give the prompt the symptom rather than the answer, add a case where the action is right, and read the transcripts when a fix scores worse.
 
+## [0.47.1] - 2026-11-21
+
+### Changed
+
+- `pile.toml` pins move to each source's head as of the 2026-11-21 turn (mattpocock, superpowers, pstack, code-guardian, anthropic-skills, vercel-skills, swyx-skills), so `/compost:turn` reports only what changed after it. The turn filed OLI-78 (stop-guard start cost) and OLI-79 (agent-eval harness checks).
+
 ## [0.47.0] - 2026-11-21
 
 ### Changed

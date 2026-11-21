@@ -38,7 +38,7 @@ name = "mattpocock"
 repo = "mattpocock/skills"
 role = "input"
 license = "MIT"
-pin = "c55ee46073ed923f86ce59a5eb3b6d895095d1b7"
+pin = "abeeaf95660ba9e8b7c753eb38f441ca707a8823"
 
 [source.feeds]
 "skills/engineering/to-spec" = ["spec"]
@@ -66,7 +66,7 @@ name = "superpowers"
 repo = "obra/superpowers"
 role = "input"
 license = "MIT"
-pin = "5bf4e78011075bcfc0dc295f0724994cd123ee71"
+pin = "22f0b463e7a5e579904dd6211a520321035526f7"
 
 [source.feeds]
 "skills/brainstorming" = ["spec"]
@@ -85,7 +85,7 @@ name = "pstack"
 repo = "cursor/plugins"
 role = "input"
 license = "MIT"
-pin = "12d587dfb20741cafc376c42c696c5f6e2a64487"
+pin = "792440e8a560a4a3f63748cdee70491ecd412982"
 
 [source.feeds]
 "pstack/skills/blast-radius" = ["verify"]
@@ -141,7 +141,7 @@ name = "code-guardian"
 repo = "imbue-ai/code-guardian"
 role = "reference"
 license = "none published"
-pin = "22eb50fa3843dd1f3b1111ede621565c1d40584e"
+pin = "2c8df4794928e59fe1766eeea188b11d7573a025"
 note = "No license, so compost takes only the idea behind verify-architecture (judge approach fit from the problem alone), written independently in skills/review/references/approach-fit.md."
 
 [[source]]
@@ -149,21 +149,21 @@ name = "anthropic-skills"
 repo = "anthropics/skills"
 role = "reference"
 license = "per skill"
-pin = "34040c9c568585f6929bedeaad110ad08f079624"
+pin = "e4bb5d960d87126ff3b3a8af1a104b7db67560ba"
 
 [[source]]
 name = "vercel-skills"
 repo = "vercel-labs/skills"
 role = "reference"
 license = "MIT"
-pin = "7407f3893ad4dceab546ac002c3ef806e4000c73"
+pin = "57217cf86ba38148a57af9e90d14a4c049558330"
 
 [[source]]
 name = "swyx-skills"
 repo = "swyxio/skills"
 role = "input"
 license = "MIT"
-pin = "da1b8a06f9063155365338d69508e7977e984af2"
+pin = "cbf8d25809b73c723dd0c0d22df50997b13de1fa"
 note = "make-evals fed diagnose's agent-eval rung and skill-drift's eval case (OLI-15). skill-cutter's acceptance-force classes are an adapt candidate against skill-drift, not yet filed. The rest are covered by review, thin, spec, and retro, or specific to swyx's tooling."
 
 [source.feeds]
