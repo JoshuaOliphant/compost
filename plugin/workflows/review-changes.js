@@ -252,7 +252,7 @@ const scope = await agent(
 ${baseHint} The head under review is \`${head}\`.
 1. Resolve the fixed point and the head with \`git rev-parse\`. Set dirty to true when \`git status --porcelain\` lists a changed file with uncommitted edits. Record repo as the owner/name in \`git remote get-url origin\` (no host, no .git), or the name of the directory \`git rev-parse --show-toplevel\` prints when there is no origin. Record diffCommand as \`git diff <base-sha>...<head-sha>\` (three dots, against the merge-base), shortstat as the line \`git diff --shortstat <base-sha>...<head-sha>\` prints, verbatim, the commits from \`git log --oneline <base-sha>..<head-sha>\`, and the changed files from \`git diff --name-only <base-sha>...<head-sha>\`. Record changed from \`git diff -U0 <base-sha>...<head-sha>\`: for each file, every hunk header \`@@ -a,b +c,d @@\` gives the range [c, c+d-1] (d left out means 1), and a pure deletion (d is 0) gives [c, c+1], the lines around the cut.
 2. ${specStep}
-3. List the standards sources that exist: CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces). When the repo root has a REVIEW.md, list it too and set guide from it: source "REVIEW.md", failure and skip from its Failure and Skip sections verbatim, and minorCap from its Minor cap section as a whole number (if it holds none, use 5 and say why in guide.problem). Without one, set guide to \`{source: "defaults", minorCap: 5, failure: "", skip: ""}\`. Then set skipped to the changed files a skip rule covers: REVIEW.md's, or by default generated files (a generated-file header, *_pb2.py, minified bundles), vendored ones (vendor/, third_party/), and lock files (uv.lock, package-lock.json, *.lock, requirements*.lock).${riskStep}${deltaStep}
+3. List the standards sources as they stand at the fixed point, never from disk: list them with \`git ls-tree -r --name-only <base-sha>\` and read each with \`git show <base-sha>:<path>\`, so a branch is judged by the rules of the branch it merges into, not by its own edits to them. They are CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces). When the fixed point has a REVIEW.md at its root, list it too and set guide from it: source "REVIEW.md", failure and skip from its Failure and Skip sections verbatim, and minorCap from its Minor cap section as a whole number (if it holds none, use 5 and say why in guide.problem). Without one, set guide to \`{source: "defaults", minorCap: 5, failure: "", skip: ""}\`. Then set skipped to the changed files a skip rule covers: REVIEW.md's, or by default generated files (a generated-file header, *_pb2.py, minified bundles), vendored ones (vendor/, third_party/), and lock files (uv.lock, package-lock.json, *.lock, requirements*.lock).${riskStep}${deltaStep}
 
 If the fixed point does not resolve or the diff is empty, say so in problem and return every other field empty: base, head, repo, diffCommand, and shortstat as "", commits, files, and standardsSources as [], and spec as \`{found: false, source: "", id: "", text: ""}\`.`,
   { label: 'scope', phase: 'Scope', schema: SCOPE_SCHEMA, effort: 'low', agentType: 'compost:scope' },
@@ -324,11 +324,11 @@ const guideProblem = guide.problem || (minorCap === guide.minorCap ? '' : `minor
 const skippedFiles = new Set(Array.isArray(scope.skipped) ? scope.skipped : [])
 
 const guideNote = guide.source === 'REVIEW.md'
-  ? `\nReview guide: this repo's REVIEW.md, among the standards sources; read it whole, and it overrides your defaults where it speaks.
+  ? `\nReview guide: this repo's REVIEW.md at the base, among the standards sources; read it whole, and it overrides your defaults where it speaks.
 - Failure: ${guide.failure || '(not stated; a change that breaks behaviour, loses or leaks data, or blocks a rollback)'}
 - Minors: at most ${minorCap} for the whole review. ${MINOR_ORDER}
 - Skip: ${guide.skip || '(not stated)'}`
-  : `\nReview guide (defaults; this repo has no REVIEW.md):
+  : `\nReview guide (defaults; the base has no REVIEW.md):
 - Failure: a change that breaks behaviour, loses or leaks data, or blocks a rollback.
 - Minors: at most ${minorCap} for the whole review. ${MINOR_ORDER}
 - Skip: generated, vendored, and lock files, and anything a configured linter or formatter enforces.
@@ -357,7 +357,7 @@ const AXES = [
     name: 'Standards',
     question: "does the code follow this repo's documented standards and domain language?",
     active: true,
-    checks: `Standards sources in this repo:
+    checks: `Standards sources, as they stand at the base ${scope.base} (read each with \`git show ${scope.base}:<path>\`; the branch's own edits to them take effect once it merges, so review those edits as changes, not as rules):
 ${scope.standardsSources.join('\n') || '(none documented)'}
 
 Check the diff against:
@@ -430,7 +430,7 @@ Finding (${finding.severity}) at ${location}:
 Claim: ${finding.claim}
 Evidence: ${finding.evidence}
 
-Read the code it cites and what that depends on, and check that the rule or AC-N exists and says what is claimed and that nothing elsewhere (a test, a caller, a later hunk) already answers it; a nit a configured linter owns, or an ask for something nobody uses, is refuted. Set refuted to true unless you confirmed the finding yourself against the code. When you are uncertain, it is refuted.`
+Read the code it cites and what that depends on, and check that the rule (as the base has it) or AC-N exists and says what is claimed and that nothing elsewhere (a test, a caller, a later hunk) already answers it; a nit a configured linter owns, or an ask for something nobody uses, is refuted. Set refuted to true unless you confirmed the finding yourself against the code. When you are uncertain, it is refuted.`
 }
 
 async function judge(axis, finding, index, elsewhere) {
