@@ -2,7 +2,7 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
-## [0.40.0] - 2026-11-21
+## [0.41.0] - 2026-11-21
 
 ### Added
 
