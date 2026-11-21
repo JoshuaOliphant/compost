@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ABOUTME: Computes compost:implement's issue states (done, blocked, taken, frontier) and map-decision claims from the
-# ABOUTME: tracker and git alone. CLI: `session`, `issues PARENT`, `claim DECISION`, for GitHub, GitLab, or local trackers.
+# ABOUTME: tracker and git alone. CLI: `session`, `issues PARENT`, `claim DECISION`, for GitHub, GitLab, Linear (from a snapshot), or local trackers.
 import argparse
 import json
 import os
@@ -145,13 +145,19 @@ def starts(issue: Issue) -> list[tuple[datetime, str, str | None]]:
     ]
 
 
-def branch_for(number: int, branches: list[str]) -> str | None:
-    """The branch named `<number>-*`; a second session may have picked another slug, so match by prefix."""
-    matches = sorted(name for name in branches if re.fullmatch(rf"0*{number}-.+", name))
+def branch_for(number: int, branches: list[str], team: str | None = None) -> str | None:
+    """The branch named `<number>-*`; a second session may have picked another slug, so match by prefix.
+
+    With a Linear team key, Linear's own branch names count too: `oli-17-slug`, optionally under a `user/` prefix.
+    """
+    pattern = rf"(?:[^/]+/)?{re.escape(team.lower())}-0*{number}-.+|0*{number}-.+" if team else rf"0*{number}-.+"
+    matches = sorted(name for name in branches if re.fullmatch(pattern, name))
     return matches[0] if matches else None
 
 
-def states(parent: Issue, issues: list[Issue], branches: list[str], me: str, now: datetime) -> list[Row]:
+def states(
+    parent: Issue, issues: list[Issue], branches: list[str], me: str, now: datetime, team: str | None = None
+) -> list[Row]:
     checklist = ticks(parent.body)
     by_number = {issue.number: issue for issue in issues}
     done = {n for n, ticked in checklist.items() if ticked} | {issue.number for issue in issues if issue.closed}
@@ -160,7 +166,7 @@ def states(parent: Issue, issues: list[Issue], branches: list[str], me: str, now
     rows = []
     for number in checklist:
         issue = by_number.get(number)
-        branch = branch_for(number, branches)
+        branch = branch_for(number, branches, team)
         if number in done:
             rows.append(Row(number, "done", "closed" if issue and issue.closed else "ticked on the parent", branch))
             continue
@@ -288,6 +294,51 @@ def pages(text: str) -> list[dict]:
     return items
 
 
+CLOSED_STATES = {"done", "canceled", "cancelled", "duplicate"}
+
+
+def linear_number(identifier: str) -> int:
+    """`OLI-17` is issue 17: the number after the last dash."""
+    found = re.search(r"-(\d+)$", identifier)
+    if not found:
+        raise FrontierError(f"{identifier!r} is not a Linear identifier like OLI-17")
+    return int(found.group(1))
+
+
+def read_snapshot(path: Path, parent: str) -> tuple[Issue, list[Issue], str]:
+    """The parent, its sub-issues, and the team key, from a JSON snapshot of the Linear connector's answers.
+
+    The connector is MCP only, so a script cannot call it: the agent reads the issues with it and writes
+    `{"issues": [{"identifier", "state", "labels", "description", "children", "blockedBy", "comments":
+    [{"body", "createdAt"}]}]}`. Sub-issues become checklist lines on the parent's body and blockedBy entries
+    `Blocked by #n` lines, so `states` reads Linear the way it reads the other trackers.
+    """
+    try:
+        issues = {i["identifier"]: i for i in json.loads(path.read_text())["issues"]}
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise FrontierError(f"cannot read the Linear snapshot {path}: {error}") from error
+    if parent not in issues:
+        raise FrontierError(f"{parent} is not in the Linear snapshot {path}")
+
+    def closed(identifier: str) -> bool:
+        return issues[identifier].get("state", "").lower() in CLOSED_STATES
+
+    def convert(identifier: str) -> Issue:
+        raw = issues[identifier]
+        body = raw.get("description") or ""
+        body += "".join(f"\nBlocked by #{linear_number(b)}" for b in raw.get("blockedBy", []))
+        body += "".join(
+            f"\n- [{'x' if closed(c) else ' '}] #{linear_number(c)}" for c in raw.get("children", []) if c in issues
+        )
+        comments = [Comment(c["body"], parse_time(c.get("createdAt", ""))) for c in raw.get("comments", [])]
+        return Issue(linear_number(identifier), body, closed(identifier), list(raw.get("labels", [])), comments)
+
+    top = issues[parent]
+    wanted = [c for c in top.get("children", []) if c in issues]
+    blocked = {b for c in wanted for b in issues[c].get("blockedBy", []) if b in issues} - set(wanted)
+    return convert(parent), [convert(i) for i in [*wanted, *sorted(blocked)]], parent.rsplit("-", 1)[0]
+
+
 def read_local(path: Path) -> Issue:
     head, _, tail = path.read_text().partition("\n## Comments")
     status = STATUS.search(head)
@@ -365,16 +416,25 @@ def main(argv: list[str] | None = None, run: Run = run_command, now: datetime | 
     claim = commands.add_parser("claim", help="the session holding map decision DECISION's earliest live claim")
     for command in (issues, claim):
         command.add_argument("target", help="issue number, or for --tracker local the spec/decision file")
-        command.add_argument("--tracker", choices=("github", "gitlab", "local"), required=True)
+        command.add_argument("--tracker", choices=("github", "gitlab", "linear", "local"), required=True)
+        command.add_argument(
+            "--snapshot", type=Path, help="for --tracker linear: JSON the agent wrote from the connector"
+        )
     issues.add_argument("--session", help="this session's id (default: `frontier.py session`)")
     args = parser.parse_args(argv)
     now = now or datetime.now(UTC)
+    team = None
     try:
+        if args.command != "session" and (args.tracker == "linear") != bool(args.snapshot):
+            raise FrontierError("--snapshot goes with --tracker linear, and --tracker linear needs it")
         if args.command == "session":
             print(session_id(run))
         elif args.command == "issues":
-            parent, subs = load(args.tracker, args.target, run)
-            rows = states(parent, subs, remote_branches(run), args.session or session_id(run), now)
+            if args.tracker == "linear":
+                parent, subs, team = read_snapshot(args.snapshot, args.target)
+            else:
+                parent, subs = load(args.tracker, args.target, run)
+            rows = states(parent, subs, remote_branches(run), args.session or session_id(run), now, team)
             for row in rows:
                 branch = f" [{row.branch}]" if row.branch else ""
                 print(f"#{row.number} {row.state}{branch}: {row.why}")
@@ -382,6 +442,8 @@ def main(argv: list[str] | None = None, run: Run = run_command, now: datetime | 
             if args.tracker == "local":
                 decision = read_local(Path(args.target))
                 comments = [Comment(decision.body, None), *decision.comments]
+            elif args.tracker == "linear":
+                comments = read_snapshot(args.snapshot, args.target)[0].comments
             else:
                 comments = reader(args.tracker, run)(int(args.target.lstrip("#"))).comments
             print(claim_winner(comments, now) or "none")

@@ -45,7 +45,7 @@ edits the user made by hand.
    settled it. On a rerun, show what would change against the existing files instead.
 
 3. **Issue tracker.** Recommend GitHub when a remote points there, GitLab when one points there,
-   and otherwise offer GitHub, GitLab, local markdown under `.scratch/`, or other (Jira, Linear:
+   and otherwise offer GitHub, GitLab, Linear (through its connector), local markdown under `.scratch/`, or other (Jira:
    the user describes the workflow in a paragraph and you record it as prose). Before recording GitHub or GitLab, confirm the tracker has issues turned on:
    GitLab,
    `glab api projects/:id` reports `issues_enabled: true`; GitHub, `gh api repos/{owner}/{repo}`
@@ -57,7 +57,7 @@ edits the user made by hand.
    disabled tracker only surfaces when `compost:spec` fails to post. Write
    `docs/agents/issue-tracker.md` from the matching template:
    [GitHub](references/issue-tracker-github.md), [GitLab](references/issue-tracker-gitlab.md),
-   or [local](references/issue-tracker-local.md). Each carries the label vocabulary compost uses;
+   [Linear](references/issue-tracker-linear.md), or [local](references/issue-tracker-local.md). Each carries the label vocabulary compost uses;
    if the tracker already has labels for the same roles, map them in the table rather than
    creating duplicates. For GitHub or GitLab, list the tracker's labels
    (`gh api repos/{owner}/{repo}/labels --paginate --jq '.[].name'` / `glab label list`) and create

@@ -90,10 +90,9 @@ Used by `compost:slice` for map issues.
 - **Map:** one issue labelled `map`; its decisions are sub-issues labelled `decision`.
 - **Frontier:** the map's open sub-issues (state not Done, Canceled, or Duplicate) with no open
   blocker (every `blockedBy` issue is Done) and no live claim; first in map order wins.
-- **Claim:** post a comment `Claimed by <session>`, then read the comments back and keep the claim
-  only if yours is the earliest live one. `frontier.py` has no Linear backend (its `--tracker`
-  takes `github`, `gitlab`, or `local`), so this and the `implement` states are read by hand
-  with `list_issues` (`parentId`) and `get_issue` (`includeRelations`); do not pass
-  `--tracker` a value it doesn't know. `frontier.py session` still works for the session id.
+- **Claim:** post a comment `Claimed by <session>`, then snapshot the decision and its comments to
+  JSON (format in `plugin/skills/setup/references/issue-tracker-linear.md`) and keep the claim only
+  if `frontier.py claim OLI-<n> --tracker linear --snapshot <file>` prints your session. The
+  `implement` states work the same way: `frontier.py issues OLI-<n> --tracker linear --snapshot <file>`.
 - **Resolve:** comment the answer and close the issue (Commands above), then add the gist and link
   to the map's Decisions so far.

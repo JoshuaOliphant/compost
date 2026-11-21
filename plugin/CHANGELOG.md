@@ -2,6 +2,13 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.40.0] - 2026-11-21
+
+### Added
+
+- `compost:setup` offers a Linear tracker (OLI-73): `references/issue-tracker-linear.md` records the connector commands, the label vocabulary, and how a run reads states and claims.
+- `frontier.py` takes `--tracker linear --snapshot FILE`: the agent reads the parent, its sub-issues, blockers, and comments with the Linear connector (MCP only, so a script cannot call it) and writes them to JSON; `issues` and `claim` then print the same states as for the other trackers. A Linear branch name (`oli-17-slug`, or `user/oli-17-slug`) counts as issue 17's branch. `--snapshot` goes only with `--tracker linear`.
+
 ## [0.39.1] - 2026-11-21
 
 ### Fixed
