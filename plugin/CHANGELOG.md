@@ -2,12 +2,12 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
-## [0.40.0] - 2026-11-21
+## [0.42.0] - 2026-11-21
 
 ### Added
 
-- `compost:diagnose`'s feedback-loop ladder has an agent-eval rung for bugs in what a model or agent did, where no code path reaches the symptom. The case is built from the incident: the real failure written down with what the agent did kept apart from why, the setup it decided in rebuilt before anything is invented, the real agent run headless with assertions on its tool calls and output (not its explanation), and a failure rate reported with its denominator. One trial is the loop while iterating; the rate over the same N trials, before and after the fix, is the proof, and a failure that doesn't show is reported as not observed. Step 2's "fast" bar reads one trial for an agent eval. Adapted from swyx's make-evals, now an input in `pile.toml` and NOTICE (OLI-15).
-- `compost:skill-drift` turns the clearest hit into such an eval case before editing a skill, runs it once on the current text and once on the edit, and puts the case and both results in the draft pull request, so a fix is measured rather than judged by hits stopping later. It runs one trial each, not N, to keep the daily run cheap (OLI-15).
+- `compost:diagnose`'s feedback-loop ladder has an agent-eval rung for bugs in what a model or agent did, where no code path reaches the symptom. The case is built from the incident: the real failure written down with what the agent did kept apart from why, the setup it decided in rebuilt before anything is invented, the real agent run headless with assertions on its tool calls and output (not its explanation), and a failure rate reported with its denominator. One trial is the loop while iterating; the rate over the same N trials, before and after the fix, is the proof, and a failure that doesn't show is reported as not observed. The headless agent gets back the skills and plugins it had, and on a flaky loop step 3 judges each minimisation cut by the N-trial rate. Adapted from swyx's make-evals, now an input in `pile.toml` and NOTICE (OLI-15).
+- `compost:skill-drift` turns the clearest hit into such an eval case before editing a skill, runs it once on the current text and once on the edit, and puts the case and both results, as counts, in the draft pull request. It runs one trial each, not N, to keep the daily run cheap, so the counts show the edit can move the behaviour, not a rate (OLI-15).
 
 ## [0.39.1] - 2026-11-21
 
