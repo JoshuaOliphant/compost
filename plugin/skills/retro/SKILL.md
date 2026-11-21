@@ -24,7 +24,8 @@ fixing files nothing and says so in one line.
 ## Steps
 
 1. **Read the tracker.** Find it in `docs/agents/issue-tracker.md`. If that file is missing, run
-   `compost:setup` now, then continue.
+   `compost:setup` now, then continue. A GitHub one without the fork check takes it from
+   [setup's GitHub reference](../setup/references/issue-tracker-github.md).
 
 2. **Read the session's primary sources.** Default to the current session; when the user names
    another, find its transcript under `~/.claude/projects/<the cwd with / as ->/<session-id>.jsonl`.
@@ -75,8 +76,10 @@ fixing files nothing and says so in one line.
    pressure: it explores, writes, and debugs. The reviewer reads a diff and carries the least. So
    a standard is enforced at review, not taught to the implementer, and `AGENTS.md` holds pointers
    rather than rules, since every agent in the repo pays for every line of it. Go as high as the
-   fix allows: a check, then a standard the reviewer reads, then a pointer in `AGENTS.md`. A fact
-   for the docs follows [core docs](../../canon/core-docs.md).
+   fix allows: a check, then a standard the reviewer reads, then a pointer in `AGENTS.md`. A
+   mistake that a written rule already forbids is a repeat: its fix is the highest level that
+   works, and a second copy of the rule is never it. A fact for the docs follows
+   [core docs](../../canon/core-docs.md).
 
 7. **File the candidates, most severe first.** One issue per candidate in the repo's tracker, with
    the session evidence, what step 5 found (the data that backs the cause and what the run would

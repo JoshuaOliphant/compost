@@ -17,7 +17,8 @@ a quick lookup can answer.
 ## Steps
 
 1. **Read before asking.** Read `docs/agents/issue-tracker.md` (if it is missing, run
-   `compost:setup` now, then continue), `CONTEXT.md` or `CONTEXT-MAP.md`, the ADRs in `docs/adr/` that touch
+   `compost:setup` now, then continue; a GitHub one without the fork check takes it from
+   [setup's GitHub reference](../setup/references/issue-tracker-github.md)), `CONTEXT.md` or `CONTEXT-MAP.md`, the ADRs in `docs/adr/` that touch
    the area, the relevant code, and recent commits. Use the glossary's terms from here on
    ([ubiquitous language](../../canon/ubiquitous-language.md)). Send subagents after facts you
    still need and keep going while they run; only the questions that depend on a fact wait for it.

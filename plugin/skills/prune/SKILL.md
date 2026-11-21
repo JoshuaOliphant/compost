@@ -40,8 +40,10 @@ code can't. The why is in [core docs](../../canon/core-docs.md) and
 
    Code is the likely truth, not the certain one. When a doc states a requirement the code breaks,
    look for backing: a test that pins the doc's version, an issue, an ADR, the user's word. Backed
-   means a bug, not drift: leave the doc, file an issue per `docs/agents/issue-tracker.md`, and
-   offer `compost:diagnose`. An ADR is a record and is never edited to match the code; flag the
+   means a bug, not drift: leave the doc, file an issue per `docs/agents/issue-tracker.md` (a
+   GitHub one without the fork check takes it from
+   [setup's GitHub reference](../setup/references/issue-tracker-github.md)), and offer
+   `compost:diagnose`. An ADR is a record and is never edited to match the code; flag the
    conflict as `docs/agents/domain.md` says. Core docs get checked too, and fixed in place, never
    deleted.
 

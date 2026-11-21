@@ -15,7 +15,8 @@ no test counts until you have seen it fail for the right reason.
 ## Steps
 
 1. **Read the issue.** Find the tracker in `docs/agents/issue-tracker.md`. If that file is
-   missing, run `compost:setup` now, then continue. Read the acceptance criteria (AC-N), the Files
+   missing, run `compost:setup` now, then continue; a GitHub one without the fork check takes it
+   from [setup's GitHub reference](../setup/references/issue-tracker-github.md). Read the acceptance criteria (AC-N), the Files
    and Interfaces blocks, and the "Blocked by" links. Confirm every blocker is done, as
    `compost:implement` step 2 defines it: closed, or ticked on the parent's checklist. A blocker
    that is reviewed and landed on the feature branch you start from is done even while its issue

@@ -22,6 +22,8 @@ TICK = re.compile(r"^\s*[-*]\s+\[([ xX])\]\s+\[?#?(\d+)\b", re.MULTILINE)
 BLOCKED_LINE = re.compile(r"^\s*(?:[-*]\s+)?\**Blocked by\**:?\**\s*(.*)$", re.MULTILINE | re.IGNORECASE)
 SECTION = re.compile(r"^##\s+(.*)$", re.MULTILINE)
 STATUS = re.compile(r"^Status:\s*(\S+)", re.MULTILINE)
+REPO_PATH = re.compile(r"[:/]([^/:]+)/([^/]+?)(?:\.git)?/?$")
+PLACEHOLDER = "{owner}/{repo}"
 
 Run = Callable[[list[str]], str]
 
@@ -211,14 +213,44 @@ def run_command(args: list[str]) -> str:
         raise FrontierError(f"{' '.join(args[:3])} failed: {detail.strip()}") from error
 
 
-def read_github(number: int, run: Run) -> Issue:
-    raw = json.loads(run(["gh", "api", f"repos/{{owner}}/{{repo}}/issues/{number}"]))
+def repo_of(url: str) -> str | None:
+    found = REPO_PATH.search(url.strip())
+    return f"{found.group(1)}/{found.group(2)}" if found else None
+
+
+def github_repo(run: Run) -> tuple[str, str | None]:
+    """The repo to read, and a note when gh would read another one.
+
+    gh fills {owner}/{repo} from the first remote that exists of upstream, github, origin, and yields only
+    to GH_REPO, so in a fork it names the parent. frontier.py reads origin's repo by name instead, and says so when an
+    upstream or github remote would have won, because the agent's own gh calls need GH_REPO pinned too.
+    """
+    if os.environ.get("GH_REPO"):
+        return PLACEHOLDER, None
+    remotes: dict[str, str] = {}
+    for name, url, *_ in (line.split() for line in run(["git", "remote", "-v"]).splitlines() if line.strip()):
+        remotes.setdefault(name, url)
+    origin = repo_of(remotes.get("origin", ""))
+    if origin is None:
+        return PLACEHOLDER, None
+    name = next((name for name in ("upstream", "github") if name in remotes), None)
+    other = repo_of(remotes.get(name, "")) if name else None
+    if other and other.lower() != origin.lower():
+        return origin, (
+            f"gh's {PLACEHOLDER} reads the `{name}` remote ({other}) here, not origin ({origin}): "
+            f"prefix every gh call with GH_REPO={origin}"
+        )
+    return origin, None
+
+
+def read_github(number: int, run: Run, repo: str = PLACEHOLDER) -> Issue:
+    raw = json.loads(run(["gh", "api", f"repos/{repo}/issues/{number}"]))
     lines = run(
         [
             "gh",
             "api",
             "--paginate",
-            f"repos/{{owner}}/{{repo}}/issues/{number}/comments",
+            f"repos/{repo}/issues/{number}/comments",
             "--jq",
             ".[] | {body, created_at}",
         ]
@@ -285,6 +317,16 @@ def remote_branches(run: Run) -> list[str]:
     return [line.split("refs/heads/", 1)[1] for line in out.splitlines() if "refs/heads/" in line]
 
 
+def reader(tracker: str, run: Run) -> Callable[[int], Issue]:
+    """Reads one issue from a remote tracker, warning on stderr when gh's own repo resolution would read a fork's parent."""
+    if tracker == "gitlab":
+        return lambda number: read_gitlab(number, run)
+    repo, note = github_repo(run)
+    if note:
+        print(f"frontier.py: {note}", file=sys.stderr)
+    return lambda number: read_github(number, run, repo)
+
+
 def load(tracker: str, parent: str, run: Run) -> tuple[Issue, list[Issue]]:
     """The parent and its checklist's issues, plus any blocker off the checklist, so a closed one counts as done."""
     if tracker == "local":
@@ -294,11 +336,11 @@ def load(tracker: str, parent: str, run: Run) -> tuple[Issue, list[Issue]]:
         listed = [files[n] for n in ticks(top.body) if n in files]
         wanted = {n for issue in listed for n in blockers(issue.body)} - {issue.number for issue in listed}
         return top, listed + [files[n] for n in sorted(wanted) if n in files]
-    read = read_github if tracker == "github" else read_gitlab
-    top = read(int(parent.lstrip("#")), run)
-    listed = [read(n, run) for n in ticks(top.body)]
+    read = reader(tracker, run)
+    top = read(int(parent.lstrip("#")))
+    listed = [read(n) for n in ticks(top.body)]
     wanted = {n for issue in listed for n in blockers(issue.body)} - {issue.number for issue in listed}
-    return top, listed + [read(n, run) for n in sorted(wanted)]
+    return top, listed + [read(n) for n in sorted(wanted)]
 
 
 def session_id(run: Run) -> str:
@@ -341,8 +383,7 @@ def main(argv: list[str] | None = None, run: Run = run_command, now: datetime | 
                 decision = read_local(Path(args.target))
                 comments = [Comment(decision.body, None), *decision.comments]
             else:
-                read = read_github if args.tracker == "github" else read_gitlab
-                comments = read(int(args.target.lstrip("#")), run).comments
+                comments = reader(args.tracker, run)(int(args.target.lstrip("#"))).comments
             print(claim_winner(comments, now) or "none")
     except FrontierError as error:
         print(f"frontier.py: {error}", file=sys.stderr)

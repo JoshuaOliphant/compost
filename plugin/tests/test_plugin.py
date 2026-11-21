@@ -1,6 +1,6 @@
 # ABOUTME: Checks the plugin as shipped: frontmatter, links, compost:<name> and ${CLAUDE_PLUGIN_ROOT} references,
-# ABOUTME: pile.toml feeds and NOTICE, the lane-routing table's values, implement's stop list against the Stop hook's,
-# ABOUTME: and that git tracks every shipped file. Runs on the real files.
+# ABOUTME: pile.toml feeds and NOTICE, the tracker-doc fork-check fallback, the lane-routing table's values,
+# ABOUTME: implement's stop list against the Stop hook's, and that git tracks every shipped file. Runs on the real files.
 import itertools
 import os
 import re
@@ -154,3 +154,17 @@ def test_implements_stop_list_opens_each_item_with_the_stop_hooks_allowed_stop_i
     assert len(items) == len(meta.ALLOWED_STOPS)
     for item, stop in zip(items, meta.ALLOWED_STOPS, strict=True):
         assert item.startswith(stop), f"{item!r} should open with {stop!r}"
+
+
+def test_every_skill_and_agent_reading_the_tracker_doc_falls_back_to_setups_fork_check():
+    readers = [
+        path
+        for path in [*(skill / "SKILL.md" for skill in SKILLS), *sorted((PLUGIN_ROOT / "agents").glob("*.md"))]
+        if path.parent.name != "setup" and "docs/agents/issue-tracker.md" in path.read_text()
+    ]
+    assert len(readers) >= 8
+    for path in readers:
+        text = " ".join(path.read_text().split())
+        assert "fork check" in text and "setup/references/issue-tracker-github.md" in text, (
+            f"{path.relative_to(PLUGIN_ROOT)} reads the tracker doc but has no fallback for one without the fork check"
+        )

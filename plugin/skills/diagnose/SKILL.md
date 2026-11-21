@@ -112,9 +112,12 @@ comes first, the theory second, and the fix last, at the root. The why is in
    the test it names. Exit 3 means Jev is unavailable: grep the suite for the code under the fix.
    Fix the pattern, not the instance: search for the same mistake elsewhere and fix those too.
 
-   Don't silence a symptom with a guard. A null check that stops a crash leaves the bad value in
-   flight. Validation belongs at the system boundary ([boundary discipline](../../canon/boundary-discipline.md)),
-   so the fix goes where the bad value is born. Layered validation at every hop is for critical paths
+   Ask whether the state that triggered the symptom is legitimate. If the system may be in it (an
+   empty cart, a user with no email), the code that broke on it is the root cause, and handling the
+   state there is the fix. If it should never exist, a guard where it broke silences the symptom
+   and leaves the bad value in flight: find what produced the state. Validation belongs at the
+   system boundary ([boundary discipline](../../canon/boundary-discipline.md)), so the fix goes
+   where the bad value is born. Layered validation at every hop is for critical paths
    the user has named (payments, data deletion, auth, and the like); see
    [references/critical-paths.md](references/critical-paths.md).
 
@@ -131,6 +134,8 @@ comes first, the theory second, and the fix last, at the root. The why is in
    - `grep` for your debug prefix returns nothing; throwaway harnesses are deleted.
    - The confirmed hypothesis goes in the commit message, and on the issue when there is one, so the
      next person debugging here learns from it.
+   - If the deciding fact took a deep dig, propose the cheap, always-on signal (a log field, a span
+     attribute, a sharper error message) that would have shown it at first look.
 
    If the investigation shows the cause is truly environmental or external (a timing dependency on
    another service, a platform quirk), record what you ruled out, handle it at the boundary with a

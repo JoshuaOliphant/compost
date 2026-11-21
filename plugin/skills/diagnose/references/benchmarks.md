@@ -3,10 +3,17 @@
 Depth for performance claims in `compost:diagnose` step 6 and `compost:verify` step 6. A benchmark
 produces a number; this checklist decides whether the number means what you think.
 
-## Write the claim first
+## Before you run anything
 
-Before you run anything, write the claim in one sentence: what is faster or slower, by roughly how
-much, on which workload. A claim written after the run bends to fit whatever came out.
+- Write the claim in one sentence: what is faster or slower, by roughly how much, on which
+  workload. A claim written after the run bends to fit whatever came out.
+- Name the result that would change a decision, and the noise floor you expect. Stop when the
+  run-to-run spread is larger than the effect you are looking for; more runs of a noisy setup
+  only measure the noise.
+- Read the measurement script. Note what it times, what it counts, and what it ignores.
+- Check the load with `uptime` and the core count with `nproc`. If the machine is busy, find out
+  what is running. If you cannot stop it, interleave the sides so both see the same noise, and say
+  so in the report.
 
 ## Seven questions
 
@@ -17,9 +24,15 @@ Answer each one in writing, next to the number.
    the code is not a limiter.
 2. **Is each side tuned?** Both sides get the same care: warm caches or cold on both, the same
    build flags, the same data, the same machine. A tuned new path against a default old one
-   measures the tuning.
-3. **What are the limits?** Say where the result stops holding: input size, concurrency, hardware,
-   data shape. A win at one size can be a loss at another.
+   measures the tuning. A limiter that is a setting (a commit per row, a debug build, a missing
+   index) means that side is untuned: tune it and measure again before you pick a winner, and pick
+   none from a run you could not tune.
+3. **Did it break limits?** Do the arithmetic: bytes per second against disk and network
+   bandwidth, operations per second times the cost of one against your cores, the time saved
+   against the time the changed piece took (removing a piece that takes 10% of the run makes it at
+   most about 11% faster). A result past a limit measured something other than the work: a cache, a
+   no-op, a bug. Then say where the result stops holding: input size, concurrency, hardware, data
+   shape. A win at one size can be a loss at another.
 4. **Did anything error?** Check the logs and exit codes of every run. Failed requests finish fast,
    so errors often look like a speedup.
 5. **Does it reproduce?** Run each side 5 times, alternating A and B so drift hits both. Report the
@@ -29,8 +42,11 @@ Answer each one in writing, next to the number.
 7. **Did it happen at all?** Prove the code you changed ran during the measurement: a counter, a
    log line, a profile frame. Skipped work, a cache hit, or a stale build all look fast.
 
+An eval result is a number too. Ask the same of its trials: did every run do the task, and does the
+gap hold across trials and models?
+
 ## Close with one verdict
 
 End with exactly one of: faster, slower, no measurable difference, or inconclusive. Put the median,
-the range, and the answers above beside it. Inconclusive is a valid result; say what would settle
-it.
+the range, the limiter, and the answers above beside it. Call it inconclusive when you claim a
+difference but cannot name the limiter, or when a side ran untuned; say what would settle it.
