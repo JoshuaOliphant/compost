@@ -48,6 +48,20 @@ Used by `compost:finish`. `{owner}/{repo}` fills in as above; `<n>` is the pull 
 - **Merge (merge commit):** `gh api -X PUT repos/{owner}/{repo}/pulls/<n>/merge -f merge_method=merge`.
   Never `squash` or `rebase` unless the user asks.
 - **Close without merging:** `gh api -X PATCH repos/{owner}/{repo}/pulls/<n> -f state=closed`.
+- **Merge state:** `gh api repos/{owner}/{repo}/pulls/<n> --jq '{mergeable, mergeable_state, sha: .head.sha}'`.
+  `mergeable` is `null` while GitHub is still computing it; read it again.
+- **Checks:** `gh api --paginate repos/{owner}/{repo}/commits/<sha>/check-runs --jq '.check_runs[] | {id, name, status, conclusion}'`,
+  plus `gh api repos/{owner}/{repo}/commits/<sha>/status --jq '.statuses[] | {context, state}'` for CI
+  that reports commit statuses.
+- **Failed log:** `gh api repos/{owner}/{repo}/actions/jobs/<check run id>/logs` (an Actions check
+  run's id is its job id).
+- **Rerun failed jobs:** `gh api -X POST repos/{owner}/{repo}/actions/runs/<run id>/rerun-failed-jobs`,
+  the run id from `gh api repos/{owner}/{repo}/actions/jobs/<check run id> --jq .run_id`.
+- **Review threads:** `gh api --paginate repos/{owner}/{repo}/pulls/<n>/comments --jq '.[] | {id, in_reply_to_id, user: .user.login, path, line, body}'`
+  and `gh api --paginate repos/{owner}/{repo}/pulls/<n>/reviews --jq '.[] | {user: .user.login, state, body}'`.
+  REST can't see whether a thread is resolved, so a thread is open until it has a reply that
+  settles it.
+- **Reply to a thread:** `gh api repos/{owner}/{repo}/pulls/<n>/comments/<id>/replies -f body=...`.
 
 ## Labels
 

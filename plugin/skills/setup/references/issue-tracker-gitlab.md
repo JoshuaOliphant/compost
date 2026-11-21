@@ -21,6 +21,15 @@ operation; it infers the project from `git remote -v` when run inside a clone.
   - **Merge (merge commit):** `glab mr merge <n>`. Never squash or rebase unless the user asks.
   - **Close without merging:** `glab mr close <n>`.
   - **Comment:** `glab mr note <n> --message "..."`.
+  - **Merge state:** `glab mr view <n> -F json --jq '{detailed_merge_status, has_conflicts, sha}'`;
+    read `detailed_merge_status` before trusting `has_conflicts`.
+  - **Checks:** `glab ci get --merge-request <n> -F json --with-job-details` for the head pipeline
+    and its jobs; `glab ci get --branch <branch> -F json --with-job-details` for a branch's latest.
+  - **Failed log:** `glab ci trace <job id>`.
+  - **Rerun a failed job:** `glab ci retry <job id>`.
+  - **Review threads:** `glab api --paginate projects/:id/merge_requests/<n>/discussions`; a note
+    with `resolvable` true and `resolved` false is an open thread.
+  - **Reply to a thread:** `glab api -X POST projects/:id/merge_requests/<n>/discussions/<discussion id>/notes -f body="..."`.
 - **Child issue:** put `Part of #<parent>` at the top of the child's description and add the child
   to a task list in the parent. On tiers with epics, an epic may hold the parent instead.
 - **Blocking:** post the `/blocked_by #<n>` quick action as a note

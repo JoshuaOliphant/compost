@@ -1,6 +1,7 @@
 # ABOUTME: Checks the plugin as shipped: frontmatter, links, compost:<name> and ${CLAUDE_PLUGIN_ROOT} references,
 # ABOUTME: pile.toml feeds and NOTICE, the tracker-doc fork-check fallback, the lane-routing table's values,
-# ABOUTME: implement's stop list against the Stop hook's, and that git tracks every shipped file. Runs on the real files.
+# ABOUTME: implement's stop list against the Stop hook's, that branching skills update the default branch first,
+# ABOUTME: and that git tracks every shipped file. Runs on the real files.
 import itertools
 import os
 import re
@@ -154,6 +155,41 @@ def test_implements_stop_list_opens_each_item_with_the_stop_hooks_allowed_stop_i
     assert len(items) == len(meta.ALLOWED_STOPS)
     for item, stop in zip(items, meta.ALLOWED_STOPS, strict=True):
         assert item.startswith(stop), f"{item!r} should open with {stop!r}"
+
+
+@pytest.mark.parametrize(
+    ("skill", "step", "keeps", "rules"),
+    [
+        ("implement", "Set up the feature branch.", "keep the local commits", "rule on it"),
+        ("build", "Isolate the work.", "unpushed commits alone", "post a ruling"),
+    ],
+)
+def test_branching_skills_fast_forward_the_default_branch_and_rule_when_it_cannot(skill, step, keeps, rules):
+    text = " ".join((PLUGIN_ROOT / "skills" / skill / "SKILL.md").read_text().split())
+    rule = re.split(r" \d+\. \*\*", text.split(f"**{step}**", 1)[1], maxsplit=1)[0]
+    for phrase in (
+        "git fetch origin",
+        "git rev-list --count origin/<default>..",
+        "git merge --ff-only origin/<default>",
+        "branch from `origin/<default>`",
+        "when uncommitted changes block",
+        keeps,
+        rules,
+    ):
+        assert phrase in rule, f"{skill}'s {step!r} step lacks {phrase!r}"
+
+
+def test_stop_guard_reference_keeps_the_rules_step_9_points_to():
+    text = " ".join((PLUGIN_ROOT / "skills" / "implement" / "references" / "stop-guard.md").read_text().split())
+    for phrase in (
+        "stop only for the list",
+        "resuming loads implement again, which starts a new run",
+        "or the rest of the run is unguarded",
+        "keeping to the list is still on you",
+    ):
+        assert phrase in text, f"stop-guard.md lost {phrase!r}"
+    step9 = " ".join((PLUGIN_ROOT / "skills" / "implement" / "SKILL.md").read_text().split())
+    assert "(references/stop-guard.md)" in step9.split("**Decide, log, proceed.**", 1)[1].split("**Close out.**")[0]
 
 
 def test_every_skill_and_agent_reading_the_tracker_doc_falls_back_to_setups_fork_check():

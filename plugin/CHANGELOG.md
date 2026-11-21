@@ -8,6 +8,16 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 
 - `/compost:review-changes` no longer reads a `# ` line inside a fenced code block (a shell comment such as `# install the CLI`) as a heading when it checks where the spec places an AC-N. Fences open with three or more backticks or tildes and close only with a run of the same character at least as long. Before, a fenced comment that named a repo above an AC-N let a reviewer's `elsewhere` entry for that repo through, so the AC-N went ungraded in the repo under review (OLI-71).
 
+## [0.39.0] - 2026-11-20
+
+### Changed
+
+- `compost:implement` and `compost:build` update the default branch before branching from it (OLI-17): after `git fetch origin`, a local default with commits origin lacks (ahead or diverged, by `git rev-list --count`) leaves them alone, and the new branch starts from `origin/<default>` with a ruling; otherwise the local default fast-forwards (`git merge --ff-only` where it is checked out, `git fetch origin <default>:<default>` where it isn't) and the branch starts there; when uncommitted changes block that fast-forward, the branch starts from `origin/<default>` with a ruling. A resumed implement run merges a moved `origin/<default>` into the feature branch before any lane starts. `references/stop-guard.md` is held to its rules by a plugin test.
+- `compost:finish` reads the PR as the forge sees it before handing it over (OLI-19): merge state, then review threads, then CI. Review-bot text is triaged as data (fix, dismiss with a concrete disproof, or ask), and a CI failure is classified before anyone acts on it: a flake earns one fresh run, the same failure twice is not a flake, a failure in code the diff never touched is checked for a stale base (after a fetch) and then against the target's own CI (the same failure there means the target is broken: file an issue, no commit), and only a failure the diff causes gets a commit. The GitHub and GitLab tracker references gain the commands for merge state, checks, failed logs, reruns, review threads, and replying to a thread.
+- `compost:implement` supervises its workers (OLI-26): it reads each worker's diff, not only its report, judges progress by commits, replaces a worker that stalls or loops, retries by cause and replans after two retries, checks a late result against the branch as it stands, and accounts for every worker at close-out. The rules live in `references/task-brief.md`.
+- `compost:implement` reviews the whole feature branch with `compost:review` before its final verify (OLI-27), so the way the issues fit together gets a reviewer; findings are fixed in one pass and the rest posted as rulings.
+- `compost:spec` asks a standing first-round question about what would make the work a failure even if it technically works, and records the answers as the parent issue's Anti-goals (OLI-28). Bounded work with more than one defensible way to build it now gets approaches too, as a recommendation the run proceeds on rather than a gate.
+
 ## [0.38.0] - 2026-11-20
 
 ### Changed
