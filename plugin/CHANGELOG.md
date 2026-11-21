@@ -2,6 +2,13 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.48.0] - 2026-11-21
+
+### Changed
+
+- The stop-guard Stop hook loads Jev and the TypeSafe SDK only when it has a message to judge (OLI-78). It runs on every turn of every session but acts only during a `compost:implement` run; with no run open it now takes about 60 ms instead of 250 ms (median, same machine). `needs_uv` checks for the SDK with `find_spec` instead of importing it. Behavior during an implement run is unchanged.
+- `compost:diagnose`'s agent-eval rung lists harness checks to make before trusting its rate (OLI-79): count no-answer trials apart from failures, start each trial clean, check the model that served it, give the prompt the symptom rather than the answer, add a case where the action is right, and read the transcripts when a fix scores worse.
+
 ## [0.47.0] - 2026-11-21
 
 ### Changed
