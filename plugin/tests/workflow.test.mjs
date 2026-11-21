@@ -110,13 +110,15 @@ test('when review-risk fails or returns nothing, files keep scope order and stru
 })
 
 test('scope and skeptics run as their own lean agent types, beside the reviewers', async () => {
-  const { agentTypes } = await run({ issue: 7 }, reviewers())
+  const { agentTypes, prompts } = await run({ issue: 7 }, reviewers())
   assert.deepEqual(agentTypes, {
     scope: 'compost:scope',
     'Standards reviewer': 'compost:reviewer',
     'Spec reviewer': 'compost:reviewer',
     'Standards skeptic 1.1': 'compost:skeptic',
   })
+  // The checklist travels in the prompt too, so a skeptic whose definition did not load still knows what to check.
+  assert.match(prompts['Standards skeptic 1.1'], /Read the code it cites and what that depends on.*nothing elsewhere \(a test, a caller, a later hunk\) already answers it/)
 })
 
 test('a spec passed in is graded as given, and the scope agent is told not to fetch one', async () => {
