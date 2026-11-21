@@ -8,7 +8,8 @@ operation; it infers the project from `git remote -v` when run inside a clone.
 - **Create:** `glab issue create --title "..." --label "..." --description "..."`, using a heredoc
   for multi-line descriptions.
 - **Read:** `glab issue view <n> --comments`, or `-F json` for machine-readable output.
-- **List:** `glab issue list -F json --label <label>`.
+- **List:** `glab issue list -O json --label <label>`. Here `-F` picks `details`, `ids`, or `urls`,
+  not JSON; `view` is the one that takes `-F json`.
 - **Comment:** `glab issue note <n> --message "..."`. GitLab calls comments notes.
 - **Labels:** `glab issue update <n> --label "..."` / `--unlabel "..."`.
 - **Close:** `glab issue close <n>`. It takes no closing comment, so post the note first.

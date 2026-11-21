@@ -562,6 +562,11 @@ def test_what_a_test_starts_dies_with_its_run(toy, tmp_path, then, timeout, spaw
 def test_orphans_are_left_to_init_where_the_platform_cannot_adopt_them(monkeypatch):
     monkeypatch.setattr(thin.ctypes, "CDLL", lambda *args, **kwargs: object())  # a libc without prctl, as on macOS
     assert thin.adopt_orphans(True) is False
+
+
+# parent_of runs only once adopt_orphans has succeeded, which is Linux, where /proc exists; macOS has neither (OLI-18).
+@pytest.mark.skipif(not Path("/proc/self/stat").exists(), reason="parent_of reads /proc, which only Linux has")
+def test_parent_of_reads_a_live_process_and_none_for_one_that_is_gone():
     assert thin.parent_of(os.getpid()) == os.getppid()
     gone_pid = os.fork()
     if gone_pid == 0:

@@ -21,17 +21,18 @@ the work so each step can be checked before the next builds on it
 ## Steps
 
 1. **Orient.** Read `docs/agents/issue-tracker.md` for the tracker and its commands; if it is absent,
-   run `compost:setup` now, then continue. Inside a run, setup's questions get its recommended
-   answer, posted as a ruling on the parent, and its irreversible step (uninstalling orphaned
-   plugins) is left for the user. If `docs/agents/observability.md` is absent, run
+   run `compost:setup` now, then continue. A GitHub one without the fork check takes it from
+   [setup's GitHub reference](../setup/references/issue-tracker-github.md). Inside a run, setup's
+   questions take its recommended answer, ruled on the parent; its irreversible step (uninstalling
+   orphaned plugins) waits for the user. If `docs/agents/observability.md` is absent, run
    `compost:setup`'s observability step on this branch before any worker branches from it. When
-   `docs/agents/testing.md` names no verify command, build it the same way, by `compost:verify`'s
-   step 1, so parallel lanes don't each write their own. Read the parent issue, every sub-issue,
-   and every comment on them: an architectural parent (`**Class:** architectural`) with no
-   approval comment stops here for approval, unless the ask that started this run said to build
-   it; earlier rulings bind you, and a status comment from `compost:pause` means you are resuming,
-   so start from its next action. Read `CONTEXT.md` and the ADRs in `docs/adr/` for the areas the
-   issues touch. Run `git log` and `git worktree list` to see what already landed.
+   `docs/agents/testing.md` names no verify command, build it likewise, by `compost:verify`'s step
+   1, so lanes don't each write their own. Read the parent issue, every sub-issue, and every
+   comment on them: an architectural parent (`**Class:** architectural`) with no approval comment
+   stops for approval, unless the ask that started this run said to build it; earlier rulings
+   bind you, and a `compost:pause` status comment means you are resuming from its next action.
+   Read `CONTEXT.md` and the ADRs in `docs/adr/` for the issues' areas; `git log` and
+   `git worktree list` show what already landed.
 
 2. **Compute the frontier.** Run
    `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/frontier.py issues <parent> --tracker <github|gitlab|local>`
@@ -104,7 +105,7 @@ the work so each step can be checked before the next builds on it
      [references/lane-routing.md](references/lane-routing.md) decides how every lane spawns and
      whether a leftover marker still applies.
    - Keep a rolling window, not batches: when an issue is ticked (step 7), spawn whatever that
-     unblocked right away. A merge alone doesn't unblock, so a dependant never builds on work
+     unblocked at once. A merge alone doesn't unblock, so a dependant never builds on work
      review may send back.
 
 5. **Land each finished issue.** A completion is an event to handle, not a review to do inline.

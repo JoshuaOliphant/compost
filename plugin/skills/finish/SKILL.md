@@ -35,7 +35,8 @@ yours to do without asking.
 3. **Name the merge target.** It is the branch this work forked from. Take it from the issue: a
    parent issue may name an integration branch for its sub-issues. Otherwise it is the default
    branch (the tracker doc's **Default branch** command; with none, `git symbolic-ref --short
-   refs/remotes/origin/HEAD` minus its `origin/`). State it in the PR.
+   refs/remotes/origin/HEAD` minus its `origin/`). State it in the PR. A GitHub tracker doc without
+   the fork check takes it from [setup's GitHub reference](../setup/references/issue-tracker-github.md) before this or any later `gh` call.
 
 4. **Run the suite on the actual merge result.** A green branch proves only the branch. Start
    with the cheap check:

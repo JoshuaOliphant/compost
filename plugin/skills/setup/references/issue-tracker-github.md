@@ -1,11 +1,21 @@
 # Issue tracker: GitHub
 
 Specs, slices, and maps for this repo live as GitHub issues. Use `gh api` (GitHub's REST API) for
-every operation. Run inside a clone, it fills `{owner}/{repo}` from `git remote -v`. The porcelain
-commands (`gh issue view`, `list`, `create`, `comment`, `edit`, `close`; `gh pr create`, `edit`,
-`view`, `ready`, `merge`, `close`; `gh repo view`) go through GraphQL, which Claude Code cloud sessions block with an HTTP 403; REST works there and locally.
+every operation. Run inside a clone, it fills `{owner}/{repo}` from the clone's remotes. The
+porcelain commands (`gh issue view`, `list`, `create`, `comment`, `edit`, `close`; `gh pr create`,
+`edit`, `view`, `ready`, `merge`, `close`; `gh repo view`) go through GraphQL, which Claude Code
+cloud sessions block with an HTTP 403; REST works there and locally.
 
 ## Commands
+
+In a fork, `{owner}/{repo}` can name the upstream parent: `gh api` takes the first remote ranked
+`upstream`, then `github`, then `origin`, ignores `gh repo set-default`, and yields only to
+`GH_REPO`. Before the first `gh` call of a session or subagent, read or write, compare
+`gh api repos/{owner}/{repo} --jq .full_name` with the `owner/name` in `git remote get-url origin`,
+ignoring case (a renamed repo answers with its new name and passes too). When they differ, prefix
+every `gh` call with `GH_REPO=<that owner/name>` (an `export` dies with its Bash call), so nothing
+is read from or filed in someone else's repo. `frontier.py` reads origin's repo by name on its
+own, and says so when gh would read another.
 
 - **Create:** `gh api repos/{owner}/{repo}/issues -f title="..." -f "labels[]=..." -F body=@-` with
   a heredoc body on stdin. It prints the new issue's JSON; `--jq .number` keeps just the number.

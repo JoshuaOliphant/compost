@@ -63,7 +63,19 @@ so a skill already fixed stops producing patterns from its old text.
      edit, unless the step lacks the reason that would make it stick: then add the reason.
    - **A false flag.** The evidence does not show drift. Note it; enough of these on one kind
      mean the mod's threshold needs raising.
-4. **Act by owner.**
+4. **Act by owner.** Whoever owns it, write the fix in the form that matches how the agent
+   failed; the form that fixes one kind of failure makes another worse:
+
+   | The agent | Write | Not |
+   |---|---|---|
+   | skips or breaks a rule it knows, under pressure | a prohibition, with the reason and the excuses it closes | soft guidance ("prefer", "consider") |
+   | follows the step, but the output has the wrong shape | a recipe: what the output is, its parts in order | a list of don'ts |
+   | leaves out an element of something it already produces | a required slot in the template it fills | a reminder near the template |
+   | should act only in some cases | a condition on something observable ("when the brief exists") | a rule with an exemption clause |
+
+   Leave out nuance clauses ("unless it matters"): they reopen the rule. An exemption clause does
+   not scope ("this limit doesn't apply to code blocks" still suppresses code blocks); put a real
+   exception in a condition of its own.
    - `repo`, fault in the skill, with a pull request from `claude/skill-drift-<skill>` still
      open: the fix is in flight, and the new hits are on the text it replaces until it merges and
      installs. Don't branch again. Read the hits against the open fix; when it already covers
