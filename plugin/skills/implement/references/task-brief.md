@@ -76,3 +76,28 @@ NEEDS_CONTEXT only when every path forward is a guess, and put the specifics in 
 - **BLOCKED:** change something before retrying: more context, a more capable model, a smaller issue
   (through `compost:slice`), or a ruling that settles the conflict. Never resend the same brief to the
   same model unchanged.
+
+## Supervising workers
+
+A worker's status text says what it means to have done; its branch shows what it did. Judge the
+branch.
+
+- **Progress is commits.** Workers commit but don't push; their worktrees share this repo, so read
+  the branch here (`git log <feature SHA>..<branch>`). A worker with no new commit for a long
+  stretch, or that reruns the same failing command, has stalled or is looping. Stop it and replace
+  it; don't wait it out.
+- **Retry by cause.** Name why it stalled (missing context, an issue too big for one lane, a flaky
+  tool) and change that before the retry, as BLOCKED does above. After two retries of one issue,
+  take it out of the window and replan: slice it, or rule on it.
+- **Check a late result against now.** A stopped or replaced worker can still report. Compare what
+  it returns with the feature branch as it stands: nothing lands twice, and only commits or
+  findings no other worker has go on, to a fresh worker or to you.
+- **Read the diff, not the report.** Before landing, read `git diff <feature SHA>...<issue branch>`.
+  A review verdict or a green run covers the head SHA it ran on; a later commit needs its own.
+- **Read live state before you report it.** Before saying an issue landed or a PR is green, read
+  the branch and the PR as they are now (the PR through the tracker doc's commands), not as a
+  worker last described them.
+- **Account for every worker.** At close-out each one spawned is landed, replaced (by which), or
+  absorbed into another issue's work.
+- **Never message a worker to check on it.** A message wakes an idle agent and starts it working
+  again; read its branch instead.
