@@ -1,5 +1,6 @@
 # ABOUTME: Tests that compost's Jev scripts run under plain python3: they re-exec under uv when typesafe-sdk is
 # ABOUTME: missing, and exit 3 with one line saying how to run them when uv can't help, never with a traceback.
+import json
 import os
 import shutil
 import subprocess
@@ -96,23 +97,40 @@ def test_without_a_way_to_install_the_sdk_it_exits_3_in_one_line(environ, sync_c
     assert err.endswith(f" and {cause}. Run it as `uv run scripts/jev.py`, or make this call yourself.\n")
 
 
-def bare_python(*args, path):
+def bare_python(*args, path, stdin=None):
     """Runs a script with -S, so the dev environment's typesafe-sdk is out of sight, as for a plain python3."""
     env = {key: value for key, value in os.environ.items() if key != "COMPOST_UV_REEXEC"}
     env["PATH"] = path
     return subprocess.run(
-        [sys.executable, "-S", *args], capture_output=True, text=True, env=env, timeout=120, check=False
+        [sys.executable, "-S", *args], input=stdin, capture_output=True, text=True, env=env, timeout=120, check=False
     )
 
 
+def waiting_stop(tmp_path) -> str:
+    """A Stop hook's input whose transcript has an implement run waiting on the user, so stop_guard needs Jev."""
+    transcript = tmp_path / "session.jsonl"
+    loads = {
+        "type": "assistant",
+        "message": {
+            "id": "m0",
+            "content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "compost:implement"}}],
+        },
+    }
+    asks = {"type": "assistant", "message": {"id": "m1", "content": [{"type": "text", "text": "Which library?"}]}}
+    transcript.write_text(f"{json.dumps(loads)}\n{json.dumps(asks)}\n")
+    return json.dumps({"transcript_path": str(transcript), "stop_hook_active": False})
+
+
 def test_the_scripts_that_need_typesafe_sdk_are_the_ones_found():
-    """stop_guard.py gets the guard through its `import jev`; a new script with the header joins the next test."""
+    """stop_guard.py gets the guard through its `import jev` (deferred until it has a message to judge); a new script with the header joins the next test."""
     assert JEV_SCRIPTS == ["jev.py", "lint/jev_lint.py", "lint/run_eval.py", "stop_guard.py"]
 
 
 @pytest.mark.parametrize("script", JEV_SCRIPTS)
 def test_each_jev_script_under_bare_python_without_uv_exits_3_without_a_traceback(script, tmp_path):
-    ran = bare_python(str(SCRIPTS / script), path=str(tmp_path))
+    # stop_guard.py imports Jev only once it has a message to judge, so it gets one.
+    stdin = waiting_stop(tmp_path) if script == "stop_guard.py" else None
+    ran = bare_python(str(SCRIPTS / script), path=str(tmp_path), stdin=stdin)
     assert ran.returncode == 3, ran.stderr
     assert "Traceback" not in ran.stderr
     assert f"Run it as `uv run {SCRIPTS / script}`" in ran.stderr
