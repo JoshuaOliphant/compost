@@ -736,7 +736,20 @@ test('the spec places an AC-N elsewhere only on its own line before its id or in
   const fenced = '## In notes-fork\n```sh\n# install agent-plugins first\n```\n~~~~\n## In agent-plugins\n```\n~~~~\n#### AC-1: one\n## In agent-plugins\n````md\n# notes-fork\n````\n#### AC-2: two'
   const fence = { ...SPLIT_SCOPE, spec: { ...SPLIT_SCOPE.spec, text: fenced } }
   const comment = await run({ issue: 7 }, reviewers({ scope: fence, spec: { findings: [], checked: [{ item: 'spec read', at: 'docs/spec.md:1' }], elsewhere: [ELSEWHERE, { ac: 'AC-1', repo: 'agent-plugins' }] } }))
-  assert.match(comment.result.spec.status, /refused AC-1 elsewhere: the spec does not place it in agent-plugins/, 'a "# " line inside a code fence (``` or ~~~, closed only by its own kind) is not a heading')
+  assert.match(comment.result.spec.status, /refused AC-1 elsewhere: the spec does not place it in agent-plugins/, 'a "# " line inside a ``` or ~~~ fence is not a heading')
+  const notPlaced = [
+    ['## In notes-fork\n````\n```\n## In agent-plugins\n````\n#### AC-1: one', 'a shorter run of the fence character does not close it'],
+    ['## In notes-fork\n```\n~~~\n## In agent-plugins\n```\n#### AC-1: one', 'a run of the other fence character does not close it'],
+    ['## In notes-fork\n1. Install:\n\n    ```sh\n    # install agent-plugins\n    ```\n#### AC-1: one', 'a "# " line indented four spaces (an indented fence or code block) is not a heading'],
+    ['## In agent-plugins\n```npm i``` first\n## In notes-fork\n#### AC-1: one', 'a backtick run with a backtick after it is inline code, not a fence that hides the headings below'],
+    ['## In agent-plugins\n```\nAC-1: passed\n```\n## In notes-fork\n#### AC-1: one', 'an AC id in a fence (sample output) is not where the AC-N is defined'],
+    ['## In notes-fork\n```\n# agent-plugins\nAC-1: passed\n```', 'an AC id found only in a fence is still placed by the headings over the fence, not the comment in it'],
+  ]
+  for (const [text, why] of notPlaced) {
+    const scope = { ...SPLIT_SCOPE, spec: { ...SPLIT_SCOPE.spec, text } }
+    const { result } = await run({ issue: 7 }, reviewers({ scope, spec: { findings: [], checked: [{ item: 'spec read', at: 'docs/spec.md:1' }], elsewhere: [{ ac: 'AC-1', repo: 'agent-plugins' }] } }))
+    assert.match(result.spec.status, /refused AC-1 elsewhere: the spec does not place it in agent-plugins/, why)
+  }
   const real = await run({ issue: 7 }, reviewers({ scope: fence, spec: { findings: [], checked: [{ item: 'AC-1 met', at: 'tests/t.py:1' }], elsewhere: [ELSEWHERE] } }))
   assert.equal(real.result.complete, true, 'a real heading outside any fence still places the AC-N under it')
 
