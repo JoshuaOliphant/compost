@@ -84,7 +84,7 @@ const SCOPE_SCHEMA = {
       properties: {
         found: { type: 'boolean' },
         source: { type: 'string', description: 'Issue URL, issue id, or file path; empty when not found' },
-        id: { type: 'string', description: 'The id of the issue fetched, exactly as the tracker writes it (42, bd-a1b2.3, group/project#12); empty for a spec file or when not found' },
+        id: { type: 'string', description: 'The id of the issue fetched, exactly as the tracker writes it (42, bd-a1b2.3, group/project#12, or a local tracker issue file path as given); empty for a spec file found without an issue, or when not found' },
         text: { type: 'string', description: 'User stories, AC-N, and interfaces verbatim; empty when not found' },
         problem: { type: 'string', description: 'Why a given issue could not be fetched; empty otherwise' },
       },
@@ -270,7 +270,10 @@ const specDoc = givenSpec ? { found: true, source: specSource, id: issueId, text
 function issueFetchProblem() {
   if (givenSpec || !input.issue) return ''
   if (!scope.spec.found) return scope.spec.problem || 'the scoping agent returned no spec'
-  if (issueRef(scope.spec.id) !== specSource) return `the scoping agent fetched ${issueRef(scope.spec.id)} instead`
+  // A local tracker's issue is a markdown file whose only id is its path: scope may report it as the source alone.
+  const isFile = /\.md$/i.test(issueId)
+  const fetched = issueRef(scope.spec.id || (isFile ? scope.spec.source : ''))
+  if (fetched !== specSource) return `the scoping agent fetched ${fetched} instead`
   return ''
 }
 

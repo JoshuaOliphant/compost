@@ -482,6 +482,25 @@ test('an issue given as a "#42" string matches a fetched 42 and refuses a fetche
   assert.equal(swapped.result.spec.status, 'failed: issue #42 could not be fetched: the scoping agent fetched #43 instead')
 })
 
+test('a local tracker issue given as its file path is graded, and a different file is refused', async () => {
+  const path = '.scratch/export/issues/01-csv.md'
+  // A local issue has no id apart from its path, so scope may report the path as its source alone.
+  const fetched = { ...SCOPE, spec: { ...SCOPE.spec, source: path, id: '' } }
+  const { result, prompts } = await run({ issue: path }, reviewers({ scope: fetched, spec: { findings: [BLOCKER], checked: SPEC_CHECKED } }))
+  assert.equal(result.specSource, path)
+  assert.deepEqual(result.spec.survivors.map(f => f.claim), [BLOCKER.claim])
+  assert.ok(prompts['Spec reviewer'], 'the Spec reviewer runs')
+
+  const other = { ...SCOPE, spec: { ...SCOPE.spec, source: '.scratch/export/issues/02-pdf.md', id: '' } }
+  const refused = await run({ issue: path }, reviewers({ scope: other }))
+  assert.equal(refused.result.spec.status, `failed: issue ${path} could not be fetched: the scoping agent fetched .scratch/export/issues/02-pdf.md instead`)
+
+  // Only a file path falls back to the source: an id issue that comes back without its id is refused, as before.
+  const blankId = { ...SCOPE, spec: { ...SCOPE.spec, source: '#42', id: '' } }
+  const idIssue = await run({ issue: 42 }, reviewers({ scope: blankId }))
+  assert.equal(idIssue.result.spec.status, 'failed: issue #42 could not be fetched: the scoping agent fetched  instead')
+})
+
 test('without an issue, the spec source is what scope found, and a missing spec skips the Spec axis', async () => {
   const specFile = { ...SCOPE, spec: { found: true, source: 'docs/specs/export.md', id: '', text: 'AC-1: Given a list' } }
   const found = await run({}, reviewers({ scope: specFile }))
