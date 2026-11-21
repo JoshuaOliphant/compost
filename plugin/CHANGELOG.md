@@ -2,6 +2,12 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.39.1] - 2026-11-21
+
+### Fixed
+
+- `/compost:review-changes` no longer reads a `# ` line inside a fenced code block (a shell comment such as `# install the CLI`) as a heading when it checks where the spec places an AC-N. Fences open with three or more backticks or tildes and close only with a run of the same character at least as long. Before, a fenced comment that named a repo above an AC-N let a reviewer's `elsewhere` entry for that repo through, so the AC-N went ungraded in the repo under review (OLI-71).
+
 ## [0.38.0] - 2026-11-20
 
 ### Changed

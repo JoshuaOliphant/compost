@@ -519,7 +519,21 @@ const specAcs = [...new Set(String(specDoc.text || '').match(/\bAC-\d+\b/g) || [
   .map(id => ({ id, named: new RegExp(`\\b${id}\\b`) }))
 
 const specLines = String(specDoc.text || '').split('\n')
-const headingLevel = line => ((line.match(/^\s*(#{1,6})\s/) || [])[1] || '').length
+// Lines inside a fenced code block, so a shell comment there ("# install the CLI") is never read as a heading. A fence
+// opens with three or more backticks or tildes, indented at most three spaces, and closes only with a run of the same
+// character at least as long.
+const fencedLines = new Set()
+for (let i = 0, open = ''; i < specLines.length; i++) {
+  const run = (specLines[i].match(/^ {0,3}(`{3,}|~{3,})/) || [])[1] || ''
+  if (open) {
+    fencedLines.add(i)
+    if (run[0] === open[0] && run.length >= open.length && !specLines[i].slice(specLines[i].indexOf(run) + run.length).trim()) open = ''
+  } else if (run) {
+    fencedLines.add(i)
+    open = run
+  }
+}
+const headingLevel = (line, i) => (fencedLines.has(i) ? 0 : ((line.match(/^\s*(#{1,6})\s/) || [])[1] || '').length)
 
 // The line that defines an AC-N: one it leads, after markup only ("#### AC-3", "- **AC-3** Given"), or one where its id
 // is followed by a colon ("- web-ui: AC-3:"), so a story or another criterion that mentions it first does not decide
@@ -535,9 +549,10 @@ function definitionOf(ac) {
 function placementOf(ac) {
   const at = definitionOf(ac)
   const placing = [specLines[at].slice(0, specLines[at].search(ac.named))]
-  let level = headingLevel(specLines[at]) || 7
-  for (const line of specLines.slice(0, at).reverse()) {
-    const own = headingLevel(line)
+  let level = headingLevel(specLines[at], at) || 7
+  for (let i = at - 1; i >= 0; i--) {
+    const line = specLines[i]
+    const own = headingLevel(line, i)
     if (own && own < level) {
       placing.push(line)
       level = own

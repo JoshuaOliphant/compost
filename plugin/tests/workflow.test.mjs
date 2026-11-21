@@ -733,6 +733,13 @@ test('the spec places an AC-N elsewhere only on its own line before its id or in
   const sibling = await run({ issue: 7 }, reviewers({ scope: later, spec: { findings: [], checked: [{ item: 'spec read', at: 'docs/spec.md:1' }], elsewhere: [ELSEWHERE, { ac: 'AC-1', repo: 'agent-plugins' }] } }))
   assert.match(sibling.result.spec.status, /refused AC-1 elsewhere: the spec does not place it in agent-plugins/, 'a heading closed by a later one of its level does not place what follows')
 
+  const fenced = '## In notes-fork\n```sh\n# install agent-plugins first\n```\n~~~~\n## In agent-plugins\n```\n~~~~\n#### AC-1: one\n## In agent-plugins\n````md\n# notes-fork\n````\n#### AC-2: two'
+  const fence = { ...SPLIT_SCOPE, spec: { ...SPLIT_SCOPE.spec, text: fenced } }
+  const comment = await run({ issue: 7 }, reviewers({ scope: fence, spec: { findings: [], checked: [{ item: 'spec read', at: 'docs/spec.md:1' }], elsewhere: [ELSEWHERE, { ac: 'AC-1', repo: 'agent-plugins' }] } }))
+  assert.match(comment.result.spec.status, /refused AC-1 elsewhere: the spec does not place it in agent-plugins/, 'a "# " line inside a code fence (``` or ~~~, closed only by its own kind) is not a heading')
+  const real = await run({ issue: 7 }, reviewers({ scope: fence, spec: { findings: [], checked: [{ item: 'AC-1 met', at: 'tests/t.py:1' }], elsewhere: [ELSEWHERE] } }))
+  assert.equal(real.result.complete, true, 'a real heading outside any fence still places the AC-N under it')
+
   const crossRef = { ...SPLIT_SCOPE, spec: { ...SPLIT_SCOPE.spec, text: 'As a user (see AC-2, AC-3)\n## In notes-fork\n#### AC-1: keeps AC-2 and AC-3 working\n## Elsewhere\n- **AC-2** in agent-plugins? no: two\n- web-ui: AC-3: three' } }
   const crossElsewhere = [{ ac: 'AC-2', repo: 'Elsewhere' }, { ac: 'AC-3', repo: 'web-ui' }]
   const defined = await run({ issue: 7 }, reviewers({ scope: crossRef, spec: { findings: [], checked: [{ item: 'AC-1 met', at: 'tests/t.py:1' }], elsewhere: crossElsewhere } }))
