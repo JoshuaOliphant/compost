@@ -251,7 +251,7 @@ const GUIDE = { source: 'REVIEW.md', minorCap: 2, failure: 'a change that drops 
 test('without a REVIEW.md, every reviewer gets the default guide and the result names it', async () => {
   const { result, prompts } = await run({}, reviewers({ scope: { ...SCOPE, guide: { source: 'defaults', minorCap: 5, failure: '', skip: '' } } }))
   for (const label of ['Standards reviewer', 'Spec reviewer']) {
-    assert.match(prompts[label], /Review guide \(defaults; this repo has no REVIEW\.md\)/)
+    assert.match(prompts[label], /Review guide \(defaults; the base has no REVIEW\.md\)/)
     assert.match(prompts[label], /breaks behaviour, loses or leaks data, or blocks a rollback/)
     assert.match(prompts[label], /at most 5 for the whole review/)
     assert.match(prompts[label], /generated, vendored, and lock files/)
@@ -269,6 +269,16 @@ test('a REVIEW.md sets what failure means, the minor cap, and what to skip, and 
   assert.match(prompts['Standards reviewer'], /at most 2 for the whole review/)
   assert.match(prompts['Standards reviewer'], /Skip: migrations\//)
   assert.deepEqual(result.guide, { source: 'REVIEW.md', minorCap: 2 })
+})
+
+test('the guide and the standards come from the base, so a branch is not judged by its own edits to them', async () => {
+  const { prompts } = await run({}, reviewers({ scope: { ...SCOPE, guide: GUIDE } }))
+  assert.match(prompts.scope, /as they stand at the fixed point, never from disk: list them with `git ls-tree -r --name-only <base-sha>` and read each with `git show <base-sha>:<path>`/)
+  assert.match(prompts.scope, /When the fixed point has a REVIEW\.md at its root/)
+  assert.match(prompts['Standards reviewer'], new RegExp(`Standards sources, as they stand at the base ${SCOPE.base}`))
+  assert.match(prompts['Standards reviewer'], /the branch's own edits to them take effect once it merges/)
+  assert.match(prompts['Standards reviewer'], /this repo's REVIEW\.md at the base/)
+  assert.match(prompts['Standards skeptic 1.1'], /check that the rule \(as the base has it\) or AC-N exists/)
 })
 
 test('a missing or unreadable guide falls back to the defaults and says why', async () => {
@@ -330,7 +340,7 @@ test('an unjudged minor counts against the cap like a survivor, in the reviewer\
 test('the default guide the reviewers get is the one the REVIEW.md starter writes out', async () => {
   const starter = readFileSync(new URL('../skills/setup/references/review-md.md', import.meta.url), 'utf8')
   const { prompts } = await run({}, reviewers())
-  const defaults = prompts['Standards reviewer'].split('Review guide (defaults; this repo has no REVIEW.md):\n')[1].split('\n').slice(0, 4)
+  const defaults = prompts['Standards reviewer'].split('Review guide (defaults; the base has no REVIEW.md):\n')[1].split('\n').slice(0, 4)
   const sections = Object.fromEntries(starter.split('\n## ').slice(1).map(part => [part.split('\n')[0], part.split('\n').slice(1).join(' ').trim()]))
   const said = line => line.replace(/^- \w+: /, '').toLowerCase()
   assert.equal(defaults.length, 4)
@@ -388,7 +398,7 @@ test('with uncommitted edits to a changed file, every agent reads the committed 
     assert.match(prompts[label], new RegExp(`git show ${SCOPE.head}:<path>`), label)
   }
   const clean = await run({}, reviewers())
-  assert.doesNotMatch(clean.prompts['Standards reviewer'], /git show/)
+  assert.doesNotMatch(clean.prompts['Standards reviewer'], new RegExp(`git show ${SCOPE.head}:`))
   assert.match(clean.prompts.scope, /git status --porcelain/)
 })
 

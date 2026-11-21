@@ -2,6 +2,12 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.47.0] - 2026-11-21
+
+### Changed
+
+- `/compost:review-changes` reads `REVIEW.md` and the standards sources (CLAUDE.md, AGENTS.md, CONTEXT.md, ADRs, and the rest) as they stand at the base, the branch the change merges into, with `git show <base>:<path>`, never from disk (OLI-72). A branch is no longer judged by its own edits to its rules: a `Skip:` line it adds, or a rule it drops, takes effect once it merges, and reviewers review those edits as changes. A review whose checkout isn't the head under review no longer picks up the checkout's guide. Reviewers and skeptics are told the standards are the base's.
+
 ## [0.46.0] - 2026-11-21
 
 ### Fixed
