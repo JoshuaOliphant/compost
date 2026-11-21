@@ -17,6 +17,12 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 - The GitLab tracker reference lists issues with `glab issue list -O json`; `-F` there picks `details`, `ids`, or `urls`, not JSON (OLI-34).
 - The GitHub tracker reference checks, before the first `gh` call of a session or subagent, that `{owner}/{repo}` is origin and not a fork's upstream parent (`gh api` ranks a remote named `upstream` first and ignores `gh repo set-default`), comparing names without case; when they differ, every `gh` call is prefixed with `GH_REPO=<origin's owner/name>`. `compost:setup` runs that check before it reads `has_issues`. `frontier.py` reads origin's repo by name unless `GH_REPO` is set, and prints a note on stderr when an `upstream` or `github` remote would have won. A tracker doc written before this release has no fork check: every skill and agent that reads the doc (`compost:build`, `compost:spec`, `compost:slice`, `compost:retro`, `compost:implement`, `compost:finish`, `compost:pause`, `compost:prune`, and the review workflow's scope and reviewer agents) takes it from setup's reference, a plugin test holds each one to that, and rerunning `compost:setup` adds it to the doc. `frontier.py` stops at the first of `upstream` and `github` that exists, as gh does, so a clone whose `upstream` is origin gets no note (OLI-31).
 
+## [0.37.1] - 2026-11-20
+
+### Changed
+
+- The `/compost:review-changes` skeptic prompt keeps a one-line checklist beside its refute rule (read the cited code and what it depends on, check the rule or AC-N exists and says what is claimed and that nothing elsewhere (a test, a caller, a later hunk) already answers it, refute linter-owned nits and asks nobody uses), so a skeptic still knows what to check if the `compost:skeptic` definition does not load.
+
 ## [0.37.0] - 2026-11-20
 
 ### Changed
