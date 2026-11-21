@@ -2,6 +2,12 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.39.1] - 2026-11-21
+
+### Fixed
+
+- `/compost:review-changes` no longer reads a `# ` line inside a fenced code block (a shell comment such as `# install the CLI`) as a heading when it checks where the spec places an AC-N. As in CommonMark, a fence opens with three or more backticks or tildes indented at most three spaces (a backtick run followed by another backtick is inline code), closes only with a run of the same character at least as long, and a heading is indented at most three spaces, so an indented fence's comment is not one either. An AC id inside a fence (sample output) no longer counts as where the AC-N is defined. Before, a fenced comment that named a repo above an AC-N let a reviewer's `elsewhere` entry for that repo through, so the AC-N went ungraded in the repo under review (OLI-71).
+
 ## [0.39.0] - 2026-11-20
 
 ### Changed
