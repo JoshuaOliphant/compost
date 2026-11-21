@@ -33,8 +33,8 @@ comes first, the theory second, and the fix last, at the root. The why is in
    - **Red-capable**: it drives the real code path and asserts the user's exact symptom, so it can
      catch this bug. "Runs without erroring" does not qualify.
    - **Deterministic**: same verdict every run. For a flaky bug, a pinned, high reproduction rate.
-   - **Fast**: seconds, not minutes. An agent eval, where the bug is what an agent did, takes one
-     trial per run; its rate over N trials is the before-and-after proof.
+   - **Fast**: seconds, not minutes. An agent eval, where the bug is what an agent did, is slow
+     and flaky by nature: iterate on single trials, and judge cuts and the fix by its rate over N.
    - **Agent-runnable**: it runs unattended. A human in the loop only through
      [`scripts/hitl-loop.sh`](scripts/hitl-loop.sh).
 
@@ -61,7 +61,7 @@ comes first, the theory second, and the fix last, at the root. The why is in
 3. **Reproduce and minimise.** Run the loop and watch it go red. Confirm it is the failure the user
    described and not a neighbouring one; the wrong bug gets the wrong fix. Record the exact symptom.
    Then shrink the scenario: cut inputs, callers, config, data, and steps one at a time, re-running
-   after each cut, until every remaining element is load-bearing. The minimal repro narrows the
+   after each cut (a flaky loop by its rate over the same N trials), until every remaining element is load-bearing. The minimal repro narrows the
    hypotheses and becomes the regression test.
 
 4. **Trace to the origin.** Where the error surfaces is rarely where it starts.

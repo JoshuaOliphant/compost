@@ -91,8 +91,9 @@ so a skill already fixed stops producing patterns from its old text.
      Bump the plugin's version as `AGENTS.md` says, run the repo checks, commit
      (`fix(<plugin>): <what the skill now says>`), push, and open one draft pull request per skill
      whose body carries the ruling, each hit's prompt and evidence, and the eval case with both
-     results, so the fix is measured rather than judged by hits stopping later. A hit the case
-     doesn't reproduce is reported as not observed. It stays a draft for the user to merge.
+     results as counts ("failed 1 of 1, then 0 of 1"): one trial each shows the edit can move the
+     behaviour, not a rate. When the case passes on the current text, report it as not observed;
+     the edit then rests on the hits alone. It stays a draft for the user to merge.
    - Everything else (`personal` and `third-party` skills, instruction-file conflicts): write the
      proposed change, as exact text, in the digest. Never edit files outside the checkout, and
      never edit `CLAUDE.md` or `AGENTS.md` from a scheduled run.

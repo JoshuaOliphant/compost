@@ -35,8 +35,10 @@ first that reaches the bug.
     - Rebuild the setup it decided in (instructions, prior state, the tools it had) before you
       invent anything, and start with the simplest case. Add complexity from the incident (stale
       context, competing work, a delayed result) only when the failure doesn't show without it.
-    - Run the real agent, headless (`claude -p` with a clean `CLAUDE_CONFIG_DIR`), and assert on its
-      tool calls and output, never on its explanation. A simulated tool may feed it context; it
+    - Run the real agent, headless (`claude -p` with a clean `CLAUDE_CONFIG_DIR`), given back the
+      skills, plugins and instructions it had (`--plugin-dir` on the checkout under test, the
+      skill files in the case's repo), and assert on its tool calls and output, never on its
+      explanation. A simulated tool may feed it context; it
       never stands in for the agent under test.
     - Report a rate with its denominator ("failed 4 of 5"). One trial is the loop while you iterate;
       the rate over the same N trials, before and after the fix, is the proof. A failure that
@@ -78,6 +80,6 @@ its output:
 
 - Red-capable: it asserts the user's exact symptom on the real code path.
 - Deterministic: same verdict every run, or a pinned high rate for a flaky bug.
-- Fast: seconds. An agent eval can't get there, so iterate on single trials and keep the N-trial
-  rate for the proof.
+- Fast: seconds. An agent eval can't get there, so iterate on single trials and judge each
+  minimisation cut and the fix by the rate over the same N trials.
 - Agent-runnable: unattended, or human-driven only through the script above.
