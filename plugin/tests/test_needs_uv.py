@@ -109,7 +109,8 @@ def bare_python(*args, path, stdin=None, home=None):
 
 
 def test_the_scripts_that_need_typesafe_sdk_are_the_ones_found():
-    """stop_guard.py gets the guard through its `import jev`; a new script with the header joins the next test."""
+    """stop_guard.py imports needs_uv itself when the SDK is missing, before it reads stdin; a new script with the
+    header joins the next test."""
     assert JEV_SCRIPTS == ["jev.py", "lint/jev_lint.py", "lint/run_eval.py", "stop_guard.py"]
 
 

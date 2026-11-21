@@ -6,6 +6,7 @@
 # ABOUTME: Stop hook for compost:implement runs: blocks a stop that waits on the user for anything but an allowed stop.
 # ABOUTME: A run ends when finish loads, or pause after a user message; a message the user sent during it makes waiting fine.
 # ABOUTME: Jev's stop-guard tool judges the final message; any error or a missing key allows the stop and logs a line.
+import importlib.util
 import json
 import re
 import sys
@@ -14,9 +15,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-# Jev loads only once there is a message to judge, after main() reads stdin, so a re-exec under uv (plain python3
-# without the SDK) has to happen here, while stdin is still unread.
-import needs_uv  # noqa: F401 - re-execs under uv, or exits 3
+
+def ensure_sdk(find_spec=importlib.util.find_spec) -> None:
+    """Jev loads only once there is a message to judge, after main() reads stdin, so the re-exec under uv that plain
+    python3 needs has to happen first, while stdin is unread. find_spec looks the SDK up without loading it."""
+    if find_spec("typesafe_sdk") is None:
+        import needs_uv  # noqa: F401 - re-execs under uv, or exits 3
+
+
+ensure_sdk()
 
 LOG = Path.home() / ".cache" / "compost" / "stop-guard.log"
 IMPLEMENT = "compost:implement"

@@ -337,3 +337,10 @@ def test_jev_and_the_sdk_load_only_when_there_is_a_message_to_judge(transcript, 
         env={"PYTHONPATH": str(scripts)},
     ).stdout.strip()
     assert (loaded != "[]") is loads_jev
+
+
+@pytest.mark.parametrize(("spec", "imports_needs_uv"), [(None, True), (object(), False)], ids=["missing", "found"])
+def test_ensure_sdk_hands_off_to_needs_uv_only_when_the_sdk_is_missing(monkeypatch, spec, imports_needs_uv):
+    monkeypatch.delitem(sys.modules, "needs_uv", raising=False)
+    stop_guard.ensure_sdk(lambda name: spec)
+    assert ("needs_uv" in sys.modules) is imports_needs_uv
