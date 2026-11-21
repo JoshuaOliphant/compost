@@ -270,8 +270,9 @@ const specDoc = givenSpec ? { found: true, source: specSource, id: issueId, text
 function issueFetchProblem() {
   if (givenSpec || !input.issue) return ''
   if (!scope.spec.found) return scope.spec.problem || 'the scoping agent returned no spec'
-  // A local tracker's issue is a file, whose only id is its path: scope may report it as the source alone.
-  const fetched = issueRef(scope.spec.id || scope.spec.source)
+  // A local tracker's issue is a markdown file whose only id is its path: scope may report it as the source alone.
+  const isFile = /\.md$/i.test(issueId)
+  const fetched = issueRef(scope.spec.id || (isFile ? scope.spec.source : ''))
   if (fetched !== specSource) return `the scoping agent fetched ${fetched} instead`
   return ''
 }

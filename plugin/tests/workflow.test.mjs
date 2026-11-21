@@ -484,6 +484,11 @@ test('a local tracker issue given as its file path is graded, and a different fi
   const other = { ...SCOPE, spec: { ...SCOPE.spec, source: '.scratch/export/issues/02-pdf.md', id: '' } }
   const refused = await run({ issue: path }, reviewers({ scope: other }))
   assert.equal(refused.result.spec.status, `failed: issue ${path} could not be fetched: the scoping agent fetched .scratch/export/issues/02-pdf.md instead`)
+
+  // Only a file path falls back to the source: an id issue that comes back without its id is refused, as before.
+  const blankId = { ...SCOPE, spec: { ...SCOPE.spec, source: '#42', id: '' } }
+  const idIssue = await run({ issue: 42 }, reviewers({ scope: blankId }))
+  assert.equal(idIssue.result.spec.status, 'failed: issue #42 could not be fetched: the scoping agent fetched  instead')
 })
 
 test('without an issue, the spec source is what scope found, and a missing spec skips the Spec axis', async () => {

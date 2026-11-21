@@ -6,7 +6,7 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 
 ### Fixed
 
-- `/compost:review-changes` grades a local tracker's issue given as its file path (`issue: ".scratch/<feature>/issues/01-x.md"`). Before, scope reported a file it read as a spec file with no id, so the workflow failed the Spec axis with "the scoping agent fetched  instead", and every per-issue review in a local-tracker `compost:implement` run lost its Spec half. A fetch now matches on the issue's id or, when it has none, on its source path.
+- `/compost:review-changes` grades a local tracker's issue given as its file path (`issue: ".scratch/<feature>/issues/01-x.md"`). Before, scope reported a file it read as a spec file with no id, so the workflow failed the Spec axis with "the scoping agent fetched  instead", and every per-issue review in a local-tracker `compost:implement` run lost its Spec half. When the given issue is a `.md` path and scope reports no id, the fetch now matches on its source; an id issue that comes back without its id is still refused.
 
 ## [0.44.0] - 2026-11-21
 
