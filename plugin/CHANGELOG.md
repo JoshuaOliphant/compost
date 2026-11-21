@@ -2,6 +2,12 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.47.1] - 2026-11-21
+
+### Changed
+
+- `pile.toml` pins move to each source's head as of the 2026-11-21 turn (mattpocock, superpowers, pstack, code-guardian, anthropic-skills, vercel-skills, swyx-skills), so `/compost:turn` reports only what changed after it. The turn filed OLI-78 (stop-guard start cost) and OLI-79 (agent-eval harness checks).
+
 ## [0.47.0] - 2026-11-21
 
 ### Changed
