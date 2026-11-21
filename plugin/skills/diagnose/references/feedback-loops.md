@@ -46,10 +46,11 @@ first that reaches the bug.
     - Check the harness before you trust the rate. A surprising rate is more often a harness bug
       than a fact about the agent:
       - A trial with no answer (a timeout, an API error, a reply cut off at max tokens, a crashed
-        hook) is counted apart, never as a failure: "failed 4 of 5" means 4 wrong actions.
+        tool or hook) is counted apart, never as a failure: "failed 4 of 5" means 4 wrong actions.
       - Each trial starts clean: a fresh config dir and a fresh copy of the case repo, so one
         trial's files, branches, or memory can't leak into the next.
-      - Read which model served each trial from the JSON output, so a fallback can't move the rate.
+      - Check which model served each trial in the JSON output, and set aside a trial another model
+        served, so a fallback can't move the rate.
       - The prompt carries what a user would report, not the log line or file the
         investigation should find.
       - When the bug is "it did X when it shouldn't", add a case where X is right, so a fix that
