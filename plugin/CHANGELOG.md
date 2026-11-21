@@ -2,6 +2,12 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.37.1] - 2026-11-20
+
+### Changed
+
+- The `/compost:review-changes` skeptic prompt keeps a one-line checklist beside its refute rule (read the cited code and what it depends on, check the rule or AC-N exists and says what is claimed and that nothing elsewhere (a test, a caller, a later hunk) already answers it, refute linter-owned nits and asks nobody uses), so a skeptic still knows what to check if the `compost:skeptic` definition does not load.
+
 ## [0.37.0] - 2026-11-20
 
 ### Changed
