@@ -33,13 +33,14 @@ comes first, the theory second, and the fix last, at the root. The why is in
    - **Red-capable**: it drives the real code path and asserts the user's exact symptom, so it can
      catch this bug. "Runs without erroring" does not qualify.
    - **Deterministic**: same verdict every run. For a flaky bug, a pinned, high reproduction rate.
-   - **Fast**: seconds, not minutes.
+   - **Fast**: seconds, not minutes. An agent eval, where the bug is what an agent did, takes one
+     trial per run; its rate over N trials is the before-and-after proof.
    - **Agent-runnable**: it runs unattended. A human in the loop only through
      [`scripts/hitl-loop.sh`](scripts/hitl-loop.sh).
 
    Work down the ladder in [references/feedback-loops.md](references/feedback-loops.md) (failing
    test, HTTP script, telemetry query, CLI diff, browser script, trace replay, harness, fuzz,
-   bisection, differential, human-driven script), then tighten it: faster, sharper assertion, more deterministic. If you catch
+   bisection, differential, agent eval, human-driven script), then tighten it: faster, sharper assertion, more deterministic. If you catch
    yourself forming a theory before this command exists, stop and go back to building it.
 
    **Show the red before the first edit.** Run the command and put its failing output where the user

@@ -81,12 +81,18 @@ so a skill already fixed stops producing patterns from its old text.
      installs. Don't branch again. Read the hits against the open fix; when it already covers
      them, comment their prompts and evidence on that pull request, and when it doesn't, push the
      extra edit to its branch. The ruling is "fix in flight", with the link.
-   - `repo`, fault in the skill, nothing open: branch `claude/skill-drift-<skill>` from the default branch,
-     edit the skill file, and when the skill is compost's run the regression checks in
-     [turn's "Check compost's own text after a change"](../turn/SKILL.md#check-composts-own-text-after-a-change). Bump the plugin's version as `AGENTS.md` says, run the
-     repo checks, commit (`fix(<plugin>): <what the skill now says>`), push, and open one draft
-     pull request per skill whose body carries the ruling and each hit's prompt and evidence. It
-     stays a draft for the user to merge.
+   - `repo`, fault in the skill, nothing open: branch `claude/skill-drift-<skill>` from the default
+     branch. Before you edit, turn the clearest hit into an eval case by
+     [diagnose's agent-eval rung](../diagnose/references/feedback-loops.md) (its prompt, the setup
+     the agent decided in, and the action the skill wants, asserted on the agent's tool calls) and
+     run it once on the current skill text. Edit the skill file, run the case once more on the
+     edit, and when the skill is compost's run the regression checks in
+     [turn's "Check compost's own text after a change"](../turn/SKILL.md#check-composts-own-text-after-a-change).
+     Bump the plugin's version as `AGENTS.md` says, run the repo checks, commit
+     (`fix(<plugin>): <what the skill now says>`), push, and open one draft pull request per skill
+     whose body carries the ruling, each hit's prompt and evidence, and the eval case with both
+     results, so the fix is measured rather than judged by hits stopping later. A hit the case
+     doesn't reproduce is reported as not observed. It stays a draft for the user to merge.
    - Everything else (`personal` and `third-party` skills, instruction-file conflicts): write the
      proposed change, as exact text, in the digest. Never edit files outside the checkout, and
      never edit `CLAUDE.md` or `AGENTS.md` from a scheduled run.

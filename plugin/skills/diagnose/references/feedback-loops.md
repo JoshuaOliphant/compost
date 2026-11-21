@@ -27,7 +27,21 @@ first that reaches the bug.
    dependency versions), script "set up state X, check, report" and hand it to `git bisect run`.
 10. **Differential loop.** Run the same input through the old and new version, or two configs, and
    diff the outputs.
-11. **Human-driven script.** Last resort, when a person has to click. Copy
+11. **Agent eval.** When the symptom is what a model or agent did (a skill that routed to the wrong
+    tool, an agent that misread a ticket), no code path above reaches it. Build the case from the
+    incident:
+    - Write down the real failure from the transcript: what the user wanted, what the agent did,
+      and what followed. Keep what it observably did apart from why you think it did it.
+    - Rebuild the setup it decided in (instructions, prior state, the tools it had) before you
+      invent anything, and start with the simplest case. Add complexity from the incident (stale
+      context, competing work, a delayed result) only when the failure doesn't show without it.
+    - Run the real agent, headless (`claude -p` with a clean `CLAUDE_CONFIG_DIR`), and assert on its
+      tool calls and output, never on its explanation. A simulated tool may feed it context; it
+      never stands in for the agent under test.
+    - Report a rate with its denominator ("failed 4 of 5"). One trial is the loop while you iterate;
+      the rate over the same N trials, before and after the fix, is the proof. A failure that
+      doesn't show in N trials is reported as not observed, never forced.
+12. **Human-driven script.** Last resort, when a person has to click. Copy
     [`../scripts/hitl-loop.sh`](../scripts/hitl-loop.sh), edit the steps, and run it: the user follows
     the prompts and their answers come back to you as `KEY=VALUE` lines. The loop stays structured
     even with a human in it.
@@ -64,5 +78,6 @@ its output:
 
 - Red-capable: it asserts the user's exact symptom on the real code path.
 - Deterministic: same verdict every run, or a pinned high rate for a flaky bug.
-- Fast: seconds.
+- Fast: seconds. An agent eval can't get there, so iterate on single trials and keep the N-trial
+  rate for the proof.
 - Agent-runnable: unattended, or human-driven only through the script above.
