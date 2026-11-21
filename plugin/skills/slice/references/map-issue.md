@@ -94,7 +94,7 @@ there and give it a line under Out of scope.
 2. Take the decision the user names, or the first one on the frontier, and claim it before any
    work with the tracker's **Claim** command, so a parallel session skips it. A claim names your
    session id (`uv run ${CLAUDE_PLUGIN_ROOT}/scripts/frontier.py session`). Two sessions can post
-   at once, so read it back with `frontier.py claim <decision> --tracker <github|gitlab|local>`:
+   at once, so read it back with `frontier.py claim <decision> --tracker <github|gitlab|linear|local>`:
    it prints the earliest claim whose session is live, and if that isn't you, pick the next
    decision. A session is live while its claim or a later comment it tagged
    (`compost-session: <id>`) on the decision is under a day old, so post progress there daily on

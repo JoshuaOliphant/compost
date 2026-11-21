@@ -2,11 +2,18 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
-## [0.43.0] - 2026-11-21
+## [0.45.0] - 2026-11-21
 
 ### Changed
 
 - `/compost:review-changes` reads `REVIEW.md` and the standards sources (CLAUDE.md, AGENTS.md, CONTEXT.md, ADRs, and the rest) as they stand at the base, the branch the change merges into, with `git show <base>:<path>`, never from disk (OLI-72). A branch is no longer judged by its own edits to its rules: a `Skip:` line it adds, or a rule it drops, takes effect once it merges, and reviewers review those edits as changes. A review whose checkout isn't the head under review no longer picks up the checkout's guide. Reviewers and skeptics are told the standards are the base's.
+
+## [0.44.0] - 2026-11-21
+
+### Added
+
+- `compost:setup` offers a Linear tracker (OLI-73): `references/issue-tracker-linear.md` records the connector commands, the label vocabulary, and how a run reads states and claims.
+- `frontier.py` takes `--tracker linear --snapshot FILE`: the agent reads the parent, its sub-issues, blockers, and comments with the Linear connector (MCP only, so a script cannot call it) and writes them to JSON; `issues` and `claim` then print the same states as for the other trackers. A Linear branch name (`oli-17-slug`, or `user/oli-17-slug`) counts as issue 17's branch. `--snapshot` goes only with `--tracker linear`.
 
 ## [0.42.0] - 2026-11-21
 
