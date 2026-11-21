@@ -43,6 +43,19 @@ first that reaches the bug.
     - Report a rate with its denominator ("failed 4 of 5"). One trial is the loop while you iterate;
       the rate over the same N trials, before and after the fix, is the proof. A failure that
       doesn't show in N trials is reported as not observed, never forced.
+    - Check the harness before you trust the rate. A surprising rate is more often a harness bug
+      than a fact about the agent:
+      - A trial with no answer (a timeout, an API error, a reply cut off at max tokens, a crashed
+        tool or hook) is counted apart, never as a failure: "failed 4 of 5" means 4 wrong actions.
+      - Each trial starts clean: a fresh config dir and a fresh copy of the case repo, so one
+        trial's files, branches, or memory can't leak into the next.
+      - Check which model served each trial in the JSON output, and set aside a trial another model
+        served, so a fallback can't move the rate.
+      - The prompt carries what a user would report, not the log line or file the
+        investigation should find.
+      - When the bug is "it did X when it shouldn't", add a case where X is right, so a fix that
+        just stops doing X can't pass.
+      - A fix that scores worse than the old version is a reason to read the transcripts first.
 12. **Human-driven script.** Last resort, when a person has to click. Copy
     [`../scripts/hitl-loop.sh`](../scripts/hitl-loop.sh), edit the steps, and run it: the user follows
     the prompts and their answers come back to you as `KEY=VALUE` lines. The loop stays structured

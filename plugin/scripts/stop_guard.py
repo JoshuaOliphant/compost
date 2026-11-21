@@ -6,7 +6,7 @@
 # ABOUTME: Stop hook for compost:implement runs: blocks a stop that waits on the user for anything but an allowed stop.
 # ABOUTME: A run ends when finish loads, or pause after a user message; a message the user sent during it makes waiting fine.
 # ABOUTME: Jev's stop-guard tool judges the final message; any error or a missing key allows the stop and logs a line.
-import asyncio
+import importlib.util
 import json
 import re
 import sys
@@ -15,9 +15,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import jev
-from jevtools import meta
-from jevtools.core import open_client
+
+def ensure_sdk(find_spec=importlib.util.find_spec) -> None:
+    """Jev loads only once there is a message to judge, after main() reads stdin, so the re-exec under uv that plain
+    python3 needs has to happen first, while stdin is unread. find_spec looks the SDK up without loading it."""
+    if find_spec("typesafe_sdk") is None:
+        import needs_uv  # noqa: F401 - re-execs under uv, or exits 3
+
+
+ensure_sdk()
 
 LOG = Path.home() / ".cache" / "compost" / "stop-guard.log"
 IMPLEMENT = "compost:implement"
@@ -29,11 +35,16 @@ INJECTED = re.compile(r"<([a-z][a-z-]*)(?:\s[^>]*)?>.*?</\1>", re.DOTALL)
 COMMAND = re.compile(r"<command-name>/[^<]+</command-name>")
 # Main-thread entries Claude Code writes as user entries that no one typed: skill bodies, compaction summaries.
 UNTYPED = ("isSidechain", "isMeta", "isCompactSummary", "isVisibleInTranscriptOnly")
-REASON = (
-    "compost stop-guard: this implement run is unattended, and your last message waits on the user for something "
-    f"outside the allowed stops ({'; '.join(meta.ALLOWED_STOPS)}). Decide it yourself, post a ruling as an issue "
-    "comment (what, why, cost if wrong), and continue."
-)
+
+
+def reason() -> str:
+    from jevtools import meta
+
+    return (
+        "compost stop-guard: this implement run is unattended, and your last message waits on the user for something "
+        f"outside the allowed stops ({'; '.join(meta.ALLOWED_STOPS)}). Decide it yourself, post a ruling as an issue "
+        "comment (what, why, cost if wrong), and continue."
+    )
 
 
 def entries(transcript: str) -> list[dict]:
@@ -122,7 +133,8 @@ def final_message(transcript: list[dict]) -> str:
     return "\n".join(texts)
 
 
-def decide(hook: dict, client_factory=open_client) -> dict | None:
+def decide(hook: dict, client_factory=None) -> dict | None:
+    """Every turn of every session reaches here, so Jev and the SDK load only once there is a message to judge."""
     if hook.get("stop_hook_active"):
         return None
     text = Path(hook["transcript_path"]).read_text(errors="replace")
@@ -134,8 +146,13 @@ def decide(hook: dict, client_factory=open_client) -> dict | None:
     message = hook.get("last_assistant_message") or final_message(transcript)
     if not message.strip():
         return None
-    judgment = asyncio.run(jev.run("stop-guard", {"message": message}, client_factory))
-    return {"decision": "block", "reason": REASON} if judgment["block"] else None
+    import asyncio
+
+    import jev
+    from jevtools.core import open_client
+
+    judgment = asyncio.run(jev.run("stop-guard", {"message": message}, client_factory or open_client))
+    return {"decision": "block", "reason": reason()} if judgment["block"] else None
 
 
 def log(line: str) -> None:
@@ -144,7 +161,7 @@ def log(line: str) -> None:
         handle.write(f"{datetime.now(UTC).isoformat(timespec='seconds')} {line}\n")
 
 
-def main(stdin=None, client_factory=open_client) -> int:
+def main(stdin=None, client_factory=None) -> int:
     try:
         verdict = decide(json.load(stdin or sys.stdin), client_factory)
     except Exception as error:  # noqa: BLE001 - a Stop hook must never trap the session; any failure allows the stop.

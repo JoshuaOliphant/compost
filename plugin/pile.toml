@@ -142,7 +142,7 @@ repo = "imbue-ai/code-guardian"
 role = "reference"
 license = "none published"
 pin = "2c8df4794928e59fe1766eeea188b11d7573a025"
-note = "No license, so compost takes only the idea behind verify-architecture (judge approach fit from the problem alone), written independently in skills/review/references/approach-fit.md."
+note = "No license, so compost takes only ideas, written independently: verify-architecture's (judge approach fit from the problem alone) in skills/review/references/approach-fit.md, and its cheap-check-first Stop hook in scripts/stop_guard.py (OLI-78)."
 
 [[source]]
 name = "anthropic-skills"
@@ -150,6 +150,7 @@ repo = "anthropics/skills"
 role = "reference"
 license = "per skill"
 pin = "e4bb5d960d87126ff3b3a8af1a104b7db67560ba"
+note = "compost takes only an idea, written independently: the harness checks in skills/claude-api/shared/evals/eval-audit.md became the agent-eval rung's checks in skills/diagnose/references/feedback-loops.md (OLI-79)."
 
 [[source]]
 name = "vercel-skills"

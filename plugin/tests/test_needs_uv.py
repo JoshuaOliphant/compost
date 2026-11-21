@@ -1,5 +1,6 @@
 # ABOUTME: Tests that compost's Jev scripts run under plain python3: they re-exec under uv when typesafe-sdk is
 # ABOUTME: missing, and exit 3 with one line saying how to run them when uv can't help, never with a traceback.
+import json
 import os
 import shutil
 import subprocess
@@ -9,6 +10,7 @@ from types import SimpleNamespace
 import needs_uv
 import pytest
 from conftest import PLUGIN_ROOT
+from test_stop_guard import LOADS_IMPLEMENT, said
 
 SCRIPTS = PLUGIN_ROOT / "scripts"
 MISSING = "compost_no_such_module"
@@ -96,17 +98,20 @@ def test_without_a_way_to_install_the_sdk_it_exits_3_in_one_line(environ, sync_c
     assert err.endswith(f" and {cause}. Run it as `uv run scripts/jev.py`, or make this call yourself.\n")
 
 
-def bare_python(*args, path):
+def bare_python(*args, path, stdin=None, home=None):
     """Runs a script with -S, so the dev environment's typesafe-sdk is out of sight, as for a plain python3."""
     env = {key: value for key, value in os.environ.items() if key != "COMPOST_UV_REEXEC"}
     env["PATH"] = path
+    if home:
+        env["HOME"] = str(home)
     return subprocess.run(
-        [sys.executable, "-S", *args], capture_output=True, text=True, env=env, timeout=120, check=False
+        [sys.executable, "-S", *args], input=stdin, capture_output=True, text=True, env=env, timeout=120, check=False
     )
 
 
 def test_the_scripts_that_need_typesafe_sdk_are_the_ones_found():
-    """stop_guard.py gets the guard through its `import jev`; a new script with the header joins the next test."""
+    """stop_guard.py imports needs_uv itself when the SDK is missing, before it reads stdin; a new script with the
+    header joins the next test."""
     assert JEV_SCRIPTS == ["jev.py", "lint/jev_lint.py", "lint/run_eval.py", "stop_guard.py"]
 
 
@@ -123,3 +128,20 @@ def test_jev_py_under_bare_python_re_execs_under_uv_and_lists_the_tools():
     ran = bare_python(str(SCRIPTS / "jev.py"), "list", path=os.environ["PATH"])
     assert ran.returncode == 0, ran.stderr
     assert "review-risk" in ran.stdout
+
+
+@pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv on PATH")
+def test_stop_guard_under_bare_python_re_execs_under_uv_before_reading_its_input(tmp_path, monkeypatch):
+    """stop_guard.py reads the hook's input on stdin; a re-exec after that read would leave the new process none."""
+    transcript = tmp_path / "session.jsonl"
+    transcript.write_text(
+        "".join(json.dumps(entry) + "\n" for entry in (LOADS_IMPLEMENT, said("m1", "Which library?")))
+    )
+    # A message to judge, so the guard reaches Jev; a closed local port keeps the judgment offline.
+    monkeypatch.setenv("TYPESAFE_BASE_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("TYPESAFE_API_KEY", "unit-test")
+    hook = json.dumps({"transcript_path": str(transcript), "stop_hook_active": False})
+    ran = bare_python(str(SCRIPTS / "stop_guard.py"), path=os.environ["PATH"], stdin=hook, home=tmp_path)
+    assert ran.returncode == 0, ran.stderr
+    logged = (tmp_path / ".cache" / "compost" / "stop-guard.log").read_text()
+    assert "JSONDecodeError" not in logged and "Unavailable" in logged

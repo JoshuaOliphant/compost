@@ -2,6 +2,9 @@
 # ABOUTME: the final message, and that every failure allows the stop and leaves one line in the log.
 import io
 import json
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 import stop_guard
@@ -56,7 +59,7 @@ def judging(waits: float, allowed: float):
 def test_a_question_mid_implement_is_sent_back_with_the_ruling_instruction(transcript, loaded):
     path = transcript(loaded, said("m1", "Which library do you prefer?"))
     verdict = stop_guard.decide({"transcript_path": path, "stop_hook_active": False}, judging(0.9, 0.1))
-    assert verdict == {"decision": "block", "reason": stop_guard.REASON}
+    assert verdict == {"decision": "block", "reason": stop_guard.reason()}
     assert "post a ruling as an issue comment" in verdict["reason"]
 
 
@@ -217,7 +220,7 @@ def test_an_implement_load_after_the_run_ended_starts_a_new_run(transcript, ende
     path = transcript(LOADS_IMPLEMENT, ended, SLASH_IMPLEMENT, said("m1", "Which library do you prefer?"))
     assert stop_guard.decide({"transcript_path": path}, judging(0.9, 0.1)) == {
         "decision": "block",
-        "reason": stop_guard.REASON,
+        "reason": stop_guard.reason(),
     }
 
 
@@ -309,3 +312,35 @@ def test_a_prompt_whose_origin_is_not_human_is_not_the_users_whatever_its_text(t
 def test_a_wrapped_message_with_no_origin_keeps_the_text_rule(transcript):
     path = transcript(LOADS_IMPLEMENT, user(WOKEN), WAITS)
     assert stop_guard.decide({"transcript_path": path}, judging(0.9, 0.1))["decision"] == "block"
+
+
+@pytest.mark.parametrize(
+    ("entries", "loads_jev"),
+    [([said("m1", "Done for today.")], False), ([LOADS_IMPLEMENT, said("m1", "Which library?")], True)],
+    ids=["no implement run", "implement run"],
+)
+def test_jev_and_the_sdk_load_only_when_there_is_a_message_to_judge(transcript, tmp_path, entries, loads_jev):
+    # The hook runs on every turn of every session, and importing Jev and the SDK is most of its start.
+    hook = json.dumps({"transcript_path": transcript(*entries), "stop_hook_active": False})
+    probe = (
+        "import io, pathlib, sys; import stop_guard; stop_guard.LOG = pathlib.Path(sys.argv[1]);"
+        f" stop_guard.main(io.StringIO({hook!r}), client_factory=lambda: (_ for _ in ()).throw(RuntimeError('no live Jev in a unit test')));"
+        " print(sorted(m for m in ('jev', 'jevtools', 'typesafe_sdk') if m in sys.modules))"
+    )
+    scripts = Path(stop_guard.__file__).parent
+    loaded = subprocess.run(
+        [sys.executable, "-c", probe, str(tmp_path / "stop-guard.log")],
+        cwd=scripts,
+        capture_output=True,
+        text=True,
+        check=True,
+        env={"PYTHONPATH": str(scripts)},
+    ).stdout.strip()
+    assert (loaded != "[]") is loads_jev
+
+
+@pytest.mark.parametrize(("spec", "imports_needs_uv"), [(None, True), (object(), False)], ids=["missing", "found"])
+def test_ensure_sdk_hands_off_to_needs_uv_only_when_the_sdk_is_missing(monkeypatch, spec, imports_needs_uv):
+    monkeypatch.delitem(sys.modules, "needs_uv", raising=False)
+    stop_guard.ensure_sdk(lambda name: spec)
+    assert ("needs_uv" in sys.modules) is imports_needs_uv
