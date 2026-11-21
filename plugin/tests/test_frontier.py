@@ -392,3 +392,73 @@ def test_remote_branches_reads_origin_heads_from_real_git(tmp_path, monkeypatch)
     subprocess.run([*git, "push", "-q", "origin", "HEAD:refs/heads/14-export", "HEAD:refs/heads/main"], check=True)
     monkeypatch.chdir(clone)
     assert sorted(frontier.remote_branches(frontier.run_command)) == ["14-export", "main"]
+
+
+def issue_json(identifier, state="Todo", children=(), blocked_by=(), labels=(), comments=()):
+    return {
+        "identifier": identifier,
+        "state": state,
+        "labels": list(labels),
+        "children": list(children),
+        "blockedBy": list(blocked_by),
+        "comments": list(comments),
+    }
+
+
+@pytest.fixture
+def snapshot(tmp_path):
+    started = {"body": "Started oli-12-farewell\n\ncompost-session: s-other", "createdAt": "2026-11-13T11:30:00Z"}
+    data = {
+        "issues": [
+            issue_json("OLI-10", children=["OLI-11", "OLI-12", "OLI-13", "OLI-14", "OLI-99"]),
+            issue_json("OLI-11", state="Done"),
+            issue_json("OLI-12", comments=[started]),
+            issue_json("OLI-13", blocked_by=["OLI-15"]),
+            issue_json("OLI-14", labels=["ready-for-human"], blocked_by=["OLI-11"]),
+            issue_json("OLI-15", state="Canceled"),
+            issue_json("OLI-16", comments=[{"body": "Claimed by s-l", "createdAt": "2026-11-13T11:00:00Z"}]),
+        ]
+    }
+    path = tmp_path / "linear.json"
+    path.write_text(json.dumps(data))
+    return path
+
+
+def test_cli_issues_on_linear_reads_the_snapshot_and_matches_linear_branch_names(snapshot, capsys):
+    forge = Forge({}, ["josh/oli-12-farewell"])
+    args = ["issues", "OLI-10", "--tracker", "linear", "--snapshot", str(snapshot), "--session", "s-me"]
+    assert frontier.main(args, forge, NOW) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "#11 done: closed",
+        "#12 taken [josh/oli-12-farewell]: s-other is live (last comment 2026-11-13 11:30Z)",
+        "#13 frontier: no branch yet: push one at the feature SHA and post Started",
+        "#14 ready-for-human: needs a person; list it under Risk",
+    ]
+
+
+def test_cli_claim_on_linear_reads_the_decision_comments(snapshot, capsys):
+    args = ["claim", "OLI-16", "--tracker", "linear", "--snapshot", str(snapshot)]
+    assert frontier.main(args, Forge({}), NOW) == 0
+    assert capsys.readouterr().out == "s-l\n"
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (["OLI-77", "--tracker", "linear", "--snapshot", "SNAP"], "OLI-77 is not in the Linear snapshot"),
+        (["OLI-10", "--tracker", "linear"], "--snapshot goes with --tracker linear"),
+        (["10", "--tracker", "local", "--snapshot", "SNAP"], "--snapshot goes with --tracker linear"),
+        (["OLI-10", "--tracker", "linear", "--snapshot", "missing.json"], "cannot read the Linear snapshot"),
+    ],
+)
+def test_cli_linear_reports_a_bad_snapshot_or_flags(snapshot, capsys, args, message):
+    args = [str(snapshot) if a == "SNAP" else a for a in args]
+    assert frontier.main(["issues", *args], Forge({}), NOW) == 1
+    assert message in capsys.readouterr().err
+
+
+def test_linear_number_needs_an_identifier_and_a_bare_branch_still_matches():
+    with pytest.raises(frontier.FrontierError, match="not a Linear identifier"):
+        frontier.linear_number("seventeen")
+    assert frontier.branch_for(17, ["17-slug", "x/oli-17-slug", "oli-171-slug"], "OLI") == "17-slug"
+    assert frontier.branch_for(17, ["x/oli-17-slug"], None) is None

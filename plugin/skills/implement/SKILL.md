@@ -35,8 +35,8 @@ the work so each step can be checked before the next builds on it
    `git worktree list` show what already landed.
 
 2. **Compute the frontier.** Run
-   `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/frontier.py issues <parent> --tracker <github|gitlab|local>`
-   (the tracker `docs/agents/issue-tracker.md` names; a local tracker takes the `spec.md` path)
+   `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/frontier.py issues <parent> --tracker <tracker>`
+   (`docs/agents/issue-tracker.md` names it; local takes the `spec.md` path, linear `--snapshot <file>`)
    and act on the state it prints for each sub-issue. Its definitions
    are the only ones; `compost:build` and `compost:pause` use them too.
    - **Session id:** `frontier.py session`, kept in the clone's git dir so it survives
