@@ -324,7 +324,7 @@ def test_jev_and_the_sdk_load_only_when_there_is_a_message_to_judge(transcript, 
     hook = json.dumps({"transcript_path": transcript(*entries), "stop_hook_active": False})
     probe = (
         "import io, pathlib, sys; import stop_guard; stop_guard.LOG = pathlib.Path(sys.argv[1]);"
-        f" stop_guard.main(io.StringIO({hook!r}));"
+        f" stop_guard.main(io.StringIO({hook!r}), client_factory=lambda: (_ for _ in ()).throw(RuntimeError('no live Jev in a unit test')));"
         " print(sorted(m for m in ('jev', 'jevtools', 'typesafe_sdk') if m in sys.modules))"
     )
     scripts = Path(stop_guard.__file__).parent

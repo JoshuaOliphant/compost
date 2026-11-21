@@ -97,40 +97,25 @@ def test_without_a_way_to_install_the_sdk_it_exits_3_in_one_line(environ, sync_c
     assert err.endswith(f" and {cause}. Run it as `uv run scripts/jev.py`, or make this call yourself.\n")
 
 
-def bare_python(*args, path, stdin=None):
+def bare_python(*args, path, stdin=None, home=None):
     """Runs a script with -S, so the dev environment's typesafe-sdk is out of sight, as for a plain python3."""
     env = {key: value for key, value in os.environ.items() if key != "COMPOST_UV_REEXEC"}
     env["PATH"] = path
+    if home:
+        env["HOME"] = str(home)
     return subprocess.run(
         [sys.executable, "-S", *args], input=stdin, capture_output=True, text=True, env=env, timeout=120, check=False
     )
 
 
-def waiting_stop(tmp_path) -> str:
-    """A Stop hook's input whose transcript has an implement run waiting on the user, so stop_guard needs Jev."""
-    transcript = tmp_path / "session.jsonl"
-    loads = {
-        "type": "assistant",
-        "message": {
-            "id": "m0",
-            "content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "compost:implement"}}],
-        },
-    }
-    asks = {"type": "assistant", "message": {"id": "m1", "content": [{"type": "text", "text": "Which library?"}]}}
-    transcript.write_text(f"{json.dumps(loads)}\n{json.dumps(asks)}\n")
-    return json.dumps({"transcript_path": str(transcript), "stop_hook_active": False})
-
-
 def test_the_scripts_that_need_typesafe_sdk_are_the_ones_found():
-    """stop_guard.py gets the guard through its `import jev` (deferred until it has a message to judge); a new script with the header joins the next test."""
+    """stop_guard.py gets the guard through its `import jev`; a new script with the header joins the next test."""
     assert JEV_SCRIPTS == ["jev.py", "lint/jev_lint.py", "lint/run_eval.py", "stop_guard.py"]
 
 
 @pytest.mark.parametrize("script", JEV_SCRIPTS)
 def test_each_jev_script_under_bare_python_without_uv_exits_3_without_a_traceback(script, tmp_path):
-    # stop_guard.py imports Jev only once it has a message to judge, so it gets one.
-    stdin = waiting_stop(tmp_path) if script == "stop_guard.py" else None
-    ran = bare_python(str(SCRIPTS / script), path=str(tmp_path), stdin=stdin)
+    ran = bare_python(str(SCRIPTS / script), path=str(tmp_path))
     assert ran.returncode == 3, ran.stderr
     assert "Traceback" not in ran.stderr
     assert f"Run it as `uv run {SCRIPTS / script}`" in ran.stderr
@@ -141,3 +126,23 @@ def test_jev_py_under_bare_python_re_execs_under_uv_and_lists_the_tools():
     ran = bare_python(str(SCRIPTS / "jev.py"), "list", path=os.environ["PATH"])
     assert ran.returncode == 0, ran.stderr
     assert "review-risk" in ran.stdout
+
+
+@pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv on PATH")
+def test_stop_guard_under_bare_python_re_execs_under_uv_before_reading_its_input(tmp_path, monkeypatch):
+    """stop_guard.py reads the hook's input on stdin; a re-exec after that read would leave the new process none."""
+    loads = {
+        "type": "assistant",
+        "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "compost:implement"}}]},
+    }
+    asks = {"type": "assistant", "message": {"id": "m1", "content": [{"type": "text", "text": "Which library?"}]}}
+    transcript = tmp_path / "session.jsonl"
+    transcript.write_text(f"{json.dumps(loads)}\n{json.dumps(asks)}\n")
+    # A message to judge, so the guard reaches Jev; a closed local port keeps the judgment offline.
+    monkeypatch.setenv("TYPESAFE_BASE_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("TYPESAFE_API_KEY", "unit-test")
+    hook = json.dumps({"transcript_path": str(transcript), "stop_hook_active": False})
+    ran = bare_python(str(SCRIPTS / "stop_guard.py"), path=os.environ["PATH"], stdin=hook, home=tmp_path)
+    assert ran.returncode == 0, ran.stderr
+    logged = (tmp_path / ".cache" / "compost" / "stop-guard.log").read_text()
+    assert "JSONDecodeError" not in logged and "Unavailable" in logged

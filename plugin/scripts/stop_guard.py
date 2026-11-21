@@ -14,6 +14,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+# Jev loads only once there is a message to judge, after main() reads stdin, so a re-exec under uv (plain python3
+# without the SDK) has to happen here, while stdin is still unread.
+import needs_uv  # noqa: F401 - re-execs under uv, or exits 3
+
 LOG = Path.home() / ".cache" / "compost" / "stop-guard.log"
 IMPLEMENT = "compost:implement"
 FINISH = "compost:finish"

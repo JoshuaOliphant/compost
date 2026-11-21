@@ -1,6 +1,6 @@
 # ABOUTME: Lets a script whose typesafe-sdk dependency lives only in its PEP 723 header run under plain python3.
 # ABOUTME: Importing it has uv install the SDK and re-execs the script under `uv run --script`, or exits 3 saying how.
-import importlib
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -18,11 +18,8 @@ def ensure(
     what argv[0]'s inline metadata declares and replaces this process with that script under uv; exits 3 when uv
     is missing, its install fails, or it already ran the script."""
     environ = os.environ if environ is None else environ
-    try:
-        importlib.import_module(module)
-    except ImportError:
-        pass
-    else:
+    # Looked up, not imported: the stop-guard imports this on every turn and loads the SDK only when it needs it.
+    if importlib.util.find_spec(module) is not None:
         environ.pop(MARKER, None)
         return
     argv = sys.argv if argv is None else argv
