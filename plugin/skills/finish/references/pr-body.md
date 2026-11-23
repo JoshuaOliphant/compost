@@ -43,6 +43,8 @@ seeing. Pick the smallest view that makes the key point clear.>
 - <Anything unproven, with the rung it reached.>
 - <Anything deferred, with the issue that tracks it.>
 - <Coverage exclusions proposed and why the lines earn no test.>
+- Gate drift: <each `gate_drift.py` hit as kind, path, detail, with its ruling, and any base gate
+  that failed on this branch>, or "None: the branch edits none of its own checks."
 
 Closes #<parent>, closes #<sub-issue>, closes #<sub-issue>
 ```
