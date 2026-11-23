@@ -179,6 +179,37 @@ def test_branching_skills_fast_forward_the_default_branch_and_rule_when_it_canno
         assert phrase in rule, f"{skill}'s {step!r} step lacks {phrase!r}"
 
 
+def step_text(skill, step):
+    text = " ".join((PLUGIN_ROOT / "skills" / skill / "SKILL.md").read_text().split())
+    return re.split(r" \d+\. \*\*", text.split(f"**{step}**", 1)[1], maxsplit=1)[0]
+
+
+@pytest.mark.parametrize(
+    ("skill", "step", "reports"),
+    [
+        ("verify", "Prove the one fact the change is safe because of.", "feature-map rows"),
+        ("build", "See every new or changed test fail for the right reason.", None),
+    ],
+)
+def test_live_checks_run_the_recorded_smoke_command_before_falling_back_to_run(skill, step, reports):
+    rule = step_text(skill, step)
+    smoke = rule.find("smoke command")
+    assert smoke != -1 and "`## Run`" in rule, f"{skill}'s {step!r} step does not read the recorded smoke command"
+    assert smoke < rule.find("`/run`"), f"{skill}'s {step!r} step reaches for /run before the smoke command"
+    assert reports is None or reports in rule
+
+
+def test_setup_records_a_smoke_command_and_feature_map_under_run():
+    rule = step_text("setup", "Test convention, gates, and the run.")
+    assert "`## Run`" in rule and "smoke command" in rule and "feature map" in rule
+    reference = (PLUGIN_ROOT / "skills" / "setup" / "references" / "testing.md").read_text()
+    template = reference.split("## Template for docs/agents/testing.md", 1)[1]
+    run = template.split("\n## Run\n", 1)[1].split("\n## ", 1)[0]
+    assert "| Feature | How to reach it | Expected result |" in run
+    for status in ("passing", "broken: <first error>", "none: <why>"):
+        assert status in run, f"the ## Run template has no {status!r} status"
+
+
 def test_stop_guard_reference_keeps_the_rules_step_9_points_to():
     text = " ".join((PLUGIN_ROOT / "skills" / "implement" / "references" / "stop-guard.md").read_text().split())
     for phrase in (

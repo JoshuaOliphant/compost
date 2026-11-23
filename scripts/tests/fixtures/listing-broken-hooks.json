@@ -1,0 +1,24 @@
+[
+  {
+    "id": "compost@compost",
+    "version": "0.48.0",
+    "scope": "user",
+    "enabled": true,
+    "installPath": "/tmp/smoke/cfg/plugins/cache/compost/compost/0.48.0",
+    "readFromFolder": "/tmp/smoke/src/plugin",
+    "folderVersion": "0.48.0",
+    "installedAt": "2026-11-23T22:10:45.226Z",
+    "lastUpdated": "2026-11-23T22:10:45.226Z",
+    "errors": [
+      "Hook load failed: JSON Parse error: Unexpected identifier ”broken”"
+    ],
+    "errorDetails": [
+      {
+        "type": "hook-load-failed",
+        "plugin": "compost",
+        "path": "/tmp/smoke/src/plugin/hooks/hooks.json"
+      }
+    ],
+    "projectEnabled": false
+  }
+]

@@ -153,9 +153,14 @@ command can: judge whether it ran what changed, and prove the fact the change is
       version, with the line read from that file alone (`cat -n a b c` numbers across files).
    3. Walked: you traced the bad case step by step and showed it cannot happen.
    4. Ran: a script or test calls the real code and fails loudly if the fact is false.
-   5. Reproduced live: the running app shows it. Use the bundled `/run` to start and drive it.
-      The bundled `/verify` does the same but only the user can run it; suggest it when they
-      want to see it themselves.
+   5. Reproduced live: the running app shows it. Run the smoke command `docs/agents/testing.md`
+      records under `## Run`, pointed at the changed path where it takes arguments. Fall back
+      to the bundled `/run` to start and drive the app only when `## Run` is missing or records
+      `none`. The bundled `/verify` does the same but only the user can run it; suggest it when
+      they want to see it themselves.
+
+   When `## Run` has a feature map, name in the report the feature-map rows the change touches
+   and each one's result: reached through the smoke command or by hand, as expected or not.
 
    When `docs/agents/observability.md` records a stack and the change runs at runtime, reach the
    last rung through it: exercise the changed path once, then query for its span, log, or metric
