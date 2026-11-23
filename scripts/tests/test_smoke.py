@@ -295,6 +295,16 @@ def break_listing(fake):
     (fake.state / "listing.json").write_text((FIXTURES / "listing-broken-hooks.json").read_text())
 
 
+def garble_listing(fake):
+    (fake.state / "listing.json").write_text("Loading plugins...")
+
+
+def drop_install_path(fake):
+    entries = listing("listing-pass.json")
+    del entries[0]["installPath"]
+    (fake.state / "listing.json").write_text(json.dumps(entries))
+
+
 def block_the_stop(fake):
     fake.stop_hook("""echo '{"decision": "block", "reason": "waits on the user"}'""")
 
@@ -325,6 +335,8 @@ def fail_the_turn(fake):
     [
         (fail_marketplace_add, "install", "fake claude: plugin marketplace failed", False),
         (break_listing, "install", "Hook load failed", False),
+        (garble_listing, "install", "plugin list --json printed no JSON", False),
+        (drop_install_path, "install", "compost@compost has no installPath", False),
         (
             block_the_stop,
             "stop-guard",
@@ -339,6 +351,8 @@ def fail_the_turn(fake):
     ids=[
         "marketplace-add-fails",
         "broken-hooks-json",
+        "listing-not-json",
+        "listing-without-install-path",
         "guard-blocks",
         "guard-crashes",
         "guard-hangs",

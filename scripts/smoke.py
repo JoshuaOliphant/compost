@@ -71,6 +71,8 @@ def listing_problems(entries: list[dict]) -> list[str]:
     if entry is None:
         return [f"{PLUGIN_ID} is not installed"]
     problems = [] if entry.get("enabled") else [f"{PLUGIN_ID} is installed but not enabled"]
+    if not entry.get("installPath"):
+        problems.append(f"{PLUGIN_ID} has no installPath")
     return problems + [str(error) for error in entry.get("errors") or []]
 
 
@@ -181,10 +183,16 @@ def install(claude: str, source: Path, root: Path, env: dict[str, str]) -> Path:
     staged = stage(source, root / "src")
     cli(claude, ["plugin", "marketplace", "add", str(staged)], env, root, "install")
     cli(claude, ["plugin", "install", PLUGIN_ID], env, root, "install")
-    entries = json.loads(cli(claude, ["plugin", "list", "--json"], env, root, "install"))
+    listed = cli(claude, ["plugin", "list", "--json"], env, root, "install")
+    try:
+        entries = json.loads(listed)
+    except json.JSONDecodeError:
+        raise SmokeFailed(
+            "install", f"plugin list --json printed no JSON: {listed[:200]!r}"
+        ) from None
     if problems := listing_problems(entries):
         raise SmokeFailed("install", "; ".join(problems))
-    return Path(next(entry for entry in entries if entry["id"] == PLUGIN_ID)["installPath"])
+    return Path(next(entry for entry in entries if entry.get("id") == PLUGIN_ID)["installPath"])
 
 
 def guard(plugin_root: Path, root: Path, env: dict[str, str]) -> None:

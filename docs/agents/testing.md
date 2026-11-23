@@ -20,7 +20,7 @@ pytest, adopted from the existing suite.
 | Gate | Command | Status |
 |---|---|---|
 | Coverage | `cd plugin && uv run --group dev pytest` | passing |
-| Repo tests | `uv run --group dev pytest -q` (version check, experiment harnesses) | passing |
+| Repo tests | `uv run --group dev pytest -q` (version check, smoke script, experiment harnesses) | passing |
 | Lint | `uv run --group dev ruff check .` | passing |
 | Format | `uv run --group dev ruff format --check .` | passing |
 
@@ -29,14 +29,8 @@ Ollaya server, though their floors were set on Jev) and the private compost-eval
 
 ## Run
 
-Smoke command: `scripts/smoke`, passing (under a minute on haiku).
-It copies `.claude-plugin/` and `plugin/` from the working tree, installs compost from that copy
-into a throwaway `CLAUDE_CONFIG_DIR`, and checks `claude plugin list --json` shows it enabled
-without load errors. It then runs the installed Stop hook on a transcript with no implement run
-(it must allow the stop), and one `claude -p` turn on haiku that must load `compost:verify`,
-checked in stream-json. It exits non-zero on the first failure and keeps its scratch dir then.
-`--model`, `--keep`, and `--source <tree>` (to install a copy with a planted break) are its options.
-Its unit tests, on recorded plugin-list and stream-json fixtures, are in `scripts/tests/test_smoke.py`.
+Smoke command: `scripts/smoke`, passing (under a minute on haiku). What it runs and its options are
+in its docstring and `scripts/smoke --help`.
 
 | Feature | How to reach it | Expected result |
 |---|---|---|
