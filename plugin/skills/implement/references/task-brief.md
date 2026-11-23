@@ -52,6 +52,8 @@ Produces: <what later issues rely on; keep these names and signatures exactly>
 5. When something is ambiguous, pick the reading a careful colleague would pick, post it as a
    ruling comment on the issue (Ruling / Why / Cost if wrong), and keep going.
 6. Stay inside this issue. Anything else you notice goes in your report as a follow-up.
+7. A failing gate gets three rounds of fixes. If it still fails after the third round, stop: post
+   a ruling with the failing output on the issue and report DONE_WITH_CONCERNS.
 
 ## Report
 Reply in under 15 lines:

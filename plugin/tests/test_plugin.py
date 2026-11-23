@@ -203,6 +203,48 @@ def test_live_checks_run_the_recorded_smoke_command_before_falling_back_to_run(s
     assert reports is None or reports in rule
 
 
+@pytest.mark.parametrize(
+    ("skill", "step", "phrases"),
+    [
+        pytest.param(
+            "build",
+            "Place each acceptance criterion.",
+            ("property test", "round-trip", "invariant", "idempotent", "naive", "differential test", "oracle"),
+            id="AC-1-build-names-property-and-differential-tests",
+        ),
+        pytest.param(
+            "verify",
+            "Run the verify command, and any gate it leaves out, fresh.",
+            ("flaky test is never skipped, slept past, or retried", "delete", "ruling"),
+            id="AC-2-verify-bans-flaky-shortcuts",
+        ),
+        pytest.param(
+            "diagnose",
+            "Build the feedback loop.",
+            ("flaky test is never skipped, slept past, or retried", "delete", "ruling"),
+            id="AC-2-diagnose-bans-flaky-shortcuts",
+        ),
+        pytest.param(
+            "implement",
+            "Review every issue.",
+            ("failing gate", "three", "references/task-brief.md"),
+            id="AC-3-implement-caps-gate-rounds",
+        ),
+    ],
+)
+def test_skills_carry_the_verification_rules_from_the_post(skill, step, phrases):
+    rule = step_text(skill, step)
+    for phrase in phrases:
+        assert phrase in rule, f"{skill}'s {step!r} step lacks {phrase!r}"
+
+
+def test_task_brief_caps_a_failing_gate_at_three_rounds_then_rules_and_moves_on():
+    brief = " ".join((PLUGIN_ROOT / "skills" / "implement" / "references" / "task-brief.md").read_text().split())
+    how = brief.split("## How to work", 1)[1].split("## Report", 1)[0]
+    for phrase in ("failing gate", "third round", "ruling", "failing output", "DONE_WITH_CONCERNS"):
+        assert phrase in how, f"the task brief's How to work lacks {phrase!r}"
+
+
 def test_setup_records_a_smoke_command_and_feature_map_under_run():
     rule = step_text("setup", "Test convention, gates, and the run.")
     assert "`## Run`" in rule and "smoke command" in rule and "feature map" in rule

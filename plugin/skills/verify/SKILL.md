@@ -80,6 +80,8 @@ command can: judge whether it ran what changed, and prove the fact the change is
    run on the base SHA first. Red there, it is pre-existing: file an issue, fix it in its own `fix:` commit
    only if it blocks a gate, and post a ruling. Green there, the change broke it: fix it if the
    cause is plain; otherwise hand it to `compost:diagnose`. A warning the gate prints is a finding too: fix it, or say why it stays.
+   A flaky test is never skipped, slept past, or retried until green: fix its cause, or delete
+   it with the reason in a ruling.
    When a subagent did the work, read `git diff` yourself rather than trusting its report.
 
 3. **Hold the coverage gate.** The gate is 100% line coverage, for example

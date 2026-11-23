@@ -33,6 +33,8 @@ comes first, the theory second, and the fix last, at the root. The why is in
    - **Red-capable**: it drives the real code path and asserts the user's exact symptom, so it can
      catch this bug. "Runs without erroring" does not qualify.
    - **Deterministic**: same verdict every run. For a flaky bug, a pinned, high reproduction rate.
+     A flaky test is never skipped, slept past, or retried until green: fix the cause this loop
+     finds, or delete the test with the reason in a ruling when none turns up.
    - **Fast**: seconds, not minutes. An agent eval, where the bug is what an agent did, is slow
      and flaky by nature: iterate on single trials, and judge cuts and the fix by its rate over N.
    - **Agent-runnable**: it runs unattended. A human in the loop only through
