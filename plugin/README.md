@@ -137,6 +137,16 @@ quoting the card as data to verify; the toast names the session for `claude atta
 set. It does not call any outside service. Without hooks modules, deepen gives the candidates in
 the conversation only.
 
+`compost:verify` stamps the commit it says done on: a git note under `refs/notes/compost-verify`
+holding its summary (`scripts/stamp.py`; `show <rev>` prints it or `none`, `log <range>` lists a
+range). `compost:finish` reads the stamp on HEAD and pushes the notes with the branch. The
+`verify-gate` hook (`scripts/verify_gate.py`, a plain-Python PreToolUse hook on Bash) watches `git
+push`, `gh pr create`, and `gh api .../pulls` creates: when HEAD has no stamp it appends a line to
+`~/.claude/verify-gate/log.jsonl`. `COMPOST_VERIFY_GATE` sets its mode: `observe` (the default)
+only logs, `enforce` blocks with a reason naming `compost:verify` and, after two blocks in a
+session, lets the next attempt through as a logged `bypass`, and `off` does nothing. Commits made
+during build are not gated; the gate sits where work leaves the machine.
+
 Thresholds were chosen from the same labeled cases they are measured on, so treat the numbers as
 upper bounds until the tools have run on real work. The labeled cases are drawn from private
 projects and sessions, so they live in a separate private repo, `compost-evals`. With a checkout,

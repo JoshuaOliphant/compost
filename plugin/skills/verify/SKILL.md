@@ -177,6 +177,19 @@ command can: judge whether it ran what changed, and prove the fact the change is
    and its command's output ([jev](references/jev.md)), and fix or drop each one in `unbacked`.
    Exit 3: reread each output against its claim yourself. Say "done" only
    when every row is met and every gate is green. Otherwise state the actual status.
+   When you say "done", and never otherwise, stamp the commit you verified, so `compost:finish`
+   and the verify gate can tell this SHA was verified:
+
+   ```bash
+   uv run ${CLAUDE_PLUGIN_ROOT}/scripts/stamp.py write --json \
+     '{"gates": "4/4", "ac": "7/7", "mutants": "41/45", "rung": "e2e"}'
+   ```
+
+   The summary is one JSON object: gates green/run, AC met/total, mutants killed/run (or `null`
+   with no mutation tool), and the rung step 6 reached; `write` adds the time. It stamps HEAD
+   (`--rev` names another commit) as a git note under `refs/notes/compost-verify`, so the stamp
+   belongs to that SHA and a later commit starts with none. `stamp.py show <rev>` prints a stamp
+   or `none`, and `stamp.py log <range>` lists each commit's.
 
 ## Next moves
 

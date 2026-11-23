@@ -2,15 +2,19 @@
 # ABOUTME: pile.toml feeds and NOTICE, the tracker-doc fork-check fallback, the lane-routing table's values,
 # ABOUTME: implement's stop list against the Stop hook's, that branching skills update the default branch first,
 # ABOUTME: and that git tracks every shipped file. Runs on the real files.
+import io
 import itertools
+import json
 import os
 import re
+import shlex
 import subprocess
 
 import pile
 import pytest
+import stamp
 import yaml
-from conftest import PLUGIN_ROOT
+from conftest import PLUGIN_ROOT, commit
 from jevtools import meta
 
 LOCAL_ONLY = {"tests", ".venv", ".pytest_cache", "__pycache__"}
@@ -204,3 +208,36 @@ def test_every_skill_and_agent_reading_the_tracker_doc_falls_back_to_setups_fork
         assert "fork check" in text and "setup/references/issue-tracker-github.md" in text, (
             f"{path.relative_to(PLUGIN_ROOT)} reads the tracker doc but has no fallback for one without the fork check"
         )
+
+
+def step(skill: str, title: str) -> str:
+    """The text of a skill's numbered step, from its bold title to the next step or section."""
+    text = (PLUGIN_ROOT / "skills" / skill / "SKILL.md").read_text()
+    return re.split(r"^(?:\d+\. \*\*|## )", text.split(f"**{title}**", 1)[1], maxsplit=1, flags=re.MULTILINE)[0]
+
+
+def stamp_commands(text: str) -> list[list[str]]:
+    """Each `scripts/stamp.py ...` invocation in skill text, as stamp.main's argv, line continuations joined."""
+    return [shlex.split(call) for call in re.findall(r"scripts/stamp\.py ([^`\n]+)", text.replace("\\\n", " "))]
+
+
+def test_verify_stamps_only_on_done_and_finish_sends_an_unstamped_head_back_to_verify(work_repo, monkeypatch):
+    """Runs the stamp commands as the skills give them: finish's read prints none until verify's write runs."""
+    verify = step("verify", "Report the evidence.")
+    finish = " ".join(step("finish", "Confirm the branch is ready.").split())
+    assert 'When you say "done", and never otherwise, stamp the commit' in " ".join(verify.split())
+    assert "`none` means" in finish and "run `compost:verify` again first" in finish
+    [write], [show] = stamp_commands(verify), stamp_commands(finish)
+    assert write[0] == "write" and show == ["show", "HEAD"]
+    monkeypatch.chdir(work_repo)
+
+    def shown() -> str:
+        out = io.StringIO()
+        assert stamp.main(show, out) == 0
+        return out.getvalue().strip()
+
+    assert shown() == "none"
+    assert stamp.main(write) == 0
+    assert json.loads(shown())["ac"] == "7/7"
+    commit(work_repo, {"file.txt": "after verify\n"}, "a commit after verify")
+    assert shown() == "none"

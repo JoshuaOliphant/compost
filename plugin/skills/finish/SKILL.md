@@ -19,7 +19,10 @@ yours to do without asking.
    A skipped review is a gap to close here, never a line under Risk, and so is one recorded as
    incomplete on an axis. Every `compost:review`
    finding is fixed or answered on the issue with a `file:line` reason. `compost:verify` ran on
-   the current HEAD. If commits landed after its last run, run it again first.
+   the current HEAD: read its stamp rather than your memory of the run, with
+   `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/stamp.py show HEAD`. It prints the summary verify's step 9
+   wrote on this SHA, or `none`. `none` means verify never said done on this commit, or commits
+   landed after it did: run `compost:verify` again first.
 
 2. **Record where you are.** Capture these now, because cleanup runs from another directory:
 
@@ -62,7 +65,8 @@ yours to do without asking.
    `git worktree remove` it. A worktree-isolated session may refuse to work outside its own
    worktree; then take the merge-into-the-branch path above.
 
-5. **Open or update the pull request.** Push the branch and open a draft PR against the target,
+5. **Open or update the pull request.** Push the branch with its verify stamps
+   (`git push origin "$branch" refs/notes/compost-verify`) and open a draft PR against the target,
    or update the open one. The body has five sections: Goal, Decisions, Changes, Validation,
    Risk. Decisions summarizes the rulings posted as issue comments. Validation carries
    `compost:verify`'s evidence and the merge-result run. Risk calls the change a one-way or
