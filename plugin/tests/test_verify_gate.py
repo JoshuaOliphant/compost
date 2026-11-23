@@ -64,21 +64,35 @@ def test_observe_lets_an_unstamped_push_through_and_logs_session_repo_and_sha(wo
         ("GIT_TRACE=1 git push", "push"),
         ("git status && git push --follow-tags", "push"),
         ("git -c push.default=current push", "push"),
+        ("git --no-pager push", "push"),
+        ("git --version && git push", "push"),
+        ("git -C && git push", "push"),
+        ("FOO=1; git push", "push"),
+        ("cd && git push", "push"),
+        ("bash -lc true && git push", "push"),
+        ("echo 'unterminated && git push", "push"),
         ("gh pr create --draft --title x --body y", "pr-create"),
         ("gh api repos/o/r/pulls -f title=x -f head=b -f base=main", "pr-create"),
-        ("gh api --method POST repos/o/r/pulls --input body.json", "pr-create"),
+        ("gh api repos/o/r/pulls --raw-field=title=x", "pr-create"),
+        ("gh api --method post repos/o/r/pulls --input body.json", "pr-create"),
         ("gh api -X POST /repos/o/r/pulls/", "pr-create"),
+        ("gh api repos/o/r/pulls -X POST", "pr-create"),
         ("git status", None),
         ("git log --grep push", None),
         ("echo git push", None),
+        ("echo push", None),
+        ("make push", None),
         ("git push origin --delete feat", None),
         ("git commit -m 'git push later'", None),
         ("gh pr list", None),
+        ("echo pr create", None),
+        ("hub pr create", None),
+        ("gh issue create --title pulls -F body.md", None),
         ("gh api repos/o/r/pulls", None),
         ("gh api repos/o/r/pulls/3 -X PATCH -f body=x", None),
+        ("gh api -X PUT repos/o/r/pulls -f title=x", None),
         ("gh api repos/o/r/issues -f title=x", None),
         ("gh api -X GET repos/o/r/pulls -f state=open", None),
-        ("git 'unterminated", None),
     ],
     ids=lambda value: value if isinstance(value, str) else str(value),
 )
@@ -89,10 +103,18 @@ def test_only_a_push_or_a_pr_create_is_gated(work_repo, gate_log, command, kind)
 
 @pytest.mark.parametrize(
     "command",
-    ["git -C {repo} push origin HEAD", "cd {repo} && git push", "cd work; git push", "git -C work push"],
-    ids=["git -C absolute", "cd absolute", "cd relative", "git -C relative"],
+    [
+        "git -C {repo} push origin HEAD",
+        "cd {repo} && git push",
+        "cd work; git push",
+        "git -c core.pager=cat -C work push",
+        "git -C ~/work push",
+        "cd ~/work && git push",
+    ],
+    ids=["git -C absolute", "cd absolute", "cd relative", "git -C relative after -c", "git -C home", "cd home"],
 )
-def test_the_repo_is_the_one_the_command_points_at(work_repo, gate_log, command):
+def test_the_repo_is_the_one_the_command_points_at(work_repo, gate_log, command, monkeypatch):
+    monkeypatch.setenv("HOME", str(work_repo.parent))
     gate(hook(command.format(repo=work_repo), work_repo.parent))
     assert [line["repo"] for line in lines(gate_log)] == [str(work_repo)]
 
@@ -103,17 +125,23 @@ def test_a_push_outside_any_repo_is_left_to_git(tmp_path, gate_log):
 
 
 def test_enforce_blocks_twice_naming_verify_then_lets_the_third_through_as_a_bypass(work_repo, gate_log, monkeypatch):
-    monkeypatch.setenv(verify_gate.MODE_VAR, "enforce")
-    for attempt in (1, 2):
-        verdict = gate(hook("git push", work_repo))
-        output = verdict["hookSpecificOutput"]
+    """Pushes observed in between, in the same session, are not blocks and do not count toward the bypass."""
+    for attempt, observed_after in ((1, 2), (2, 0)):
+        monkeypatch.setenv(verify_gate.MODE_VAR, "enforce")
+        output = gate(hook("git push", work_repo))["hookSpecificOutput"]
         assert output["hookEventName"] == "PreToolUse"
         assert output["permissionDecision"] == "deny"
         assert "compost:verify" in output["permissionDecisionReason"]
         assert f"block {attempt} of 2" in output["permissionDecisionReason"]
+        monkeypatch.setenv(verify_gate.MODE_VAR, "observe")
+        for _ in range(observed_after):
+            gate(hook("git push", work_repo))
+    monkeypatch.setenv(verify_gate.MODE_VAR, "enforce")
     assert gate(hook("git push", work_repo)) is None
-    assert [line["action"] for line in lines(gate_log)] == ["blocked", "blocked", "bypass"]
-    assert gate(hook("git push", work_repo, session="s-2")) is not None
+    actions = ["blocked", "observed", "observed", "blocked", "bypass"]
+    assert [line["action"] for line in lines(gate_log)] == actions
+    for other in ("s-0", "s-2"):
+        assert gate(hook("git push", work_repo, session=other)) is not None, f"{other} inherited s-1's blocks"
 
 
 @pytest.mark.parametrize(

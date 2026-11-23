@@ -37,15 +37,14 @@ def read(repo: Path, rev: str) -> str | None:
     """The stamp on `rev`, or None when it has none. A note is per SHA, so a stamp on an older commit never counts."""
     sha = commit_of(repo, rev)
     shown = git(repo, "notes", f"--ref={REF}", "show", sha)
-    return shown.stdout.strip() if shown.returncode == 0 else None
+    return shown.stdout.strip() or None
 
 
-def write(repo: Path, rev: str, summary: dict) -> str:
+def write(repo: Path, rev: str, summary: dict) -> None:
     """Stamps `rev` with the summary plus the time it was written, replacing any stamp already there."""
     sha = commit_of(repo, rev)
     line = json.dumps({**summary, "time": datetime.now(UTC).isoformat(timespec="seconds")})
     resolve(repo, "notes", f"--ref={REF}", "add", "--force", "--message", line, sha)
-    return line
 
 
 def log(repo: Path, revisions: str) -> list[tuple[str, str | None]]:
@@ -53,8 +52,7 @@ def log(repo: Path, revisions: str) -> list[tuple[str, str | None]]:
     return [(sha, read(repo, sha)) for sha in resolve(repo, "rev-list", revisions)]
 
 
-def main(argv: list[str] | None = None, out=None) -> int:
-    out = out or sys.stdout
+def main(argv: list[str] | None = None, out=sys.stdout) -> int:
     parser = argparse.ArgumentParser(prog="stamp.py")
     commands = parser.add_subparsers(dest="command", required=True)
     writing = commands.add_parser("write", help="stamp a commit with a verify summary")

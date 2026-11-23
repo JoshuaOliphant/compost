@@ -60,6 +60,14 @@ def test_a_summary_that_is_not_a_json_object_is_refused(commits, summary, capsys
     assert run("show", "HEAD") == (0, "none\n")
 
 
+@pytest.mark.parametrize("argv", [[], ["write"]], ids=["no command", "write without --json"])
+def test_the_cli_refuses_an_incomplete_call_with_usage(commits, argv, capsys):
+    with pytest.raises(SystemExit) as exited:
+        stamp.main(argv)
+    assert exited.value.code == 2
+    assert "usage: stamp.py" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("argv", [["show", "no-such-rev"], ["log", "no-such-rev..HEAD"]], ids=["show", "log"])
 def test_a_revision_git_cannot_resolve_is_an_error_not_none(commits, argv, capsys):
     assert run(*argv) == (2, "")

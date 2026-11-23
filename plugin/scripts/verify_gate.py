@@ -8,9 +8,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-import stamp  # noqa: E402 - found through the path above when Claude Code runs this file directly
+import stamp
 
 LOG = Path.home() / ".claude" / "verify-gate" / "log.jsonl"
 MODE_VAR = "COMPOST_VERIFY_GATE"
@@ -21,7 +19,7 @@ BODY_FLAGS = {"-f", "-F", "--field", "--raw-field", "--input"}
 
 
 def mode() -> str:
-    chosen = os.environ.get(MODE_VAR, "observe").strip().lower()
+    chosen = os.environ.get(MODE_VAR, "observe").lower()
     return chosen if chosen in {"off", "observe", "enforce"} else "observe"
 
 
@@ -44,7 +42,7 @@ def creates_pr(words: list[str]) -> bool:
     if words[1:2] != ["api"]:
         return False
     endpoint = any(word.rstrip("/").endswith("pulls") for word in words[2:])
-    has_body = any(word.split("=", 1)[0] in BODY_FLAGS for word in words)
+    has_body = any(word.split("=")[0] in BODY_FLAGS for word in words)
     method = next((words[i + 1] for i, word in enumerate(words[:-1]) if word in {"-X", "--method"}), None)
     return endpoint and (method.upper() == "POST" if method else has_body)
 
@@ -68,15 +66,6 @@ def gated(command: str, cwd: Path) -> tuple[str, Path] | None:
     return None
 
 
-def head(repo: Path) -> tuple[str, str] | None:
-    """The repo's top level and HEAD's SHA, or None outside a repo (git then fails the command on its own)."""
-    try:
-        top, sha = stamp.resolve(repo, "rev-parse", "--show-toplevel", "HEAD")
-    except stamp.GitError:
-        return None
-    return top, sha
-
-
 def record(entry: dict) -> None:
     LOG.parent.mkdir(parents=True, exist_ok=True)
     with LOG.open("a") as handle:
@@ -86,8 +75,8 @@ def record(entry: dict) -> None:
 def blocks_so_far(session: str) -> int:
     if not LOG.exists():
         return 0
-    entries = [json.loads(line) for line in LOG.read_text().splitlines() if line.strip()]
-    return sum(entry.get("session_id") == session and entry.get("action") == "blocked" for entry in entries)
+    entries = [json.loads(line) for line in LOG.read_text().splitlines()]
+    return sum(entry["session_id"] == session and entry["action"] == "blocked" for entry in entries)
 
 
 def deny(reason: str) -> dict:
@@ -96,15 +85,16 @@ def deny(reason: str) -> dict:
 
 
 def decide(hook: dict) -> dict | None:
+    """Raises outside a git repo (rev-parse fails), which main turns into letting the call through: git then fails
+    the command on its own."""
     chosen = mode()
-    command = hook["tool_input"]["command"]
-    if chosen == "off" or not isinstance(command, str) or not (found := gated(command, Path(hook["cwd"]))):
+    if chosen == "off" or not (found := gated(hook["tool_input"]["command"], Path(hook["cwd"]))):
         return None
     kind, directory = found
-    if not (located := head(directory)) or stamp.read(Path(located[0]), located[1]):
+    repo, sha = stamp.resolve(directory, "rev-parse", "--show-toplevel", "HEAD")
+    if stamp.read(Path(repo), sha):
         return None
-    repo, sha = located
-    session = hook.get("session_id", "")
+    session = hook["session_id"]
     entry = {"session_id": session, "repo": repo, "sha": sha, "kind": kind, "mode": chosen}
     if chosen == "observe":
         record(entry | {"action": "observed"})
@@ -122,13 +112,13 @@ def decide(hook: dict) -> dict | None:
     )
 
 
-def main(stdin=None, out=None) -> int:
+def main(stdin=sys.stdin, out=sys.stdout) -> int:
     try:
-        verdict = decide(json.load(stdin or sys.stdin))
+        verdict = decide(json.load(stdin))
     except Exception:  # noqa: BLE001 - a gate that crashes must never trap the Bash call; it lets it through.
         return 0
-    if verdict:
-        print(json.dumps(verdict), file=out or sys.stdout)
+    if verdict is not None:
+        print(json.dumps(verdict), file=out)
     return 0
 
 
