@@ -2,6 +2,12 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.49.0] - 2026-11-23
+
+### Added
+
+- Diff-triggered checks (OLI-111). A `## Checks` section in the base's REVIEW.md lists items with a Trigger, a Check, and a Source. review-changes decides which ones the diff triggers, sends those to the Standards reviewer, and fails the axis unless each one is answered at a `file:line`. diagnose, retro, and review propose new checks after a miss, and prune removes stale ones. compost's own REVIEW.md starts with four checks from real incidents.
+
 ## [0.48.0] - 2026-11-21
 
 ### Changed
