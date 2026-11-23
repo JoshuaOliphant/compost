@@ -71,7 +71,7 @@ def test_observe_lets_an_unstamped_push_through_and_logs_session_repo_and_sha(wo
         ("FOO=1; git push", "push"),
         ("cd && git push", "push"),
         ("bash -lc true && git push", "push"),
-        ("echo 'unterminated && git push", "push"),
+        ("echo 'unterminated && git push", None),
         ("gh pr create --draft --title x --body y", "pr-create"),
         ("gh api repos/o/r/pulls -f title=x -f head=b -f base=main", "pr-create"),
         ("gh api repos/o/r/pulls --raw-field=title=x", "pr-create"),
@@ -149,6 +149,39 @@ def test_the_commit_judged_is_the_one_the_push_sends(work_repo, gate_log, comman
     gate(hook(command, work_repo))
     expected = [run_git(work_repo, "rev-parse", pushed)] if pushed else []
     assert [line["sha"] for line in lines(gate_log)] == expected
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git commit -m \"$(cat <<'EOF'\nfeat: gate pushes\n\ngit push of an unstamped HEAD is now logged\nEOF\n)\"",
+        "gh issue create --title t --body-file - <<EOF\ngh pr create --draft\ngit push origin main\nEOF",
+        'git commit -m "fix: x; git push later (maybe) | gh pr create"',
+        "cat <<-EOF > notes.md\n\tgit push\n\tEOF",
+    ],
+    ids=["heredoc-commit-message", "heredoc-issue-body", "quoted-message", "indented-heredoc"],
+)
+def test_words_inside_quotes_or_a_heredoc_are_never_a_command(work_repo, gate_log, monkeypatch, command):
+    monkeypatch.setenv(verify_gate.MODE_VAR, "enforce")
+    assert gate(hook(command, work_repo)) is None
+    assert lines(gate_log) == []
+
+
+def test_a_push_after_a_heredoc_is_still_gated(work_repo, gate_log):
+    gate(hook("cat <<EOF > m.txt\ngit push\nEOF\ngit push origin main", work_repo))
+    assert [line["kind"] for line in lines(gate_log)] == ["push"]
+
+
+@pytest.mark.parametrize(
+    "command, judged",
+    [("gh pr create --head feature --title t", "feature"), ("gh pr create --head=me:feature", "feature")],
+)
+def test_a_pr_create_is_judged_by_its_head_branch(work_repo, gate_log, monkeypatch, command, judged):
+    run_git(work_repo, "branch", "feature", "HEAD~1")
+    monkeypatch.chdir(work_repo)
+    assert stamp.main(["write", "--json", "{}"]) == 0
+    gate(hook(command, work_repo))
+    assert [line["sha"] for line in lines(gate_log)] == [run_git(work_repo, "rev-parse", judged)]
 
 
 def test_a_push_outside_any_repo_is_left_to_git(tmp_path, gate_log):

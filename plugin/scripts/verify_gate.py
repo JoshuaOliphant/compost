@@ -15,7 +15,8 @@ import stamp
 LOG = Path.home() / ".claude" / "verify-gate" / "log.jsonl"
 MODE_VAR = "COMPOST_VERIFY_GATE"
 BLOCKS_BEFORE_BYPASS = 2
-SEPARATOR = re.compile(r"&&|\|\||[;|\n()]")
+OPERATOR_CHARS = ";&|()<>\n"
+HEREDOC = re.compile(r"<<(-?)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
 WRAPPERS = {"env", "command", "nohup", "sudo", "exec", "time", "timeout"}
 PUSH_VALUE_FLAGS = {"-o", "--push-option", "--repo", "--receive-pack", "--exec"}
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
@@ -83,22 +84,66 @@ def creates_pr(words: list[str]) -> bool:
     return endpoint.rstrip("/").endswith("pulls") and (method.upper() == "POST" if method else has_body)
 
 
+def without_heredoc_bodies(command: str) -> str:
+    """The command with every heredoc's body dropped: its lines are data (a commit message, an issue body), not
+    commands. A body runs to the line that is its delimiter alone (after leading tabs, for `<<-`)."""
+    kept, closing = [], []
+    for line in command.split("\n"):
+        if closing:
+            dash, delimiter = closing[0]
+            if (line.lstrip("\t") if dash else line) == delimiter:
+                closing.pop(0)
+            continue
+        kept.append(line)
+        closing = [(match[1], match[3]) for match in HEREDOC.finditer(line)]
+    return "\n".join(kept)
+
+
+def commands(command: str) -> list[list[str]]:
+    """The simple commands in a Bash command line, as words: tokenized shell-aware, so a separator inside quotes is
+    text, and split on control operators. A redirection (`>`, `2>&1`) and its target are dropped."""
+    lexer = shlex.shlex(without_heredoc_bodies(command), posix=True, punctuation_chars=OPERATOR_CHARS)
+    lexer.whitespace, lexer.whitespace_split = " \t\r", True
+    found, words = [], []
+    tokens = iter(lexer)
+    for token in tokens:
+        if token and set(token) <= set(OPERATOR_CHARS):
+            if "<" in token or ">" in token:
+                next(tokens, None)
+            else:
+                found, words = found + [words], []
+        else:
+            words.append(token)
+    return [command for command in found + [words] if command]
+
+
+def pr_head(words: list[str]) -> str:
+    """The branch a `gh pr create` proposes: its --head (an `owner:branch` names the branch), else HEAD."""
+    for index, word in enumerate(words):
+        if word.startswith("--head=") or (word in {"--head", "-H"} and index + 1 < len(words)):
+            value = word.split("=", 1)[1] if "=" in word else words[index + 1]
+            return value.split(":")[-1]
+    return "HEAD"
+
+
 def gated(command: str, cwd: Path) -> tuple[str, Path, str] | None:
     """The first push or PR create in the command, the directory it runs in (following a `cd` before it), and the
     revision it sends."""
     here = cwd
-    for segment in SEPARATOR.split(command):
-        try:
-            words = shlex.split(segment)
-        except ValueError:
-            continue
+    try:
+        parsed = commands(command)
+    except ValueError:
+        return None  # an unbalanced quote: bash rejects the line too
+    for words in parsed:
         while words and (ASSIGNMENT.match(words[0]) or words[0] in WRAPPERS):
             words = words[2:] if words[0] == "timeout" else words[1:]
         if words[:1] == ["cd"] and len(words) > 1:
             here = here / Path(words[1]).expanduser()
         elif words[:1] == ["git"] and (target := git_target(words, here)):
             return "push", *target
-        elif (words[:1] == ["gh"] and creates_pr(words)) or words[:3] == ["glab", "mr", "create"]:
+        elif words[:1] == ["gh"] and creates_pr(words):
+            return "pr-create", here, pr_head(words)
+        elif words[:3] == ["glab", "mr", "create"]:
             return "pr-create", here, "HEAD"
     return None
 

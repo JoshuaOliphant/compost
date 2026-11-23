@@ -198,7 +198,15 @@ def test_pyproject_is_a_gate_change_only_where_it_changes_a_gate_section(repo, o
     assert changes == [("lint/test config", "plugin/pyproject.toml", f"[{section}] changed") for section in sections]
 
 
-def test_lowering_the_threshold_is_a_threshold_and_a_gate_config_change(repo):
+@pytest.mark.parametrize(
+    "config",
+    [{}, {"diff.noprefix": "true"}, {"diff.mnemonicPrefix": "true"}, {"diff.srcPrefix": "x/", "diff.dstPrefix": "y/"}],
+    ids=["default", "noprefix", "mnemonic", "custom-prefixes"],
+)
+def test_lowering_the_threshold_is_a_threshold_and_a_gate_config_change(repo, config):
+    """The user's diff prefix settings never change the paths gate_drift reads."""
+    for key, value in config.items():
+        run_git(repo, "config", key, value)
     commit(repo, {"pyproject.toml": PYPROJECT}, "pyproject")
 
     assert changed(repo, {"pyproject.toml": PYPROJECT.replace("fail_under = 100", "fail_under = 90")}) == [

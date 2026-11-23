@@ -85,7 +85,7 @@ def drift(repo, base: str, head: str) -> list[GateChange]:
         for path in _git(repo, "diff", "--name-only", "-z", fork, head).split("\0")
         if (kind := gate_file(path))
     ]
-    diff = _git(repo, "diff", "-U0", "--no-color", "--no-ext-diff", fork, head)
+    diff = _git(repo, "diff", "-U0", "--no-color", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", fork, head)
     return changes + line_changes(
         diff, lambda side, path: _git(repo, "show", f"{fork if side == '-' else head}:{path}")
     )
