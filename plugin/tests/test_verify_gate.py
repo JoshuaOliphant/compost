@@ -77,6 +77,7 @@ def test_observe_lets_an_unstamped_push_through_and_logs_session_repo_and_sha(wo
         ("gh api --method post repos/o/r/pulls --input body.json", "pr-create"),
         ("gh api -X POST /repos/o/r/pulls/", "pr-create"),
         ("gh api repos/o/r/pulls -X POST", "pr-create"),
+        ("glab mr create --draft --target-branch main --title x", "pr-create"),
         ("git status", None),
         ("git log --grep push", None),
         ("echo git push", None),
@@ -85,6 +86,7 @@ def test_observe_lets_an_unstamped_push_through_and_logs_session_repo_and_sha(wo
         ("git push origin --delete feat", None),
         ("git commit -m 'git push later'", None),
         ("gh pr list", None),
+        ("glab mr list", None),
         ("echo pr create", None),
         ("hub pr create", None),
         ("gh issue create --title pulls -F body.md", None),
@@ -142,6 +144,17 @@ def test_enforce_blocks_twice_naming_verify_then_lets_the_third_through_as_a_byp
     assert [line["action"] for line in lines(gate_log)] == actions
     for other in ("s-0", "s-2"):
         assert gate(hook("git push", work_repo, session=other)) is not None, f"{other} inherited s-1's blocks"
+
+
+def test_enforce_still_counts_its_blocks_past_a_corrupt_log_line(work_repo, gate_log, monkeypatch):
+    """The log is shared by every session; a torn or hand-edited line must not turn enforce into a silent pass."""
+    gate_log.parent.mkdir(parents=True)
+    gate_log.write_text('{"session_id": "s-1", "action": "blo\n[1, 2]\n{"action": "blocked"}\n')
+    monkeypatch.setenv(verify_gate.MODE_VAR, "enforce")
+    for attempt in (1, 2):
+        reason = gate(hook("git push", work_repo))["hookSpecificOutput"]["permissionDecisionReason"]
+        assert f"block {attempt} of 2" in reason
+    assert gate(hook("git push", work_repo)) is None
 
 
 @pytest.mark.parametrize(

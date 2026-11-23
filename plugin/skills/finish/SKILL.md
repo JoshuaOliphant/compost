@@ -65,9 +65,18 @@ yours to do without asking.
    `git worktree remove` it. A worktree-isolated session may refuse to work outside its own
    worktree; then take the merge-into-the-branch path above.
 
-5. **Open or update the pull request.** Push the branch with its verify stamps
-   (`git push origin "$branch" refs/notes/compost-verify`) and open a draft PR against the target,
-   or update the open one. The body has five sections: Goal, Decisions, Changes, Validation,
+5. **Open or update the pull request.** Push the branch, then its verify stamps:
+   `git push origin "$branch"`, then `git push origin refs/notes/compost-verify`. Git never
+   fetches notes, so a stamp pushed from another clone rejects the notes push. Then merge the
+   remote's notes into yours and push again:
+
+   ```bash
+   git fetch origin refs/notes/compost-verify:refs/notes/compost-verify-origin
+   git notes --ref=compost-verify merge -s cat_sort_uniq refs/notes/compost-verify-origin
+   git push origin refs/notes/compost-verify
+   ```
+
+   Open a draft PR against the target, or update the open one. The body has five sections: Goal, Decisions, Changes, Validation,
    Risk. Decisions summarizes the rulings posted as issue comments. Validation carries
    `compost:verify`'s evidence and the merge-result run. Risk calls the change a one-way or
    two-way door with its blast radius, names whatever is unproven, deferred, or excluded
@@ -130,7 +139,7 @@ yours to do without asking.
      is red, `git switch "$branch"` and stop with the branch and worktree in place and nothing
      pushed. If it is green, stamp the merge commit with that run, as verify's step 9 does
      (`stamp.py write --json '{"gates": "<green>/<run>", "merge_of": "<branch head>"}'`), so the
-     verify gate passes it, then `git push origin HEAD:<target>`. A rejected push also means the
+     verify gate passes it, then `git push origin HEAD:<target>` and push the notes as in step 5. A rejected push also means the
      target moved: `git switch "$branch"` and go back to step 4. Then close the issue, or the
      parent, the way the tracker says (for a local tracker, `Status: closed` and a closing note
      naming the merge commit).

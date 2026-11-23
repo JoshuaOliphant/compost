@@ -1,7 +1,7 @@
 # ABOUTME: Checks the plugin as shipped: frontmatter, links, compost:<name> and ${CLAUDE_PLUGIN_ROOT} references,
 # ABOUTME: pile.toml feeds and NOTICE, the tracker-doc fork-check fallback, the lane-routing table's values,
 # ABOUTME: implement's stop list against the Stop hook's, that branching skills update the default branch first,
-# ABOUTME: and that git tracks every shipped file. Runs on the real files.
+# ABOUTME: the smoke, stamp, and verification rules the skills carry, and that git tracks every shipped file.
 import io
 import itertools
 import json

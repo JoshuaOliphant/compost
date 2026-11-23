@@ -61,7 +61,7 @@ def gated(command: str, cwd: Path) -> tuple[str, Path] | None:
             here = here / Path(words[1]).expanduser()
         elif words[:1] == ["git"] and (target := git_target(words, here)):
             return "push", target
-        elif words[:1] == ["gh"] and creates_pr(words):
+        elif (words[:1] == ["gh"] and creates_pr(words)) or words[:3] == ["glab", "mr", "create"]:
             return "pr-create", here
     return None
 
@@ -75,8 +75,14 @@ def record(entry: dict) -> None:
 def blocks_so_far(session: str) -> int:
     if not LOG.exists():
         return 0
-    entries = [json.loads(line) for line in LOG.read_text().splitlines()]
-    return sum(entry["session_id"] == session and entry["action"] == "blocked" for entry in entries)
+    blocks = 0
+    for line in LOG.read_text().splitlines():
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue  # a torn or hand-edited line from any session must not stop the count
+        blocks += isinstance(entry, dict) and entry.get("session_id") == session and entry.get("action") == "blocked"
+    return blocks
 
 
 def deny(reason: str) -> dict:
@@ -91,7 +97,7 @@ def decide(hook: dict) -> dict | None:
     if chosen == "off" or not (found := gated(hook["tool_input"]["command"], Path(hook["cwd"]))):
         return None
     kind, directory = found
-    repo, sha = stamp.resolve(directory, "rev-parse", "--show-toplevel", "HEAD")
+    repo, sha = stamp.git_lines(directory, "rev-parse", "--show-toplevel", "HEAD")
     if stamp.read(Path(repo), sha):
         return None
     session = hook["session_id"]

@@ -19,7 +19,8 @@ def git(repo: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
 
 
-def resolve(repo: Path, *args: str) -> list[str]:
+def git_lines(repo: Path, *args: str) -> list[str]:
+    """Runs a git command in `repo` and returns its stdout lines, raising GitError when it fails."""
     ran = git(repo, *args)
     if ran.returncode:
         raise GitError(ran.stderr.strip())
@@ -44,12 +45,12 @@ def write(repo: Path, rev: str, summary: dict) -> None:
     """Stamps `rev` with the summary plus the time it was written, replacing any stamp already there."""
     sha = commit_of(repo, rev)
     line = json.dumps({**summary, "time": datetime.now(UTC).isoformat(timespec="seconds")})
-    resolve(repo, "notes", f"--ref={REF}", "add", "--force", "--message", line, sha)
+    git_lines(repo, "notes", f"--ref={REF}", "add", "--force", "--message", line, sha)
 
 
 def log(repo: Path, revisions: str) -> list[tuple[str, str | None]]:
     """Every commit `git rev-list <revisions>` names, newest first, with its stamp or None."""
-    return [(sha, read(repo, sha)) for sha in resolve(repo, "rev-list", revisions)]
+    return [(sha, read(repo, sha)) for sha in git_lines(repo, "rev-list", revisions)]
 
 
 def main(argv: list[str] | None = None, out=sys.stdout) -> int:
