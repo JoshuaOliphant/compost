@@ -228,7 +228,7 @@ def fake(tmp_path):
             }
             (install / "hooks" / "hooks.json").write_text(json.dumps(hooks))
 
-        def run(self, *extra):
+        def run(self, *extra, environ=None):
             argv = [
                 "--claude",
                 str(claude),
@@ -238,10 +238,13 @@ def fake(tmp_path):
                 str(REPO),
                 *extra,
             ]
-            return smoke.main(argv, environ={**os.environ, "CLAUDE_MEMORY_STORES": "x"})
+            return smoke.main(argv, environ=environ or {**os.environ, "CLAUDE_MEMORY_STORES": "x"})
 
         def calls(self):
-            return [json.loads(line) for line in (state / "calls.log").read_text().splitlines()]
+            log = state / "calls.log"
+            return (
+                [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+            )
 
     return Fake()
 
@@ -299,6 +302,14 @@ def garble_listing(fake):
     (fake.state / "listing.json").write_text("Loading plugins...")
 
 
+def list_a_mapping(fake):
+    (fake.state / "listing.json").write_text(json.dumps({"plugins": listing("listing-pass.json")}))
+
+
+def remove_claude(fake):
+    fake.claude.unlink()
+
+
 def drop_install_path(fake):
     entries = listing("listing-pass.json")
     del entries[0]["installPath"]
@@ -337,6 +348,8 @@ def fail_the_turn(fake):
         (break_listing, "install", "Hook load failed", False),
         (garble_listing, "install", "plugin list --json printed no JSON", False),
         (drop_install_path, "install", "compost@compost has no installPath", False),
+        (list_a_mapping, "install", "plugin list --json printed no list of plugins", False),
+        (remove_claude, "install", "could not run", False),
         (
             block_the_stop,
             "stop-guard",
@@ -353,6 +366,8 @@ def fail_the_turn(fake):
         "broken-hooks-json",
         "listing-not-json",
         "listing-without-install-path",
+        "listing-not-a-list",
+        "no-claude",
         "guard-blocks",
         "guard-crashes",
         "guard-hangs",
@@ -369,6 +384,25 @@ def test_any_failing_step_exits_non_zero_names_it_and_keeps_the_scratch_dir(
     assert f"smoke: FAIL {step}" in out and message in out
     assert any(call[0] == "-p" for call in fake.calls()) is turn_ran
     assert len(list(fake.scratch.iterdir())) == 1
+
+
+@pytest.mark.parametrize("where", ["CLAUDE_CONFIG_DIR", "HOME"])
+def test_the_throwaway_config_keeps_the_users_login(fake, tmp_path, where):
+    """On Linux an OAuth login lives in the config dir's .credentials.json; without it the turn runs logged out."""
+    config = tmp_path / "user-config"
+    login = (
+        config / ".credentials.json"
+        if where == "CLAUDE_CONFIG_DIR"
+        else tmp_path / ".claude" / ".credentials.json"
+    )
+    login.parent.mkdir(parents=True)
+    login.write_text('{"token": "t"}')
+    environ = {"PATH": os.environ["PATH"], "HOME": str(tmp_path)}
+    if where == "CLAUDE_CONFIG_DIR":
+        environ["CLAUDE_CONFIG_DIR"] = str(config)
+    assert fake.run("--keep", environ=environ) == 0
+    [kept] = fake.scratch.iterdir()
+    assert (kept / "config" / ".credentials.json").read_text() == '{"token": "t"}'
 
 
 def test_wrapper_runs_the_python_script():

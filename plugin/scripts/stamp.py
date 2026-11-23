@@ -1,10 +1,17 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.9"
+# dependencies = []
+# ///
 # ABOUTME: The verify stamp: one line of JSON kept as a git note under refs/notes/compost-verify on the verified commit.
 # ABOUTME: `write` stamps a commit with compost:verify's summary, `show <rev>` prints it or `none`, `log <range>` lists both.
+from __future__ import annotations
+
 import argparse
 import json
 import subprocess
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 REF = "compost-verify"
@@ -44,7 +51,7 @@ def read(repo: Path, rev: str) -> str | None:
 def write(repo: Path, rev: str, summary: dict) -> None:
     """Stamps `rev` with the summary plus the time it was written, replacing any stamp already there."""
     sha = commit_of(repo, rev)
-    line = json.dumps({**summary, "time": datetime.now(UTC).isoformat(timespec="seconds")})
+    line = json.dumps({**summary, "time": datetime.now(timezone.utc).isoformat(timespec="seconds")})
     git_lines(repo, "notes", f"--ref={REF}", "add", "--force", "--message", line, sha)
 
 

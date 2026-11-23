@@ -1,6 +1,7 @@
 # ABOUTME: Lists every edit a branch makes to the checks that judge it, for compost:verify: changed gate files, added
 # ABOUTME: weakeners, and removed test functions, as JSON. Exits 1 with changes. Stdlib only; reads git.
 import argparse
+import codecs
 import json
 import re
 import subprocess
@@ -63,6 +64,17 @@ class GateChange:
     detail: str
 
 
+def header_path(raw: str) -> str:
+    """The path in a `--- a/<path>` or `+++ b/<path>` header: git ends a name holding a space with a tab, and C-quotes
+    a name holding a quote, a backslash, or a control character."""
+    raw = raw.rstrip("\t")
+    if raw == "/dev/null":
+        return ""
+    if raw.startswith('"'):
+        raw = codecs.escape_decode(raw[1:-1].encode())[0].decode()
+    return raw[2:]
+
+
 def drift(repo, base: str, head: str) -> list[GateChange]:
     """Every change in what `head` changed since its merge-base with `base`, so commits the base gained since are not
     the branch's: changed gate files first, then added weakeners in diff order, gate tables changed in a
@@ -70,7 +82,7 @@ def drift(repo, base: str, head: str) -> list[GateChange]:
     fork = _git(repo, "merge-base", base, head).strip()
     changes = [
         GateChange(kind, path, "file changed")
-        for path in _git(repo, "diff", "--name-only", fork, head).splitlines()
+        for path in _git(repo, "diff", "--name-only", "-z", fork, head).split("\0")
         if (kind := gate_file(path))
     ]
     diff = _git(repo, "diff", "-U0", "--no-color", "--no-ext-diff", fork, head)
@@ -105,7 +117,7 @@ def line_changes(diff: str, show: Callable[[str, str], str]) -> list[GateChange]
             in_header, paths = True, {"-": "", "+": ""}
             continue
         if in_header and line[:4] in ("--- ", "+++ "):
-            paths[line[0]] = "" if line[4:] == "/dev/null" else line[6:]
+            paths[line[0]] = header_path(line[4:])
             continue
         if hunk := HUNK.match(line):
             in_header = False

@@ -353,13 +353,34 @@ const guideNote = guide.source === 'REVIEW.md'
 
 // A check is one bullet of the guide's Checks section, `- **<name>**: Trigger: ... Check: ... Source: ...`, its
 // continuation lines folded in. The scope agent decides each trigger; a check it gave no decision on runs.
+// The indexes of the lines inside a fenced code block. As in CommonMark, a fence opens with three or more backticks
+// or tildes indented at most three spaces (a backtick run with another backtick after it is inline code), and closes
+// only with a run of the same character at least as long and nothing after it; an unclosed fence runs to the end.
+function fencedLineSet(lines) {
+  const fenced = new Set()
+  for (let i = 0, open = ''; i < lines.length; i++) {
+    const [, run = '', rest = ''] = lines[i].match(/^ {0,3}(`{3,}|~{3,})(.*)$/) || []
+    if (open) {
+      fenced.add(i)
+      if (run[0] === open[0] && run.length >= open.length && !rest.trim()) open = ''
+    } else if (run && !(run[0] === '`' && rest.includes('`'))) {
+      fenced.add(i)
+      open = run
+    }
+  }
+  return fenced
+}
+
+// One check per top-level bullet; a fenced example or an indented sub-bullet is text of the check above it.
 function parseChecks(section) {
   const items = []
-  for (const line of String(section || '').split('\n')) {
-    const bullet = line.match(/^ {0,3}[-*+]\s+(.*)$/)
+  const lines = String(section || '').split('\n')
+  const fenced = fencedLineSet(lines)
+  lines.forEach((line, i) => {
+    const bullet = !fenced.has(i) && line.match(/^[-*+]\s+(.*)$/)
     if (bullet) items.push(bullet[1].trim())
     else if (items.length && line.trim()) items[items.length - 1] += ` ${line.trim()}`
-  }
+  })
   const named = items.map(text => ({ name: ((text.match(/^\*\*(.+?)\*\*/) || text.match(/^([^:]+):/) || [])[1] || '').trim(), text }))
   return named.filter((check, i) => check.name && named.findIndex(other => sameName(other.name, check.name)) === i)
 }
@@ -566,21 +587,9 @@ const specAcs = [...new Set(String(specDoc.text || '').match(/\bAC-\d+\b/g) || [
   .map(id => ({ id, named: new RegExp(`\\b${id}\\b`) }))
 
 const specLines = String(specDoc.text || '').split('\n')
-// Lines inside a fenced code block, so a shell comment there ("# install the CLI") is never read as a heading. As in
-// CommonMark, a fence opens with three or more backticks or tildes indented at most three spaces (a backtick run with
-// another backtick after it is inline code), and closes only with a run of the same character at least as long and
-// nothing after it; an unclosed fence runs to the end. A heading, likewise, is indented at most three spaces.
-const fencedLines = new Set()
-for (let i = 0, open = ''; i < specLines.length; i++) {
-  const [, run = '', rest = ''] = specLines[i].match(/^ {0,3}(`{3,}|~{3,})(.*)$/) || []
-  if (open) {
-    fencedLines.add(i)
-    if (run[0] === open[0] && run.length >= open.length && !rest.trim()) open = ''
-  } else if (run && !(run[0] === '`' && rest.includes('`'))) {
-    fencedLines.add(i)
-    open = run
-  }
-}
+// Lines inside a fenced code block, so a shell comment there ("# install the CLI") is never read as a heading. A
+// heading, like a fence, is indented at most three spaces.
+const fencedLines = fencedLineSet(specLines)
 const headingLevel = (line, i) => (fencedLines.has(i) ? 0 : ((line.match(/^ {0,3}(#{1,6})\s/) || [])[1] || '').length)
 
 // The line that defines an AC-N: one it leads, after markup only ("#### AC-3", "- **AC-3** Given"), or one where its id

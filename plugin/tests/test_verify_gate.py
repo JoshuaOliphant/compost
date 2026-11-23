@@ -60,7 +60,8 @@ def test_observe_lets_an_unstamped_push_through_and_logs_session_repo_and_sha(wo
     "command, kind",
     [
         ("git push", "push"),
-        ("git push -u origin feat", "push"),
+        ("git push -u origin main", "push"),
+        ("git push -u origin no-such-branch", None),
         ("GIT_TRACE=1 git push", "push"),
         ("git status && git push --follow-tags", "push"),
         ("git -c push.default=current push", "push"),
@@ -78,6 +79,15 @@ def test_observe_lets_an_unstamped_push_through_and_logs_session_repo_and_sha(wo
         ("gh api -X POST /repos/o/r/pulls/", "pr-create"),
         ("gh api repos/o/r/pulls -X POST", "pr-create"),
         ("glab mr create --draft --target-branch main --title x", "pr-create"),
+        ("(cd . && git push)", "push"),
+        ("env X=1 git push", "push"),
+        ("timeout 60 git push", "push"),
+        ("command git push", "push"),
+        ("nohup git push", "push"),
+        ("gh api --method=POST repos/o/r/pulls --input body.json", "pr-create"),
+        ("gh api -XPOST repos/o/r/pulls", "pr-create"),
+        ("gh api repos/o/r/issues -f title='list pulls'", None),
+        ("git push origin :feat", None),
         ("git status", None),
         ("git log --grep push", None),
         ("echo git push", None),
@@ -119,6 +129,26 @@ def test_the_repo_is_the_one_the_command_points_at(work_repo, gate_log, command,
     monkeypatch.setenv("HOME", str(work_repo.parent))
     gate(hook(command.format(repo=work_repo), work_repo.parent))
     assert [line["repo"] for line in lines(gate_log)] == [str(work_repo)]
+
+
+@pytest.mark.parametrize(
+    "command, pushed",
+    [
+        ("git push origin feature", "feature"),
+        ("git push -u origin +feature:other", "feature"),
+        ("git push --push-option ci.skip origin feature", "feature"),
+        ("git push origin HEAD:main", None),
+        ("git push", None),
+    ],
+)
+def test_the_commit_judged_is_the_one_the_push_sends(work_repo, gate_log, command, pushed, monkeypatch):
+    """HEAD is stamped and `feature` (one commit back) is not: only a push that sends `feature` is logged."""
+    run_git(work_repo, "branch", "feature", "HEAD~1")
+    monkeypatch.chdir(work_repo)
+    assert stamp.main(["write", "--json", "{}"]) == 0
+    gate(hook(command, work_repo))
+    expected = [run_git(work_repo, "rev-parse", pushed)] if pushed else []
+    assert [line["sha"] for line in lines(gate_log)] == expected
 
 
 def test_a_push_outside_any_repo_is_left_to_git(tmp_path, gate_log):

@@ -59,6 +59,17 @@ def child_env(environ: Mapping[str, str], config_dir: Path) -> dict[str, str]:
     return {**env, "CLAUDE_CONFIG_DIR": str(config_dir)}
 
 
+def copy_login(environ: Mapping[str, str], config_dir: Path) -> None:
+    """Carry the user's login into the throwaway config: on Linux an OAuth login is the config dir's
+    .credentials.json (macOS keeps it in the keychain), and without it the skill turn runs logged out."""
+    user_config = environ.get("CLAUDE_CONFIG_DIR") or str(
+        Path(environ.get("HOME", "~")).expanduser() / ".claude"
+    )
+    login = Path(user_config) / ".credentials.json"
+    if login.is_file():
+        shutil.copy2(login, config_dir / login.name)
+
+
 def stage(source: Path, dest: Path) -> Path:
     """Copy what the marketplace installs from; copytree writes new files, so no hard link survives."""
     for name in COPIED:
@@ -168,6 +179,9 @@ def execute(
     except subprocess.TimeoutExpired:
         name = command if isinstance(command, str) else " ".join(command[:3])
         raise SmokeFailed(step, f"{name} timed out after {timeout}s") from None
+    except OSError as error:
+        name = command if isinstance(command, str) else command[0]
+        raise SmokeFailed(step, f"{name} could not run: {error}") from None
 
 
 def cli(claude: str, args: list[str], env: dict[str, str], cwd: Path, step: str) -> str:
@@ -190,6 +204,10 @@ def install(claude: str, source: Path, root: Path, env: dict[str, str]) -> Path:
         raise SmokeFailed(
             "install", f"plugin list --json printed no JSON: {listed[:200]!r}"
         ) from None
+    if not isinstance(entries, list) or not all(isinstance(entry, dict) for entry in entries):
+        raise SmokeFailed(
+            "install", f"plugin list --json printed no list of plugins: {listed[:200]!r}"
+        )
     if problems := listing_problems(entries):
         raise SmokeFailed("install", "; ".join(problems))
     return Path(next(entry for entry in entries if entry.get("id") == PLUGIN_ID)["installPath"])
@@ -264,6 +282,7 @@ def main(argv: list[str] | None = None, environ: Mapping[str, str] = os.environ)
     root = Path(tempfile.mkdtemp(prefix="compost-smoke-", dir=args.scratch))
     env = child_env(environ, root / "config")
     (root / "config").mkdir()
+    copy_login(environ, root / "config")
     try:
         plugin_root = install(args.claude, args.source.resolve(), root, env)
         print(f"smoke: pass install ({plugin_root})")

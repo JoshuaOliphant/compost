@@ -392,6 +392,20 @@ test('each check in the base REVIEW.md is listed triggered or not, with why, and
   assert.equal(light.result.complete, true)
 })
 
+test('a check is a top-level bullet: a fenced example and an indented sub-bullet belong to the check above them', async () => {
+  const checks = `- **fenced-example**: Trigger: the diff parses lists. Check: is this read as text?
+  \`\`\`
+  - foo: bar
+  \`\`\`
+  Source: #21.
+- **nested**: Trigger: anything.
+  - Check: holds? Source: #22.`
+  const scope = { ...SCOPE, guide: { ...GUIDE, checks }, triggers: [] }
+  const { result, prompts } = await run({ issue: 7 }, reviewers({ scope }))
+  assert.deepEqual(result.checks.map(check => check.name), ['fenced-example', 'nested'])
+  assert.ok(prompts['Standards reviewer'].includes('- **nested**: Trigger: anything. - Check: holds? Source: #22.'))
+})
+
 test('a triggered check the Standards reviewer does not answer at a file:line fails the axis, on the full and the light path', async () => {
   const scope = { ...SCOPE, guide: CHECKS_GUIDE, triggers: TRIGGERS }
   const cases = [

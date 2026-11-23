@@ -85,6 +85,9 @@ def test_a_deleted_gate_file_is_a_gate_change(repo):
         ("tests/test_app.py", "    time.sleep(2)", "sleep/retry in a test"),
         ("tests/test_app.py", "@retry(times=3)", "sleep/retry in a test"),
         ("tests/test_app.py", "@pytest.mark.flaky(reruns=3)", "sleep/retry in a test"),
+        ("my tests/test_app.py", "    time.sleep(2)", "sleep/retry in a test"),
+        ("tests/test_café.py", "    time.sleep(2)", "sleep/retry in a test"),
+        ('tests/test_"q".py', "    time.sleep(2)", "sleep/retry in a test"),
     ],
 )
 def test_an_added_weakener_is_a_gate_change(repo, path, line, kind):

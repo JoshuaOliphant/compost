@@ -65,7 +65,8 @@ Reply in under 15 lines:
 - AC-table rows in other issues your change retires (`superseded by #<n>`), for the orchestrator to apply
 - Concerns and follow-ups, if any
 
-Use DONE_WITH_CONCERNS when the work is complete but you doubt part of it. Use BLOCKED or
+Use DONE_WITH_CONCERNS when the work is complete but you doubt part of it, or when a gate is still
+red after three rounds (rule 7): the orchestrator settles that before review. Use BLOCKED or
 NEEDS_CONTEXT only when every path forward is a guess, and put the specifics in the reply.
 ```
 

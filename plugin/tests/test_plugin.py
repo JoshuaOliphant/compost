@@ -232,7 +232,7 @@ def test_live_checks_run_the_recorded_smoke_command_before_falling_back_to_run(s
         ),
     ],
 )
-def test_skills_carry_the_verification_rules_from_the_post(skill, step, phrases):
+def test_skills_carry_property_tests_the_flaky_test_ban_and_the_gate_round_cap(skill, step, phrases):
     rule = step_text(skill, step)
     for phrase in phrases:
         assert phrase in rule, f"{skill}'s {step!r} step lacks {phrase!r}"
