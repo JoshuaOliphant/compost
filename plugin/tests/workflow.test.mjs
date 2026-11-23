@@ -350,6 +350,100 @@ test('the default guide the reviewers get is the one the REVIEW.md starter write
   assert.equal(said(defaults[3]), sections.Evidence.split('```')[0].trim().toLowerCase())
 })
 
+const CHECKS_SECTION = `Checks a past miss taught.
+
+- **csv-escaping**: Trigger: the diff writes CSV.
+  Check: is every field escaped? Source: #12.
+- **reading-list-order**: Trigger: the diff sorts reading lists. Check: is the user's order kept? Source: #19.
+* Unbolded check: Trigger: anything. Check: holds? Source: #20.
+- **CSV-Escaping**: Trigger: a duplicate name. Check: ignored? Source: none.`
+const CHECKS_GUIDE = { ...GUIDE, checks: CHECKS_SECTION }
+const TRIGGERS = [
+  { name: 'csv-escaping', triggered: true, why: 'app/export.py adds csv.writer at +12' },
+  { name: 'Reading-List-Order', triggered: false, why: 'nothing in the diff sorts' },
+  { name: 'not-in-the-guide', triggered: true, why: 'stray' },
+]
+const CHECK_ANSWERS = [
+  { item: 'csv-escaping: yes, csv.writer quotes every field', at: 'app/export.py:12' },
+  { item: 'Unbolded check: yes', at: 'app/export.py:3' },
+]
+
+test('each check in the base REVIEW.md is listed triggered or not, with why, and the triggered ones reach the Standards reviewer', async () => {
+  const scope = { ...SCOPE, guide: CHECKS_GUIDE, triggers: TRIGGERS }
+  const { result, prompts } = await run({ issue: 7 }, reviewers({ scope, standards: { findings: [], checked: CHECK_ANSWERS } }))
+  assert.deepEqual(result.checks, [
+    { name: 'csv-escaping', status: 'triggered', why: 'app/export.py adds csv.writer at +12' },
+    { name: 'reading-list-order', status: 'not triggered', why: 'nothing in the diff sorts' },
+    { name: 'Unbolded check', status: 'triggered', why: 'the scoping agent gave no decision on it, so it runs' },
+  ])
+  assert.match(result.summary, /\nChecks: csv-escaping triggered; reading-list-order not triggered; Unbolded check triggered\n/)
+  assert.match(prompts.scope, /checks from its Failure, Skip, and Checks sections verbatim/)
+  assert.match(prompts.scope, /read its Trigger against `git diff <base-sha>\.\.\.<head-sha>` and add `\{name, triggered, why\}` to triggers/)
+  const standards = prompts['Standards reviewer']
+  assert.ok(standards.includes('- **csv-escaping**: Trigger: the diff writes CSV. Check: is every field escaped? Source: #12. (triggered: app/export.py adds csv.writer at +12)'))
+  assert.ok(standards.includes('- Unbolded check: Trigger: anything. Check: holds? Source: #20. (triggered: the scoping agent gave no decision on it, so it runs)'))
+  assert.doesNotMatch(standards, /reading-list-order|a duplicate name/)
+  assert.doesNotMatch(prompts['Spec reviewer'], /csv-escaping/)
+  assert.equal(result.complete, true)
+
+  const light = await run({ ...JEV, issue: 7 }, reviewers({ scope: { ...SMALL, guide: CHECKS_GUIDE, triggers: TRIGGERS }, light: { findings: [], checked: { ...CHECKED, Standards: CHECK_ANSWERS } } }))
+  assert.equal(light.result.path, 'light')
+  assert.match(light.prompts['Light reviewer'], /## Standards axis[\s\S]*- \*\*csv-escaping\*\*[\s\S]*## Spec axis/)
+  assert.equal(light.result.complete, true)
+})
+
+test('a triggered check the Standards reviewer does not answer at a file:line fails the axis, on the full and the light path', async () => {
+  const scope = { ...SCOPE, guide: CHECKS_GUIDE, triggers: TRIGGERS }
+  const cases = [
+    [[STANDARDS_CHECKED[0]], 'failed: the reviewer did not answer checks csv-escaping, Unbolded check at a file:line'],
+    [[CHECK_ANSWERS[0], { item: 'Unbolded check: yes', at: 'app/export.py' }], 'failed: the reviewer did not answer check Unbolded check at a file:line'],
+    [[{ ...CHECK_ANSWERS[0], item: 'CSV-ESCAPING holds' }, CHECK_ANSWERS[1]], 'reviewed: 0 findings raised, 0 left unverified'],
+  ]
+  for (const [checked, status] of cases) {
+    const { result } = await run({ issue: 7 }, reviewers({ scope, standards: { findings: [], checked } }))
+    assert.equal(result.standards.status, status, JSON.stringify(checked))
+    assert.equal(result.complete, status.startsWith('reviewed'))
+  }
+  const finding = { ...BLOCKER, claim: 'csv-escaping: a title with a comma is not quoted' }
+  const named = await run({ issue: 7 }, reviewers({ scope, standards: { findings: [finding], checked: [CHECK_ANSWERS[1]] } }))
+  assert.match(named.result.standards.status, /^failed: the reviewer did not answer check csv-escaping/, 'a finding does not stand in for the checked entry')
+
+  const light = await run({ ...JEV, issue: 7 }, reviewers({ scope: { ...SMALL, guide: CHECKS_GUIDE, triggers: TRIGGERS }, light: { findings: [], checked: CHECKED } }))
+  assert.equal(light.result.standards.status, 'failed: the reviewer did not answer checks csv-escaping, Unbolded check at a file:line')
+  assert.equal(light.result.spec.complete, true)
+  assert.equal(light.result.complete, false)
+})
+
+test('without a Checks section, or with every check untriggered, review runs as it did before checks', async () => {
+  const before = await run({ issue: 7 }, reviewers({ scope: { ...SCOPE, guide: GUIDE } }))
+  const variants = [
+    { ...SCOPE, guide: { ...GUIDE, checks: '' }, triggers: [] },
+    { ...SCOPE, guide: { ...GUIDE, checks: 'No bullets here yet.' } },
+    { ...SCOPE, guide: { source: 'defaults', minorCap: 5, failure: '', skip: '', checks: CHECKS_SECTION }, triggers: TRIGGERS },
+  ]
+  for (const scope of variants) {
+    const { result, prompts } = await run({ issue: 7 }, reviewers({ scope }))
+    const same = scope.guide.source === 'defaults' ? await run({ issue: 7 }, reviewers({ scope: { ...SCOPE, guide: { source: 'defaults', minorCap: 5 } } })) : before
+    assert.equal(result.checks, undefined, JSON.stringify(scope.guide))
+    assert.equal(prompts['Standards reviewer'], same.prompts['Standards reviewer'])
+    assert.equal(result.summary, same.result.summary)
+    assert.equal(result.complete, true)
+  }
+  const quiet = await run({ issue: 7 }, reviewers({ scope: { ...SCOPE, guide: CHECKS_GUIDE, triggers: TRIGGERS.map(t => ({ ...t, triggered: false })).concat({ name: 'Unbolded check', triggered: false, why: 'n/a' }) } }))
+  assert.equal(quiet.prompts['Standards reviewer'], before.prompts['Standards reviewer'])
+  assert.deepEqual(quiet.result.checks.map(check => check.status), ['not triggered', 'not triggered', 'not triggered'])
+  assert.equal(quiet.result.complete, true)
+})
+
+test('the check the REVIEW.md starter shows parses as one check of the documented shape', async () => {
+  const starter = readFileSync(new URL('../skills/setup/references/review-md.md', import.meta.url), 'utf8')
+  const example = starter.split('\n## Checks\n\n')[2].split('\n```')[0]
+  assert.match(example, /^- \*\*[\w-]+\*\*: Trigger: .+\. Check: .+\? Source: .+\.$/)
+  const { result, prompts } = await run({}, reviewers({ scope: { ...SCOPE, guide: { ...GUIDE, checks: example } } }))
+  assert.deepEqual(result.checks.map(check => [check.name, check.status]), [['transcript-untyped-entries', 'triggered']])
+  assert.ok(prompts['Standards reviewer'].includes(example.slice(2)))
+})
+
 test('findings in files the guide skips are dropped before any skeptic, and reviewers are told which files those are', async () => {
   const lockFinding = { ...BLOCKER, file: 'requirements.lock', line: 2, claim: 'pinned version is old' }
   const { result, prompts } = await run({}, reviewers({

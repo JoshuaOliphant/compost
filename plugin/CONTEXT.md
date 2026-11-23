@@ -58,10 +58,12 @@ the line untouched; anywhere else the finding is the diff's. In code: `preExisti
 _Avoid_: old bug, unrelated finding, out-of-scope finding.
 
 **Review guide**: what a review judges a change by in this repo: what counts as a failure, how many
-minor findings the whole review keeps (the minor cap), and which files it skips. The `REVIEW.md` at
+minor findings the whole review keeps (the minor cap), which files it skips, and its checks: each a
+yes/no question with a trigger readable from a diff and the incident it came from, which the
+Standards reviewer must answer whenever the trigger matches. The `REVIEW.md` at
 the root of the base (the branch the change merges into) when there is one, else compost's defaults,
 so a branch is never judged by its own edits to it; the defaults are what the `REVIEW.md`
-starter writes out. In code: `guide` in `review-changes.js`.
+starter writes out. In code: `guide` and `checks` in `review-changes.js`.
 _Avoid_: review config, review rules, review policy.
 
 **Review round**: one pass of `compost:review` over an issue's branch, recorded as one issue comment
