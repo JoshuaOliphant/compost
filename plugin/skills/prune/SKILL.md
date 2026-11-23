@@ -45,7 +45,9 @@ code can't. The why is in [core docs](../../canon/core-docs.md) and
    [setup's GitHub reference](../setup/references/issue-tracker-github.md)), and offer
    `compost:diagnose`. An ADR is a record and is never edited to match the code; flag the
    conflict as `docs/agents/domain.md` says. Core docs get checked too, and fixed in place, never
-   deleted.
+   deleted. So do the checks in `REVIEW.md`'s `## Checks` section: one whose Trigger names code,
+   paths, or calls the repo no longer has is drifted and goes, and one a lint rule or test now
+   enforces is restated and goes too.
 
 4. **Give each keeper a home in the code.** Walk the ladder in [homes](references/homes.md) and
    stop at the first rung that holds the claim:
