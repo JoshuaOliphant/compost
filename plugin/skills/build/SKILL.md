@@ -126,8 +126,9 @@ no test counts until you have seen it fail for the right reason.
    the test and run it again. If you wrote the code first, undo the production edit in the
    working tree, run the test, watch it fail, and reapply. When a failing test is impractical
    (a rendering detail, a race, a service that cannot be faked), say why in an issue comment and
-   run the closest executable check instead, such as a script against the real code or the
-   bundled `/run` driving the app. Record its output.
+   run the closest executable check instead: the smoke command `docs/agents/testing.md` records
+   under `## Run` first, then a script against the real code or the bundled `/run` driving the
+   app. Record its output.
 
 8. **Refactor inside the change.** Leave the code you touched clean. Replace rather than
    deprecate: no compatibility shims, no `_old` or `_legacy` twins, no flag keeping the previous

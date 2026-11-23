@@ -1,0 +1,14 @@
+[
+  {
+    "id": "compost@compost",
+    "version": "0.48.0",
+    "scope": "user",
+    "enabled": true,
+    "installPath": "/tmp/smoke/cfg/plugins/cache/compost/compost/0.48.0",
+    "readFromFolder": "/tmp/smoke/src/plugin",
+    "folderVersion": "0.48.0",
+    "installedAt": "2026-11-23T22:10:40.071Z",
+    "lastUpdated": "2026-11-23T22:10:40.071Z",
+    "projectEnabled": false
+  }
+]
