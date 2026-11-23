@@ -55,31 +55,26 @@ command can: judge whether it ran what changed, and prove the fact the change is
 
    Record it in `testing.md` as the gate and commit both, so the next session finds it.
 
-   A branch must not judge itself with checks it rewrote. Find the base (the branch the work
-   merges into, such as `origin/main`) and read the gates as they stand there too:
-   `git show <base>:docs/agents/testing.md`, and the coverage threshold, verify command, and CI
-   config at the base the same way. A gate the base records that the branch dropped or loosened
-   (a lower threshold, a removed linter, a narrower command) still runs in step 2, at its base
-   strength. Then list every edit the branch makes to its own checks:
+   A branch must not judge itself with checks it rewrote. Read the gates at the base (the branch
+   the work merges into, such as `origin/main`) too: `git show <base>:docs/agents/testing.md`,
+   and the threshold, verify command, and CI config the same way. A gate the branch dropped or
+   loosened still runs in step 2 at its base strength. Then list the branch's edits to its checks:
 
    ```bash
    python3 ${CLAUDE_PLUGIN_ROOT}/scripts/gate_drift.py <base> HEAD
    ```
 
-   It prints a JSON list of gate changes, each `{kind, path, detail}`, and exits 1 when there are any: a
-   changed gate file (the recorded gates doc, `REVIEW.md`, the verify command, CI workflows,
-   pre-commit, lint, test, or coverage config, a gate table in `pyproject.toml`, `conftest.py`),
-   an added weakener (`pragma: no cover`, `noqa`, `type: ignore`, a skip or xfail, a threshold
-   or ignore setting, a sleep or retry in a test), or a test function the branch removed. Give
-   every gate change a ruling: why the check changed, and why the change is sound. When running
-   unattended, under `compost:implement`, or as a worker, post the rulings as one ruling comment
-   on the issue and continue; `compost:finish` lists the gate changes and their rulings under Risk.
+   It prints a JSON list of gate changes, each `{kind, path, detail}`, and exits 1 when there are
+   any: a changed gate file (gates doc, `REVIEW.md`, CI, lint, test or coverage config), an added
+   weakener (`pragma: no cover`, `noqa`, a skip, a sleep or retry in a test), or a removed test.
+   Give each gate change a ruling: why the check changed, and why that is sound. Unattended,
+   under `compost:implement`, or as a worker, post them as one ruling comment and continue;
+   `compost:finish` lists them under Risk.
 
 2. **Run the verify command, and any gate it leaves out, fresh.** Run them in this worktree now,
-   not earlier and not somewhere else. When step 1 found the branch changed a gate, run the base's
-   gates as well as the branch's, on this tree. A base gate that fails here fails the run even
-   when the branch's version passes, and only the user can accept that: report the failing base
-   gate beside its gate change and ruling (unattended, in the ruling comment and under Risk). Read each exit code and the whole output. Stop at the first
+   not earlier and not somewhere else. When step 1 found a gate change, run the base's gates too,
+   on this tree. A base gate failing here fails the run even when the branch's passes; only the
+   user can accept that, so report it beside its ruling. Read each exit code and the whole output. Stop at the first
    failure and read its log before touching anything else: the first failing log carries the
    information, and later failures are often its echoes. A failing test outside the change gets
    run on the base SHA first. Red there, it is pre-existing: file an issue, fix it in its own `fix:` commit
@@ -205,6 +200,18 @@ command can: judge whether it ran what changed, and prove the fact the change is
    and its command's output ([jev](references/jev.md)), and fix or drop each one in `unbacked`.
    Exit 3: reread each output against its claim yourself. Say "done" only
    when every row is met and every gate is green. Otherwise state the actual status.
+   When you say "done", and never otherwise, stamp the commit you verified, so `compost:finish`
+   and the verify gate can tell this SHA was verified:
+
+   ```bash
+   uv run ${CLAUDE_PLUGIN_ROOT}/scripts/stamp.py write --json \
+     '{"gates": "4/4", "ac": "7/7", "mutants": "41/45", "rung": "e2e"}'
+   ```
+
+   The object holds gates green/run, AC met/total, mutants killed/run (`null` with no mutation
+   tool), and step 6's rung. It stamps HEAD (or `--rev`) as a git note under
+   `refs/notes/compost-verify`, so a later commit starts with none. `stamp.py show <rev>` prints
+   a stamp or `none`; `stamp.py log <range>` lists each commit's.
 
 ## Next moves
 
