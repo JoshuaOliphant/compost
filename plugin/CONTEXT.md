@@ -50,6 +50,12 @@ as the `skill-drift` mod writes it to `~/.claude/skill-drift/`.
 **Pattern**: skill drift of one kind on one skill's current version, with hits from at least two
 sessions. The unit `compost:skill-drift` acts on; a lone hit is not one.
 
+**Gate change**: one edit a branch makes to a check that judges it, as `scripts/gate_drift.py`
+reports it: a changed gate file, an added weakener (a skip, a suppression, a lowered threshold),
+or a removed test. `compost:verify` needs a ruling for each one, and `compost:finish` lists them
+under Risk.
+_Avoid_: hit (that is a skill-drift judgment).
+
 **Pre-existing finding**: a real bug a reviewer finds at a line the diff under review did not change.
 The review records it apart and the branch never fixes it, so it neither blocks the change nor
 widens it. The workflow believes the label only where its record of the diff's changed lines shows

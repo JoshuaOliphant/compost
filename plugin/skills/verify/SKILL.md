@@ -66,20 +66,20 @@ command can: judge whether it ran what changed, and prove the fact the change is
    python3 ${CLAUDE_PLUGIN_ROOT}/scripts/gate_drift.py <base> HEAD
    ```
 
-   It prints a JSON list of hits, each `{kind, path, detail}`, and exits 1 when there are any: a
+   It prints a JSON list of gate changes, each `{kind, path, detail}`, and exits 1 when there are any: a
    changed gate file (the recorded gates doc, `REVIEW.md`, the verify command, CI workflows,
    pre-commit, lint, test, or coverage config, a gate table in `pyproject.toml`, `conftest.py`),
    an added weakener (`pragma: no cover`, `noqa`, `type: ignore`, a skip or xfail, a threshold
    or ignore setting, a sleep or retry in a test), or a test function the branch removed. Give
-   every hit a ruling: why the check changed, and why the change is sound. When running
+   every gate change a ruling: why the check changed, and why the change is sound. When running
    unattended, under `compost:implement`, or as a worker, post the rulings as one ruling comment
-   on the issue and continue; `compost:finish` lists the hits and their rulings under Risk.
+   on the issue and continue; `compost:finish` lists the gate changes and their rulings under Risk.
 
 2. **Run the verify command, and any gate it leaves out, fresh.** Run them in this worktree now,
    not earlier and not somewhere else. When step 1 found the branch changed a gate, run the base's
    gates as well as the branch's, on this tree. A base gate that fails here fails the run even
    when the branch's version passes, and only the user can accept that: report the failing base
-   gate beside its gate-drift hit and ruling (unattended, in the ruling comment and under Risk). Read each exit code and the whole output. Stop at the first
+   gate beside its gate change and ruling (unattended, in the ruling comment and under Risk). Read each exit code and the whole output. Stop at the first
    failure and read its log before touching anything else: the first failing log carries the
    information, and later failures are often its echoes. A failing test outside the change gets
    run on the base SHA first. Red there, it is pre-existing: file an issue, fix it in its own `fix:` commit

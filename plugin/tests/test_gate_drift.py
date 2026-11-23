@@ -20,10 +20,10 @@ def repo(tmp_path):
 
 
 def changed(repo, files: dict[str, str]) -> list[tuple[str, str, str]]:
-    """The hits for one commit on top of HEAD that writes `files`."""
+    """The changes for one commit on top of HEAD that writes `files`."""
     base = run_git(repo, "rev-parse", "HEAD")
     head = commit(repo, files, "change")
-    return [(hit.kind, hit.path, hit.detail) for hit in gate_drift.drift(repo, base, head)]
+    return [(change.kind, change.path, change.detail) for change in gate_drift.drift(repo, base, head)]
 
 
 @pytest.mark.parametrize(
@@ -42,20 +42,27 @@ def changed(repo, files: dict[str, str]) -> list[tuple[str, str, str]]:
         ("setup.cfg", "lint/test config"),
         (".coveragerc", "lint/test config"),
         ("mypy.ini", "lint/test config"),
+        ("jest.config.js", "lint/test config"),
+        ("vitest.config.ts", "lint/test config"),
+        ("playwright.config.ts", "lint/test config"),
+        (".eslintrc.json", "lint/test config"),
+        ("eslint.config.mjs", "lint/test config"),
+        (".nycrc", "lint/test config"),
+        (".c8rc.json", "lint/test config"),
         ("plugin/tests/conftest.py", "test fixtures/collection"),
     ],
 )
-def test_a_changed_gate_file_is_a_hit(repo, path, kind):
+def test_a_changed_gate_file_is_a_gate_change(repo, path, kind):
     assert changed(repo, {path: "x\n"}) == [(kind, path, "file changed")]
 
 
-def test_a_deleted_gate_file_is_a_hit(repo):
+def test_a_deleted_gate_file_is_a_gate_change(repo):
     commit(repo, {".github/workflows/ci.yml": "on: push\n"}, "ci")
     base = run_git(repo, "rev-parse", "HEAD")
     run_git(repo, "rm", "-q", ".github/workflows/ci.yml")
     run_git(repo, "commit", "-q", "-m", "drop ci")
 
-    assert [hit.kind for hit in gate_drift.drift(repo, base, "HEAD")] == ["CI workflow"]
+    assert [change.kind for change in gate_drift.drift(repo, base, "HEAD")] == ["CI workflow"]
 
 
 @pytest.mark.parametrize(
@@ -80,7 +87,7 @@ def test_a_deleted_gate_file_is_a_hit(repo):
         ("tests/test_app.py", "@pytest.mark.flaky(reruns=3)", "sleep/retry in a test"),
     ],
 )
-def test_an_added_weakener_is_a_hit(repo, path, line, kind):
+def test_an_added_weakener_is_a_gate_change(repo, path, line, kind):
     assert (kind, path, line.strip()) in changed(repo, {path: f"{line}\n"})
 
 
@@ -94,17 +101,17 @@ def test_an_added_weakener_is_a_hit(repo, path, line, kind):
         pytest.param("src/app.py", "total = 1", id="plain-code"),
     ],
 )
-def test_a_line_that_weakens_nothing_is_no_hit(repo, path, line):
+def test_a_line_that_weakens_nothing_is_no_gate_change(repo, path, line):
     assert changed(repo, {path: f"{line}\n"}) == []
 
 
-def test_a_removed_weakener_is_no_hit(repo):
+def test_a_removed_weakener_is_no_gate_change(repo):
     commit(repo, {"src/app.py": "import os  # noqa: F401\n"}, "suppress")
 
     assert changed(repo, {"src/app.py": "import os\n"}) == []
 
 
-def test_a_removed_test_is_a_hit_unless_the_same_file_defines_it_again(repo):
+def test_a_removed_test_is_a_gate_change_unless_the_same_file_defines_it_again(repo):
     commit(
         repo,
         {
@@ -115,7 +122,7 @@ def test_a_removed_test_is_a_hit_unless_the_same_file_defines_it_again(repo):
         "tests",
     )
 
-    hits = changed(
+    changes = changed(
         repo,
         {
             "tests/test_app.py": "def test_kept(tmp_path):\n    pass\n",
@@ -125,7 +132,7 @@ def test_a_removed_test_is_a_hit_unless_the_same_file_defines_it_again(repo):
         },
     )
 
-    assert hits == [
+    assert changes == [
         ("test removed or renamed", "tests/test_app.py", "test_dropped"),
         ("test removed or renamed", "tests/test_moved.py", "test_moved"),
     ]
@@ -137,7 +144,7 @@ def test_a_deleted_test_file_reports_each_of_its_tests(repo):
     run_git(repo, "rm", "-q", "tests/test_gone.py")
     run_git(repo, "commit", "-q", "-m", "drop")
 
-    assert [(hit.path, hit.detail) for hit in gate_drift.drift(repo, base, "HEAD")] == [
+    assert [(change.path, change.detail) for change in gate_drift.drift(repo, base, "HEAD")] == [
         ("tests/test_gone.py", "test_a"),
         ("tests/test_gone.py", "test_b"),
     ]
@@ -180,15 +187,15 @@ line-length = 120
         ),
     ],
 )
-def test_pyproject_is_a_hit_only_where_it_changes_a_gate_section(repo, old, new, sections):
+def test_pyproject_is_a_gate_change_only_where_it_changes_a_gate_section(repo, old, new, sections):
     commit(repo, {"plugin/pyproject.toml": PYPROJECT}, "pyproject")
 
-    hits = changed(repo, {"plugin/pyproject.toml": PYPROJECT.replace(old, new)})
+    changes = changed(repo, {"plugin/pyproject.toml": PYPROJECT.replace(old, new)})
 
-    assert hits == [("lint/test config", "plugin/pyproject.toml", f"[{section}] changed") for section in sections]
+    assert changes == [("lint/test config", "plugin/pyproject.toml", f"[{section}] changed") for section in sections]
 
 
-def test_lowering_the_threshold_is_a_threshold_hit_and_a_gate_config_hit(repo):
+def test_lowering_the_threshold_is_a_threshold_and_a_gate_config_change(repo):
     commit(repo, {"pyproject.toml": PYPROJECT}, "pyproject")
 
     assert changed(repo, {"pyproject.toml": PYPROJECT.replace("fail_under = 100", "fail_under = 90")}) == [
@@ -197,7 +204,7 @@ def test_lowering_the_threshold_is_a_threshold_hit_and_a_gate_config_hit(repo):
     ]
 
 
-def test_drift_reads_from_the_merge_base_so_base_moving_on_adds_no_hits(repo):
+def test_drift_reads_from_the_merge_base_so_base_moving_on_adds_no_gate_changes(repo):
     base = run_git(repo, "rev-parse", "HEAD")
     run_git(repo, "switch", "-q", "-c", "feature")
     commit(repo, {"src/app.py": "x = 1\n"}, "feature")
@@ -208,7 +215,7 @@ def test_drift_reads_from_the_merge_base_so_base_moving_on_adds_no_hits(repo):
     assert gate_drift.drift(repo, base, "main") != []
 
 
-def test_main_prints_hits_as_json_and_exits_1(repo, capsys):
+def test_main_prints_gate_changes_as_json_and_exits_1(repo, capsys):
     base = run_git(repo, "rev-parse", "HEAD")
     commit(repo, {"tests/conftest.py": "x = 1  # pragma: no cover\n"}, "change")
 
@@ -220,7 +227,7 @@ def test_main_prints_hits_as_json_and_exits_1(repo, capsys):
     ]
 
 
-def test_main_exits_0_with_no_hits(repo, capsys):
+def test_main_exits_0_with_no_gate_changes(repo, capsys):
     base = run_git(repo, "rev-parse", "HEAD")
     commit(repo, {"src/app.py": "x = 1\n"}, "change")
 
@@ -272,12 +279,12 @@ def test_history_scans_every_merged_pr(repo, capsys):
     assert report[1] == {
         "merge": clean,
         "subject": "Merge pull request #2 from a/two",
-        "hits": [{"kind": "test fixtures/collection", "path": "tests/conftest.py", "detail": "file changed"}],
+        "changes": [{"kind": "test fixtures/collection", "path": "tests/conftest.py", "detail": "file changed"}],
     }
-    assert report[2]["hits"] == []
+    assert report[2]["changes"] == []
 
 
-def test_history_exits_0_when_no_merged_pr_has_hits(repo, capsys):
+def test_history_exits_0_when_no_merged_pr_has_gate_changes(repo, capsys):
     merge_pr(repo, "one", {"src/app.py": "x\n"}, "Merge pull request #1 from a/one")
 
     assert gate_drift.main(["--history", "--repo", str(repo)]) == 0

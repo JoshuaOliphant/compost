@@ -1,5 +1,5 @@
 # ABOUTME: Lists every edit a branch makes to the checks that judge it, for compost:verify: changed gate files, added
-# ABOUTME: weakeners, and removed test functions, as JSON. Exits 1 with hits. Stdlib only; reads git.
+# ABOUTME: weakeners, and removed test functions, as JSON. Exits 1 with changes. Stdlib only; reads git.
 import argparse
 import json
 import re
@@ -18,6 +18,13 @@ GATE_FILES = (
     (re.compile(r"(^|/)\.pre-commit-config\.ya?ml$"), "pre-commit"),
     (
         re.compile(r"(^|/)(\.?ruff\.toml|pytest\.ini|tox\.ini|setup\.cfg|\.coveragerc|\.?mypy\.ini)$"),
+        "lint/test config",
+    ),
+    # JS and TS runners, linters, and coverage tools keep thresholds and ignores in their own configs.
+    (
+        re.compile(
+            r"(^|/)((jest|vitest|playwright|karma)\.config\.[cm]?[jt]s|\.eslintrc(\.\w+)?|eslint\.config\.[cm]?[jt]s|\.nycrc(\.\w+)?|\.c8rc(\.\w+)?)$"
+        ),
         "lint/test config",
     ),
     (re.compile(r"(^|/)conftest\.py$"), "test fixtures/collection"),
@@ -50,24 +57,26 @@ class GateDriftError(Exception):
 
 
 @dataclass(frozen=True)
-class Hit:
+class GateChange:
     kind: str
     path: str
     detail: str
 
 
-def drift(repo, base: str, head: str) -> list[Hit]:
-    """Every hit in what `head` changed since its merge-base with `base`, so commits the base gained since are not
+def drift(repo, base: str, head: str) -> list[GateChange]:
+    """Every change in what `head` changed since its merge-base with `base`, so commits the base gained since are not
     the branch's: changed gate files first, then added weakeners in diff order, gate tables changed in a
     pyproject.toml, and test functions removed from a file that does not define them again."""
     fork = _git(repo, "merge-base", base, head).strip()
-    hits = [
-        Hit(kind, path, "file changed")
+    changes = [
+        GateChange(kind, path, "file changed")
         for path in _git(repo, "diff", "--name-only", fork, head).splitlines()
         if (kind := gate_file(path))
     ]
     diff = _git(repo, "diff", "-U0", "--no-color", "--no-ext-diff", fork, head)
-    return hits + line_hits(diff, lambda side, path: _git(repo, "show", f"{fork if side == '-' else head}:{path}"))
+    return changes + line_changes(
+        diff, lambda side, path: _git(repo, "show", f"{fork if side == '-' else head}:{path}")
+    )
 
 
 def gate_file(path: str) -> str | None:
@@ -81,9 +90,9 @@ def weakeners(path: str, line: str) -> list[str]:
     return [kind for pattern, kind in WEAKENERS if (in_test or kind != SLEEP) and pattern.search(line)]
 
 
-def line_hits(diff: str, show: Callable[[str, str], str]) -> list[Hit]:
-    """Hits in a `git diff -U0`; `show(side, path)` returns the file before ("-") or after ("+") the change."""
-    hits: list[Hit] = []
+def line_changes(diff: str, show: Callable[[str, str], str]) -> list[GateChange]:
+    """Changes in a `git diff -U0`; `show(side, path)` returns the file before ("-") or after ("+") the change."""
+    changes: list[GateChange] = []
     tables: dict[tuple[str, str], None] = {}
     removed: dict[str, list[str]] = {}
     added: dict[str, set[str]] = {}
@@ -110,7 +119,7 @@ def line_hits(diff: str, show: Callable[[str, str], str]) -> list[Hit]:
         numbers[side] += 1
         body = line[1:]
         if side == "+":
-            hits += [Hit(kind, path, body.strip()[:120]) for kind in weakeners(path, body)]
+            changes += [GateChange(kind, path, body.strip()[:120]) for kind in weakeners(path, body)]
         if PurePosixPath(path).name == "pyproject.toml" and body.strip():
             if (side, path) not in texts:
                 texts[side, path] = show(side, paths[side]).splitlines()
@@ -122,14 +131,14 @@ def line_hits(diff: str, show: Callable[[str, str], str]) -> list[Hit]:
                 removed.setdefault(path, []).append(test[1])
             else:
                 added.setdefault(path, set()).add(test[1])
-    hits += [Hit(GATE_CONFIG, path, f"[{table}] changed") for path, table in tables]
+    changes += [GateChange(GATE_CONFIG, path, f"[{table}] changed") for path, table in tables]
     for path, names in removed.items():
-        hits += [
-            Hit("test removed or renamed", path, name)
+        changes += [
+            GateChange("test removed or renamed", path, name)
             for name in dict.fromkeys(names)
             if name not in added.get(path, ())
         ]
-    return hits
+    return changes
 
 
 def table_at(lines: list[str], number: int) -> str:
@@ -149,11 +158,11 @@ def history(repo) -> list[dict]:
         if not subject.startswith("Merge pull request"):
             continue
         try:
-            hits = drift(repo, f"{sha}^1", f"{sha}^2")
+            changes = drift(repo, f"{sha}^1", f"{sha}^2")
         except GateDriftError as error:
             report.append({"merge": sha, "subject": subject, "error": str(error)})
             continue
-        report.append({"merge": sha, "subject": subject, "hits": [asdict(hit) for hit in hits]})
+        report.append({"merge": sha, "subject": subject, "changes": [asdict(change) for change in changes]})
     return report
 
 
@@ -177,9 +186,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.history:
             report = history(args.repo)
-            found = any(row.get("hits") for row in report)
+            found = any(row.get("changes") for row in report)
         else:
-            report = [asdict(hit) for hit in drift(args.repo, args.base, args.head)]
+            report = [asdict(change) for change in drift(args.repo, args.base, args.head)]
             found = bool(report)
     except GateDriftError as error:
         print(error, file=sys.stderr)
