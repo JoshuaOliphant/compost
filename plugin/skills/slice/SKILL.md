@@ -23,7 +23,7 @@ The tracker is the only plan. No markdown plan files, no second task list.
    terms in every title and body. If there is no spec, or it still has open questions, go back to
    `compost:spec` first. If the parent says `**Class:** architectural` and carries no approval comment,
    and the request that started this work didn't say to build it, stop and ask for approval
-   (`compost:spec` step 10); an unapproved architectural spec is not ready to slice. If the compound-knowledge plugin is installed, use
+   (`compost:spec` step 11); an unapproved architectural spec is not ready to slice. If the compound-knowledge plugin is installed, use
    `compound-knowledge:compound-retrieve` on the area the spec touches before cutting slices, so
    known gotchas shape each issue's Files and its blocking edges. Without the plugin, skip this step
    and say nothing about it.

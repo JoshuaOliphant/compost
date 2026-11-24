@@ -82,6 +82,23 @@ Bounded work uses the sections marked **bounded**. Architectural work uses all o
 <!-- bounded, architectural -->
 - <an outcome that makes this a failure even with every AC passing, and how the work avoids it>
 
+## Run contract
+<!-- bounded, architectural -->
+### Stops
+- <compost:implement's fixed stop list, then any stop this spec adds. A contract never drops these:
+  merging to the repository's default branch; a force-push or a history rewrite on a shared branch;
+  a deploy or release, including one flagged for the user's approval; deleting data; a message that
+  reaches people beyond the run's own issues: an email, a chat post, or a comment, mention, or
+  review request on someone else's issue or pull request>
+
+### Prerequisites
+- <what only a person can supply> — check: `<command>` — confirmed | unconfirmed
+<!-- or: None -->
+
+### Departures
+- <a decision the run makes differently from implement's default, and why>
+<!-- or: None -->
+
 ## Evidence
 <!-- only when a prototype or spike settled something -->
 - `prototype/<slug>`: <the question it answered and the verdict>
@@ -90,6 +107,23 @@ Bounded work uses the sections marked **bounded**. Architectural work uses all o
 <!-- bounded, architectural -->
 - <each quoting the spec line it concerns, or "None">
 ```
+
+## Readiness record
+
+Posted as one comment on the parent after the issue, and rewritten, not appended, when the check
+runs again:
+
+```markdown
+## Readiness
+- [x] Every AC-N names the kind of test and the seam that proves it
+- [x] Every prerequisite's check ran: <n> confirmed, <n> unconfirmed
+- [x] No open question left unsorted
+- [x] Rabbit holes: <each, or "None"> (architectural)
+- [x] No-gos: <each, or "None"> (architectural)
+- [x] Pre-mortem: <how the run fails, told as if it had> (architectural)
+```
+
+A failed item is `- [ ]` with what fails it.
 
 ## Notes on filling it in
 

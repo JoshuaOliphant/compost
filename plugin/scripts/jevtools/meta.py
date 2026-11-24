@@ -11,7 +11,7 @@ from jevtools.registry import BadInput, require, tool
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 
-ALLOWED_STOPS = [
+IRREVERSIBLE_STOPS = [
     "merging to the repository's default branch",
     "a force-push or a history rewrite on a shared branch",
     "a deploy or release, including one flagged for the user's approval",
@@ -20,8 +20,13 @@ ALLOWED_STOPS = [
         "a message that reaches people beyond the run's own issues: an email, a chat post, or a comment, mention, "
         "or review request on someone else's issue or pull request"
     ),
+]
+PREREQUISITE_STOP = "a prerequisite only a person can supply that is missing or unconfirmed"
+ALLOWED_STOPS = [
+    *IRREVERSIBLE_STOPS,
     "approval of an architectural spec",
     "starting a Claude Code workflow the agent wrote itself, since one can spawn dozens of agents",
+    PREREQUISITE_STOP,
 ]
 RULINGS = [
     (

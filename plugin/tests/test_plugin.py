@@ -192,6 +192,55 @@ def test_stop_guard_reference_keeps_the_rules_step_9_points_to():
     assert "(references/stop-guard.md)" in step9.split("**Decide, log, proceed.**", 1)[1].split("**Close out.**")[0]
 
 
+def test_a_run_contract_keeps_every_irreversible_stop_and_the_prerequisite_stop_is_allowed():
+    assert set(meta.IRREVERSIBLE_STOPS) < set(meta.ALLOWED_STOPS)
+    assert meta.PREREQUISITE_STOP in meta.ALLOWED_STOPS
+    template = (PLUGIN_ROOT / "skills" / "spec" / "references" / "parent-issue.md").read_text()
+    contract = " ".join(template.split("## Run contract", 1)[1].split("\n## ", 1)[0].split())
+    for heading in ("### Stops", "### Prerequisites", "### Departures"):
+        assert heading in contract, f"the Run contract template lacks {heading!r}"
+    for stop in meta.IRREVERSIBLE_STOPS:
+        assert stop in contract, f"the Run contract template doesn't name the irreversible stop {stop!r}"
+
+
+@pytest.mark.parametrize(
+    ("step", "phrases"),
+    [
+        (
+            "Check readiness and write the run contract.",
+            [
+                "(references/readiness.md)",
+                "can add stops but never drop",
+                "ask it as an open question before posting",
+                "mark it unconfirmed",
+                "readiness record",
+            ],
+        ),
+        (
+            "Post the parent issue",
+            [
+                "Bounded work hands off with no approval",
+                "ask for approval once, naming the spec and its run contract",
+            ],
+        ),
+    ],
+)
+def test_spec_ends_with_a_readiness_check_and_one_approval_for_architectural_work(step, phrases):
+    text = " ".join((PLUGIN_ROOT / "skills" / "spec" / "SKILL.md").read_text().split())
+    body = re.split(r" \d+\. \*\*| ## ", text.split(f"**{step}", 1)[1], maxsplit=1)[0]
+    for phrase in phrases:
+        assert phrase in body, f"spec's {step!r} step lacks {phrase!r}"
+
+
+def test_the_readiness_check_is_short_for_bounded_work_and_full_for_architectural_work():
+    text = " ".join((PLUGIN_ROOT / "skills" / "spec" / "references" / "readiness.md").read_text().split())
+    short, full = text.split("The short check, for bounded work:", 1)[1].split("The full check, for architectural work")
+    for item in ("names the kind of test and the seam", "every prerequisite's check has run", "no open question"):
+        assert item in short, f"the short check lacks {item!r}"
+    for item in ("rabbit holes", "no-gos", "pre-mortem"):
+        assert item in full and item not in short, f"{item!r} belongs to the full check only"
+
+
 def test_every_skill_and_agent_reading_the_tracker_doc_falls_back_to_setups_fork_check():
     readers = [
         path

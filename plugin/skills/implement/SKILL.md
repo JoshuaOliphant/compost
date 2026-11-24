@@ -180,10 +180,10 @@ the work so each step can be checked before the next builds on it
    - starting a Claude Code workflow the agent wrote itself, since one can spawn dozens of agents
      (the plugin's own `/compost:review-changes` needs no ask). When a job fits
      [codify the orchestration](../../canon/codify-the-orchestration.md), propose it in a ruling
-     comment and carry on without it.
+     comment and carry on without it;
+   - a prerequisite only a person can supply that is missing or unconfirmed.
 
-   Keeping to this list is on you: compost's Stop hook only nudges.
-   [references/stop-guard.md](references/stop-guard.md) says when it is on and how the run ends.
+   compost's Stop hook only nudges; [references/stop-guard.md](references/stop-guard.md) says how.
 
    When the run repeats a mistake (a command that needs a flag, a fixture that lies, a service that
    must be up), record it with `compound-knowledge:compound-capture` if installed, else on the
