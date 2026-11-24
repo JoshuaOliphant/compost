@@ -1,8 +1,7 @@
 # Readiness
 
 A spec is ready when a run can take it from posted to draft pull request without the user. Spec
-step 10 writes the run contract and runs the check; `compost:implement` runs the same check on a
-parent that has no readiness record.
+step 10 writes the run contract and runs the check.
 
 ## The run contract
 
@@ -12,8 +11,7 @@ The Run contract section of the [parent issue](parent-issue.md) has three lists:
   can add stops but never drop the irreversible ones the template names. When the user asked to run
   without one, keep it and say the contract cannot drop it.
 - **Prerequisites:** what only a person can supply (keys, accounts, services, test data), each with
-  a command that checks it and marked confirmed or unconfirmed. An unconfirmed one stops implement
-  before the first build.
+  a command that checks it and marked confirmed or unconfirmed.
 - **Departures:** decisions the run makes differently from implement's default, or "None".
 
 ## The check
