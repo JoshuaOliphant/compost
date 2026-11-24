@@ -24,7 +24,8 @@ command can: judge whether it ran what changed, and prove the fact the change is
    project's CI workflow defines green: what `.github/workflows/*` runs, plus any `pre-commit`,
    `Makefile` or `justfile` check target. Read `docs/agents/observability.md` too; if it is
    missing, run `compost:setup`'s observability step now, which records none when the repo has
-   nothing running to observe and commits the file.
+   nothing running to observe and commits the file. Read the E2E entry in `testing.md` and whether
+   the parent issue has a `## Frontend` section; step 6 needs both.
 
    Then find the verify command `testing.md` names. When it names none, build one before running
    anything: a `scripts/verify`, or a target in the repo's task runner, that
@@ -58,7 +59,8 @@ command can: judge whether it ran what changed, and prove the fact the change is
 2. **Run the verify command, and any gate it leaves out, fresh.** Run them in this worktree now,
    not earlier and not somewhere else. Read each exit code and the whole output. Stop at the first
    failure and read its log before touching anything else: the first failing log carries the
-   information, and later failures are often its echoes. A failing test outside the change gets
+   information, and later failures are often its echoes. An e2e test is the exception: it gets one
+   rerun, as step 6 says. A failing test outside the change gets
    run on the base SHA first. Red there, it is pre-existing: file an issue, fix it in its own `fix:` commit
    only if it blocks a gate, and post a ruling. Green there, the change broke it: fix it if the
    cause is plain; otherwise hand it to `compost:diagnose`. A warning the gate prints is a finding too: fix it, or say why it stays.
@@ -107,7 +109,10 @@ command can: judge whether it ran what changed, and prove the fact the change is
    run proves nothing. A passing test can still miss its criterion, so ask Jev whether each
    test asserts its Then: run `ac-exercised` with the table ([jev](references/jev.md)) and read
    every criterion in `to_read` against its test. One whose test never checks the Then is unmet.
-   Exit 3: read each test's assertions against its Then yourself.
+   Exit 3: read each test's assertions against its Then yourself. Under a parent with a Frontend
+   section, or for an undeclared frontend change (step 6), a user-visible AC-N needs a passing e2e
+   test that drives the running app; one mapped only to a unit test is unmet, and verify fails
+   naming the AC-N.
 
    A green command proves only what it checks. When no line of its output covers an AC-N, extend
    the repo before claiming anything: a test first (load `compost:build` to fit it in), and a new
@@ -122,7 +127,16 @@ command can: judge whether it ran what changed, and prove the fact the change is
    report instead of editing the other issue's table: two lanes editing one comment lose one of
    the edits, so the orchestrator applies retirements after it lands each lane.
 
-6. **Prove the one fact the change is safe because of.** Most changes that look risky are safe
+6. **Prove frontend work in the running app.** When the parent has a Frontend section, or the diff
+   changes UI files when it has none, follow [frontend](references/frontend.md): start the app from
+   the E2E entry; rerun a failing e2e test once (a pass is flaky: list it under Risk and file an
+   issue; a second failure fails verify, naming the test); screenshot each changed screen and state
+   what it shows against its AC-N; run the pixel comparison only against baselines that already
+   exist, never creating one; push the screenshots to `screenshots/<feature branch>`. UI files
+   under a parent with no Frontend section are an undeclared frontend change: report it, apply this
+   step and step 5's e2e rule anyway, and post the finding as a ruling when unattended.
+
+7. **Prove the one fact the change is safe because of.** Most changes that look risky are safe
    because of one fact, such as "this call only evicts entries that are already expired". Name
    it, then push it as far down this ladder as is cheap:
    1. Asserted: you said so. Worth nothing on its own.
@@ -146,13 +160,13 @@ command can: judge whether it ran what changed, and prove the fact the change is
    When the fact is a performance claim, run
    [the benchmark checklist](../diagnose/references/benchmarks.md) and report its verdict.
 
-7. **Make silent checks prove they ran.** A check that prints nothing when it fails looks the
+8. **Make silent checks prove they ran.** A check that prints nothing when it fails looks the
    same as one that never ran. Before counting it as a pass, show it did work: the number of
    tests collected, the number of files linted, or one run where it caught a planted defect.
    Common cases, such as pytest collecting nothing or coverage measuring the wrong package, are
    in [the proof ladder](references/proof-ladder.md).
 
-8. **Check the comments in the diff.** For Python, run [jev-lint](references/jev-lint.md) over
+9. **Check the comments in the diff.** For Python, run [jev-lint](references/jev-lint.md) over
    the branch first. If it exits 3 (no key), say so and do the manual pass. Either way, read every
    comment the diff adds. Keep only:
    - legal or license headers
@@ -166,17 +180,18 @@ command can: judge whether it ran what changed, and prove the fact the change is
    ("changed from X"). A comment explaining a surprise in our own code means the code needs a
    better name, an extracted function, or a type. Change the code and drop the comment.
 
-9. **Report the evidence.** Give the commands and their counts (`214 passed, 0 failed`), the
-   coverage result and any proposed exclusion, the mutants run, killed, and sorted as equivalent
-   or excluded, the AC table, the safety fact with its rung and
-   the proof output (the telemetry query and what it returned, when a stack is recorded), and the
-   comments removed. Post the AC table on the issue in the shape the verify command checks, so
-   every later run checks it too, by editing the AC-table comment already on the issue (the one
-   `compost:build` posted, or yours from an earlier run) instead of adding another. Before saying "done", ask
-   Jev whether the output you captured backs each claim: run `claim-backed` with every claim
-   and its command's output ([jev](references/jev.md)), and fix or drop each one in `unbacked`.
-   Exit 3: reread each output against its claim yourself. Say "done" only
-   when every row is met and every gate is green. Otherwise state the actual status.
+10. **Report the evidence.** Give the commands and their counts (`214 passed, 0 failed`), the
+    coverage result and any proposed exclusion, the mutants run, killed, and sorted as equivalent
+    or excluded, the AC table, the Screenshots list (AC-N, raw URL on the screenshots branch, one
+    line of what it shows), the Flaky list (each e2e test that passed on rerun, with its filed issue
+    id), the safety fact with its rung and the proof output (the telemetry query and what it
+    returned, when a stack is recorded), and the comments removed. Post the AC table on the issue in the shape the verify command checks, so
+    every later run checks it too, by editing the AC-table comment already on the issue (the one
+    `compost:build` posted, or yours from an earlier run) instead of adding another. Before saying "done", ask
+    Jev whether the output you captured backs each claim: run `claim-backed` with every claim
+    and its command's output ([jev](references/jev.md)), and fix or drop each one in `unbacked`.
+    Exit 3: reread each output against its claim yourself. Say "done" only
+    when every row is met and every gate is green. Otherwise state the actual status.
 
 ## Next moves
 
