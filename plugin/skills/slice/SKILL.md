@@ -39,7 +39,10 @@ The tracker is the only plan. No markdown plan files, no second task list.
    needs (schema, logic, interface, tests) and is demoable or verifiable alone. Give every AC-N
    from the spec to exactly one issue; a criterion split across two issues is verified by neither.
    Order issues so each lands green on its own
-   ([sequence verifiable units](../../canon/sequence-verifiable-units.md)).
+   ([sequence verifiable units](../../canon/sequence-verifiable-units.md)). When the parent has a
+   `## Frontend` section and the e2e tool `docs/agents/testing.md` records is `none` or not in the
+   project's dependencies, the first frontend issue adds it (Playwright in the stack's flavour for
+   `none`) and adds its run as a gate in `docs/agents/testing.md`.
 
    A wide refactor is the exception: one mechanical change whose blast radius spans the codebase
    (renaming a column, retyping a shared symbol) can't land as a vertical slice. Sequence it as

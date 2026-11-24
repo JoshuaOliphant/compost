@@ -241,6 +241,31 @@ def test_the_readiness_check_is_short_for_bounded_work_and_full_for_architectura
         assert item in full and item not in short, f"{item!r} belongs to the full check only"
 
 
+def test_setup_records_an_e2e_entry_naming_playwright_in_the_stacks_flavour():
+    reference = (PLUGIN_ROOT / "skills" / "setup" / "references" / "testing.md").read_text()
+    assert "\n## E2E\n" in reference, "testing.md's template lacks an E2E section"
+    e2e = reference.split("\n## E2E\n", 1)[1].split("\n## ", 1)[0].split("````", 1)[0]
+    entry = [line.split(":", 1)[0] for line in e2e.splitlines() if line.startswith("- ")]
+    assert entry == ["- Tool", "- Tests", "- Start app", "- Baselines"]
+    detection = " ".join(reference.split("## Template for docs/agents/testing.md", 1)[0].split())
+    for flavour in ("`pytest-playwright`", "`@playwright/test`"):
+        assert flavour in detection, f"setup's e2e detection doesn't recommend {flavour}"
+    step6 = " ".join((PLUGIN_ROOT / "skills" / "setup" / "SKILL.md").read_text().split())
+    assert "E2E entry" in step6.split("**Test convention and gates.**", 1)[1].split("**Observability.**")[0]
+
+
+def test_the_first_frontend_slice_installs_a_missing_e2e_tool_and_gates_its_run():
+    text = " ".join((PLUGIN_ROOT / "skills" / "slice" / "SKILL.md").read_text().split())
+    step3 = text.split("**Cut tracer bullets.**", 1)[1].split("**Write each issue**")[0]
+    for phrase in (
+        "`## Frontend` section",
+        "not in the project's dependencies",
+        "the first frontend issue adds it",
+        "its run as a gate in `docs/agents/testing.md`",
+    ):
+        assert phrase in step3, f"slice's step 3 lacks {phrase!r}"
+
+
 def test_every_skill_and_agent_reading_the_tracker_doc_falls_back_to_setups_fork_check():
     readers = [
         path
