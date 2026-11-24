@@ -71,6 +71,35 @@ inside one `claude -p` call. Denials are 0 in the on-disk session and subagent t
   (allowed 0.89), on the merge half. It ran review after the resume.
 - **Permission denials are 0 in both arms,** a baseline for OLI-119 under auto mode.
 
+## Rerun of after on 08a1687
+
+The first after run showed two defects in the branch, fixed in 08a1687: implement now reads its
+run-contract reference before anything can stop, and its close-out says to load `compost:finish`.
+The after arm was rerun on 08a1687 with the same driver, caps, and reply
+(`results/after-fix-implement.json`).
+
+| | after (6f17c14) | after (08a1687) |
+|---|---|---|
+| implement: turn ends | 10 | 12 |
+| implement: waits on the user | 5 | 9 |
+| implement: waits naming a Stop | 5 | 9 |
+| implement: permission denials | 0 | 0 |
+| `Run contract stops:` block printed | no | yes, in the first turn |
+| PR-body recap (Goal, Decisions, Changes, Validation, Risk) on the issue file | no | yes, after one resume |
+| `compost:finish` loaded | no | no |
+| driver's `## Goal` check passed | no | no: the recap uses `**Goal:**` |
+
+- **The Stops block now prints**, so the stop guard sees the contract.
+- **The run reached a recap, not finish's PR body.** Its first turn ended at "Tell me when to
+  merge" without the recap. After one resume it wrote a Finish recap with all five sections at the
+  bottom of `spec.md`, but it wrote it by hand and never loaded `compost:finish`, so the body is
+  not finish's template and the driver's heading check missed it.
+- **Every wait names the merge stop**, and Jev scored each one allowed (0.97 to 0.99). The extra
+  waits come from the driver resuming with "decide it yourself", which the agent rightly refuses to
+  read as approval for a merge. They are repeats of one allowed stop, not new interruptions.
+- **AC-22 is still not met.** The run should load `compost:finish` itself and stop once, at the
+  merge decision finish owns. Tracked as a follow-up issue.
+
 ## Caveats
 
 - n=1 per arm on one bounded frontend spec, with Sonnet and no user plugins, not the user's
