@@ -286,7 +286,7 @@ def test_gather_stop_takes_contract_stops_only_as_a_list_of_text(contract_stops)
 )
 def test_stop_guard_blocks_a_wait_outside_the_allowed_stops(waits, allowed, block):
     jev = StubJev(lambda tool, state, questions: {"waits": noul(waits), "allowed": noul(allowed)})
-    contract_stops = [meta.IRREVERSIBLE_STOPS[0], "picking the payment provider"]
+    contract_stops = [meta.IRREVERSIBLE_STOPS[0], "picking the payment provider", "picking the payment provider"]
     gathered = {"message": "Which library do you prefer?", "contract_stops": contract_stops}
     result = asyncio.run(meta.stop_guard(jev, gathered))
     assert result == {"block": block, "score": round(waits * (1 - allowed), 3), "waits": waits, "allowed": allowed}
