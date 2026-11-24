@@ -1,0 +1,14 @@
+{
+  "turn_ends": 1,
+  "waits_on_user": 1,
+  "waits_naming_a_stop": 0,
+  "permission_denials": 0,
+  "contract_stops": [],
+  "waits": [
+    {
+      "message": "Setup is committed as `d7ddda8 chore: configure agent skills`. Nothing was pushed, and no remote or GitHub repository exists.\n\n**Choices I made without asking**\n- **`AGENTS.md`:** the repo had no `CLAUDE.md` or `AGENTS.md`, and none sits in a parent directory, so I created `AGENTS.md`, which the skill recommends. I didn't ask first. If you want `CLAUDE.md` instead, `git mv` it.\n- **Issue tracker:** local markdown under `.scratch/`, as you asked. `docs/agents/issue-tracker.md` records that the repo stays local and must never be pushed.\n- **Domain docs:** single context. `CONTEXT.md` and `docs/adr/` get created later by `compost:spec`.\n- **Docs:** only `README.md` exists, and the scan found nothing to prune. I listed `.scratch/**` as \"not documentation\" so prune never touches it.\n- **Observability:** none, because this is a static site with no server code or telemetry.\n\n**Tests and gates** (`docs/agents/testing.md`)\n- **Test convention:** Playwright Test, adopted from the existing suite.\n- **Suite gate:** `npm test` passes, 1 test.\n- **Not recorded:** coverage, lint, types and CI, because the repo has none of them yet.\n- **Mutation:** none. StrykerJS is the stack's default but would be a new dev dependency, so I left it out until you agree.\n\n**Jev:** the key is ready, so the Jev tools will answer.\n\n**Your call**\n1. **Superseded skills:** `wait-what` and `read-the-damn-docs` are still active here and are replaced by compost. I haven't run `pile.py replaced --apply`, which would set them to `\"off\"` in `~/.claude/settings.json`. Say yes if you want that.\n2. **Orphaned plugin installs:** `agent-skills`, `autoloop`, `autonomous-sdlc`, `jev-lint`, `review-diff` and `stick-shift` (all `@oliphant-plugins`), plus `shopify@claude-plugins-official`, are installed but their marketplace no longer lists them. Uninstalling can't be undone, so that is a separate yes. I can also run `--apply --keep-orphans` to do the skills and leave the orphans.\n3. **`REVIEW.md`:** there isn't one, so compost's review uses its defaults. I can write them out as a `REVIEW.md` so you can tune them.\n\nIn manual permission mode, `/compost:review-changes` asks for permission on every run. Pick \"Yes, and don't ask again\", or add `Workflow(compost:review-changes)` to your allow rules. You can edit `docs/agents/*.md` directly.",
+      "waits": 0.9,
+      "allowed": 0.08
+    }
+  ]
+}
