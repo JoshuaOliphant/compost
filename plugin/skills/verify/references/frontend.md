@@ -38,7 +38,11 @@ A failing e2e test gets exactly one rerun of the failures alone: `npx playwright
 - Fails again: verify fails, naming the test and quoting both failures.
 - Passes: the test is flaky. Verify goes on, lists it under Risk, and files an issue titled
   `Flaky e2e test: <test>` in the tracker with both runs' output. The report's Flaky list
-  names the test and that issue's id. A test the tool's own `retries` marked flaky counts too.
+  names the test and that issue's id.
+
+Run the e2e tool with its own retries off (`npx playwright test --retries=0`, `npx cypress run
+--config retries=0`, and no `--reruns` for pytest), so the one rerun above is the only one: a test
+the tool would retry until it passed is a failure here until the rerun says otherwise.
 
 ## Screenshots
 

@@ -397,6 +397,7 @@ def test_verify_proves_frontend_work_with_e2e_tests_and_screenshots(step, phrase
         pytest.param(["--update-snapshots=none", "git status --porcelain"], id="ac-16-no-baseline-reaches-the-branch"),
         pytest.param(["What counts as UI files", ".tsx", "templates"], id="ac-17-ui-files-are-listed"),
         pytest.param(["--last-failed", "--lf", "Flaky e2e test:"], id="ac-20-ac-21-rerun-only-the-failures"),
+        pytest.param(["--retries=0", "retries=0", "the one rerun above is the only one"], id="ac-21-no-tool-retries"),
     ],
 )
 def test_verify_frontend_reference_says_how(phrases):
