@@ -44,8 +44,10 @@ def mode() -> str:
 
 def git_target(words: list[str], here: Path) -> tuple[Path, list[str]] | None:
     """The directory a `git ... push` runs in (after any -C) and the revisions it sends: the source of every refspec
-    that ships code, else HEAD. Deletes (`-d`, `:branch`) and notes refs (compost:finish pushes the stamps) ship none;
-    None when nothing else is left, or the git command is not a push."""
+    that ships code (`tag <name>` is one refspec), else HEAD. Deletes (`-d`, `:branch`), notes refs (compost:finish
+    pushes the stamps) and wildcards are not judged; None when nothing else is left, or the git command is not a push.
+    `--all`, `--mirror` and `--branches` judge HEAD only: judging every branch would block on old ones nobody is
+    shipping now."""
     index = 1
     while index < len(words) and words[index].startswith("-"):
         if words[index] == "-C" and index + 1 < len(words):
@@ -61,8 +63,12 @@ def git_target(words: list[str], here: Path) -> tuple[Path, list[str]] | None:
             positional.append(word)
     if len(positional) < 2:
         return here, ["HEAD"]
-    sources = [refspec.lstrip("+").split(":")[0] for refspec in positional[1:]]
-    shipped = [source for source in sources if source and not source.startswith("refs/notes/")]
+    sources, refspecs = [], iter(positional[1:])
+    for refspec in refspecs:
+        if refspec == "tag":
+            refspec = f"refs/tags/{next(refspecs, '')}"
+        sources.append(refspec.lstrip("+").split(":")[0])
+    shipped = [source for source in sources if source and "*" not in source and not source.startswith("refs/notes/")]
     return (here, shipped) if shipped else None
 
 
@@ -191,10 +197,14 @@ def decide(hook: dict) -> dict | None:
     if chosen == "off" or not (found := gated(hook["tool_input"]["command"], Path(hook["cwd"]))):
         return None
     kind, directory, revisions = found
-    repo, *shas = stamp.git_lines(
-        directory, "rev-parse", "--show-toplevel", *(f"{rev}^{{commit}}" for rev in revisions)
-    )
-    unstamped = [(rev, sha) for rev, sha in zip(revisions, shas) if not stamp.read(Path(repo), sha)]
+    (repo,) = stamp.git_lines(directory, "rev-parse", "--show-toplevel")
+    resolved = []
+    for rev in revisions:
+        try:
+            resolved.append((rev, stamp.commit_of(Path(repo), rev)))
+        except stamp.GitError:
+            continue  # a source git can't resolve: the push fails on it, so the others are still judged
+    unstamped = [(rev, sha) for rev, sha in resolved if not stamp.read(Path(repo), sha)]
     if not unstamped:
         return None
     revision, sha = unstamped[0]

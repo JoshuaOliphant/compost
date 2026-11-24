@@ -62,6 +62,7 @@ def test_observe_lets_an_unstamped_push_through_and_logs_session_repo_and_sha(wo
         ("git push", "push"),
         ("git push -u origin main", "push"),
         ("git push -u origin no-such-branch", None),
+        ("git push origin HEAD tag v9", "push"),
         ("git push origin", "push"),
         ("x=1 git push", "push"),
         ("sudo git push", "push"),
@@ -171,6 +172,9 @@ def test_the_repo_is_the_one_the_command_points_at(work_repo, gate_log, command,
         ("git push origin main feature", "feature"),
         ("git push origin refs/notes/compost-verify feature", "feature"),
         ("git push origin :old feature", "feature"),
+        ("git push origin tag v1", "feature"),
+        ("git push origin no-such-ref feature", "feature"),
+        ("git push origin 'refs/heads/*:refs/heads/*' feature", "feature"),
         ("git push 2>/dev/null origin feature", "feature"),
         ("git push </dev/null origin feature", "feature"),
         (">log git push origin feature", "feature"),
@@ -183,8 +187,10 @@ def test_the_repo_is_the_one_the_command_points_at(work_repo, gate_log, command,
     ],
 )
 def test_the_commit_judged_is_the_one_the_push_sends(work_repo, gate_log, command, pushed, monkeypatch):
-    """HEAD is stamped and `feature` (one commit back) is not: only a push that sends `feature` is logged."""
+    """HEAD is stamped and `feature` (one commit back, also tagged v1) is not: only a push that sends `feature` is
+    logged."""
     run_git(work_repo, "branch", "feature", "HEAD~1")
+    run_git(work_repo, "tag", "-a", "v1", "-m", "v1", "feature")
     monkeypatch.chdir(work_repo)
     assert stamp.main(["write", "--json", "{}"]) == 0
     gate(hook(command, work_repo))
