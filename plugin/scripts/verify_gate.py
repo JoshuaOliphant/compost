@@ -42,9 +42,10 @@ def mode() -> str:
     return chosen if chosen in {"off", "observe", "enforce"} else "observe"
 
 
-def git_target(words: list[str], here: Path) -> tuple[Path, str] | None:
-    """The directory a `git ... push` runs in (after any -C) and the commit it sends: the source of its first refspec,
-    else HEAD. None when the git command is not a push or only deletes remote branches, which ships no code."""
+def git_target(words: list[str], here: Path) -> tuple[Path, list[str]] | None:
+    """The directory a `git ... push` runs in (after any -C) and the revisions it sends: the source of every refspec
+    that ships code, else HEAD. Deletes (`-d`, `:branch`) and notes refs (compost:finish pushes the stamps) ship none;
+    None when nothing else is left, or the git command is not a push."""
     index = 1
     while index < len(words) and words[index].startswith("-"):
         if words[index] == "-C" and index + 1 < len(words):
@@ -59,9 +60,10 @@ def git_target(words: list[str], here: Path) -> tuple[Path, str] | None:
         elif not word.startswith("-"):
             positional.append(word)
     if len(positional) < 2:
-        return here, "HEAD"
-    source = positional[1].lstrip("+").split(":")[0]
-    return (here, source) if source and not source.startswith("refs/notes/") else None  # notes are no code
+        return here, ["HEAD"]
+    sources = [refspec.lstrip("+").split(":")[0] for refspec in positional[1:]]
+    shipped = [source for source in sources if source and not source.startswith("refs/notes/")]
+    return (here, shipped) if shipped else None
 
 
 def creates_pr(words: list[str]) -> bool:
@@ -77,7 +79,7 @@ def creates_pr(words: list[str]) -> bool:
         ),
         "",
     )
-    has_body = any(word.split("=")[0] in BODY_FLAGS for word in words)
+    has_body = any(word.split("=")[0] in BODY_FLAGS or word[:2] in {"-f", "-F"} for word in words)  # `-fkey=v` too
     method = next((words[i + 1] for i, word in enumerate(words[:-1]) if word in {"-X", "--method"}), None)
     method = method or next((word.split("=", 1)[1] for word in words if word.startswith("--method=")), None)
     method = method or next((word[2:] for word in words if word.startswith("-X") and len(word) > 2), None)
@@ -121,9 +123,12 @@ def commands(command: str) -> list[list[str]]:
 
 def pr_head(words: list[str]) -> str:
     """The branch a PR create proposes: `gh pr create`'s --head or -H, or the `head` field of a `gh api` call (whose -H
-    is a header); an `owner:branch` names the branch. HEAD when none is given."""
+    is a header); an `owner:branch` names the branch. HEAD when none is given, including a `gh api --input` file,
+    which is not read."""
     api = words[1:2] == ["api"]
     for index, word in enumerate(words):
+        if api and word[:2] in {"-f", "-F"} and word[2:].startswith("head="):
+            return word[len("-fhead=") :].split(":")[-1]  # cobra's attached shorthand, `-fhead=branch`
         flag, _, inline = word.partition("=")
         value = inline if inline else (words[index + 1] if index + 1 < len(words) else "")
         if api and flag in BODY_FLAGS - {"--input"} and value.startswith("head="):
@@ -133,9 +138,9 @@ def pr_head(words: list[str]) -> str:
     return "HEAD"
 
 
-def gated(command: str, cwd: Path) -> tuple[str, Path, str] | None:
+def gated(command: str, cwd: Path) -> tuple[str, Path, list[str]] | None:
     """The first push or PR create in the command, the directory it runs in (following a `cd` before it), and the
-    revision it sends."""
+    revisions it sends."""
     here = cwd
     try:
         parsed = commands(command)
@@ -149,9 +154,9 @@ def gated(command: str, cwd: Path) -> tuple[str, Path, str] | None:
         elif words[:1] == ["git"] and (target := git_target(words, here)):
             return "push", *target
         elif words[:1] == ["gh"] and creates_pr(words):
-            return "pr-create", here, pr_head(words)
+            return "pr-create", here, [pr_head(words)]
         elif words[:3] == ["glab", "mr", "create"]:
-            return "pr-create", here, "HEAD"
+            return "pr-create", here, ["HEAD"]
     return None
 
 
@@ -185,10 +190,14 @@ def decide(hook: dict) -> dict | None:
     chosen = mode()
     if chosen == "off" or not (found := gated(hook["tool_input"]["command"], Path(hook["cwd"]))):
         return None
-    kind, directory, revision = found
-    repo, sha = stamp.git_lines(directory, "rev-parse", "--show-toplevel", f"{revision}^{{commit}}")
-    if stamp.read(Path(repo), sha):
+    kind, directory, revisions = found
+    repo, *shas = stamp.git_lines(
+        directory, "rev-parse", "--show-toplevel", *(f"{rev}^{{commit}}" for rev in revisions)
+    )
+    unstamped = [(rev, sha) for rev, sha in zip(revisions, shas) if not stamp.read(Path(repo), sha)]
+    if not unstamped:
         return None
+    revision, sha = unstamped[0]
     session = hook["session_id"]
     entry = {"session_id": session, "repo": repo, "sha": sha, "kind": kind, "mode": chosen}
     if chosen == "observe":
