@@ -31,6 +31,7 @@ the work so each step can be checked before the next builds on it
    comment on them: an architectural parent (`**Class:** architectural`) with no approval comment
    stops for approval, unless the ask that started this run said to build it; earlier rulings
    bind you, and a `compost:pause` status comment means you are resuming from its next action.
+   Then keep the parent's run contract by [references/run-contract.md](references/run-contract.md).
    Read `CONTEXT.md` and the ADRs in `docs/adr/` for the issues' areas; `git log` and
    `git worktree list` show what already landed.
 
@@ -74,8 +75,7 @@ the work so each step can be checked before the next builds on it
    fetches and merges a moved `origin/<default>` into the feature branch before any lane starts. Open a draft PR only when the tracker closes work
    through PRs (its reference in `docs/agents/issue-tracker.md` says an issue closes when its PR
    merges) or the user asks, once the first issue lands (step 5): the forge rejects a PR with no
-   commits. Committing, pushing this branch, and the draft PR need no one's OK; merging the PR
-   does.
+   commits.
 
 4. **Work the frontier.**
    - **One issue, or one lane, outside a lane-routing run:** do it yourself in this session. Load
@@ -168,7 +168,8 @@ the work so each step can be checked before the next builds on it
    write one in `docs/adr/` only on `offer_adr` ([jev](../spec/references/jev.md)). Exit 3 means Jev
    is unavailable: apply the three tests in [domain docs](../spec/references/domain-docs.md) yourself.
 
-   A wrong ruling costs a review comment; a stalled run costs the user's day. Stop only for:
+   A wrong ruling costs a review comment; a stalled run costs the user's day. Stop only for the run
+   contract's Stops (step 1), which always hold:
    - merging to the repository's default branch;
    - a force-push or a history rewrite on a shared branch;
    - a deploy or release, including one flagged for the user's approval;
@@ -185,8 +186,7 @@ the work so each step can be checked before the next builds on it
 
    compost's Stop hook only nudges; [references/stop-guard.md](references/stop-guard.md) says how.
 
-   When the run repeats a mistake (a command that needs a flag, a fixture that lies, a service that
-   must be up), record it with `compound-knowledge:compound-capture` if installed, else on the
+   When the run repeats a mistake, record it with `compound-knowledge:compound-capture` if installed, else on the
    parent issue. A note is the lowest level of fix: when a check could catch the mistake, file an
    issue for that check ([make mistakes impossible](../../canon/make-mistakes-impossible.md)).
 

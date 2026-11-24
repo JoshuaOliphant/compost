@@ -35,15 +35,17 @@ INJECTED = re.compile(r"<([a-z][a-z-]*)(?:\s[^>]*)?>.*?</\1>", re.DOTALL)
 COMMAND = re.compile(r"<command-name>/[^<]+</command-name>")
 # Main-thread entries Claude Code writes as user entries that no one typed: skill bodies, compaction summaries.
 UNTYPED = ("isSidechain", "isMeta", "isCompactSummary", "isVisibleInTranscriptOnly")
+# The block implement prints from the parent's Run contract: this line, one "- <stop>" line per stop, a blank line.
+CONTRACT_STOPS = re.compile(r"^Run contract stops:[ \t]*\n((?:- .*(?:\n|$))*)", re.MULTILINE)
 
 
-def reason() -> str:
+def reason(contract_stops: list[str] | None = None) -> str:
     from jevtools import meta
 
     return (
         "compost stop-guard: this implement run is unattended, and your last message waits on the user for something "
-        f"outside the allowed stops ({'; '.join(meta.ALLOWED_STOPS)}). Decide it yourself, post a ruling as an issue "
-        "comment (what, why, cost if wrong), and continue."
+        f"outside the allowed stops ({'; '.join(meta.allowed_stops(contract_stops or []))}). Decide it yourself, post "
+        "a ruling as an issue comment (what, why, cost if wrong), and continue."
     )
 
 
@@ -99,16 +101,21 @@ def sent_by_user(entry: dict, texts: list[str]) -> bool:
     return any(COMMAND.search(text) or INJECTED.sub("", text).strip() for text in texts)
 
 
+def since_implement(transcript: list[dict]) -> list[dict] | None:
+    """The entries after the latest implement load, or None when implement never loaded."""
+    starts = [index for index, entry in enumerate(transcript) if loads(entry, IMPLEMENT)]
+    return transcript[starts[-1] + 1 :] if starts else None
+
+
 def unattended_run(transcript: list[dict]) -> bool:
     """An implement run is on (not ended since it loaded) and the user did not send the latest prompt since.
 
     Finish always ends the run. Pause ends it only once the user has sent a message in it: a pause the agent starts
     on its own is how an unattended run would slip out of the guard, which is the case the guard exists for.
     """
-    starts = [index for index, entry in enumerate(transcript) if loads(entry, IMPLEMENT)]
-    if not starts:
+    since = since_implement(transcript)
+    if since is None:
         return False
-    since = transcript[starts[-1] + 1 :]
     attended = False
     for entry in since:
         attended = attended or bool((texts := prompt(entry)) and sent_by_user(entry, texts))
@@ -116,6 +123,19 @@ def unattended_run(transcript: list[dict]) -> bool:
             return False
     prompts = [(entry, texts) for entry in since if (texts := prompt(entry))]
     return not (prompts and sent_by_user(*prompts[-1]))
+
+
+def contract_stops(transcript: list[dict]) -> list[str]:
+    """The stops in the latest Run contract block a main-thread assistant entry printed since implement loaded."""
+    stops = []
+    for entry in since_implement(transcript) or []:
+        if entry.get("type") != "assistant" or entry.get("isSidechain"):
+            continue
+        for block in blocks(entry):
+            if block.get("type") == "text":
+                for match in CONTRACT_STOPS.finditer(block.get("text", "")):
+                    stops = [line.removeprefix("- ").strip() for line in match.group(1).splitlines()]
+    return stops
 
 
 def final_message(transcript: list[dict]) -> str:
@@ -151,8 +171,10 @@ def decide(hook: dict, client_factory=None) -> dict | None:
     import jev
     from jevtools.core import open_client
 
-    judgment = asyncio.run(jev.run("stop-guard", {"message": message}, client_factory or open_client))
-    return {"decision": "block", "reason": reason()} if judgment["block"] else None
+    stops = contract_stops(transcript)
+    payload = {"message": message, "contract_stops": stops}
+    judgment = asyncio.run(jev.run("stop-guard", payload, client_factory or open_client))
+    return {"decision": "block", "reason": reason(stops)} if judgment["block"] else None
 
 
 def log(line: str) -> None:

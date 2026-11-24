@@ -344,3 +344,61 @@ def test_ensure_sdk_hands_off_to_needs_uv_only_when_the_sdk_is_missing(monkeypat
     monkeypatch.delitem(sys.modules, "needs_uv", raising=False)
     stop_guard.ensure_sdk(lambda name: spec)
     assert ("needs_uv" in sys.modules) is imports_needs_uv
+
+
+CONTRACT = "Run contract stops:\n- merging to the repository's default branch\n- picking the payment provider\n"
+
+
+@pytest.mark.parametrize(
+    ("entries", "stops"),
+    [
+        (
+            [LOADS_IMPLEMENT, said("m1", f"Contract read.\n{CONTRACT}\nPrerequisites checked.")],
+            [
+                "merging to the repository's default branch",
+                "picking the payment provider",
+            ],
+        ),
+        (
+            [LOADS_IMPLEMENT, said("m1", CONTRACT.rstrip())],
+            [
+                "merging to the repository's default branch",
+                "picking the payment provider",
+            ],
+        ),
+        (
+            [LOADS_IMPLEMENT, said("m1", CONTRACT), said("m2", "Run contract stops:\n- deleting data\n\nGoing on.")],
+            ["deleting data"],
+        ),
+        ([LOADS_IMPLEMENT, said("m1", "Run contract stops:\n\nNone added.")], []),
+        ([said("m1", CONTRACT), SLASH_IMPLEMENT, said("m2", "Reading the contract again.")], []),
+        ([LOADS_IMPLEMENT, said("s1", CONTRACT, isSidechain=True)], []),
+        ([LOADS_IMPLEMENT, user(CONTRACT), said("m1", "Run contract stops:\n- deleting data  \n")], ["deleting data"]),
+        ([LOADS_IMPLEMENT, said("m1", f"**{CONTRACT}**")], []),
+        ([said("m1", CONTRACT)], []),
+    ],
+    ids=[
+        "block between other text",
+        "block at the end with no blank line",
+        "latest block wins",
+        "block with no items",
+        "block before the latest implement load",
+        "subagent's block",
+        "block in a user entry, then one with trailing spaces",
+        "bold header",
+        "no implement load",
+    ],
+)
+def test_contract_stops_are_the_latest_block_implement_printed_since_it_loaded(entries, stops):
+    assert stop_guard.contract_stops(entries) == stops
+
+
+def test_the_contract_stops_implement_printed_reach_jev_and_the_reason(transcript):
+    client = StubClient(lambda state, questions: {"waits": noul(0.9), "allowed": noul(0.1)})
+    path = transcript(LOADS_IMPLEMENT, said("m1", CONTRACT), said("m2", "Which library do you prefer?"))
+    verdict = stop_guard.decide({"transcript_path": path}, lambda: client)
+    allowed = client.calls[0][0]["allowed_stops"]
+    assert allowed[-1] == "picking the payment provider"
+    assert allowed.count("merging to the repository's default branch") == 1
+    assert verdict == {"decision": "block", "reason": stop_guard.reason(["picking the payment provider"])}
+    assert "picking the payment provider" in verdict["reason"]
