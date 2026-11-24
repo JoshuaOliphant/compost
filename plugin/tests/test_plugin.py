@@ -406,6 +406,17 @@ def test_verify_frontend_reference_says_how(phrases):
         assert phrase in text, f"verify's frontend reference lacks {phrase!r}"
 
 
+def test_finish_puts_verifys_screenshots_under_validation_and_flaky_tests_under_risk():
+    body = (PLUGIN_ROOT / "skills" / "finish" / "references" / "pr-body.md").read_text()
+    validation = " ".join(body.split("## Validation", 1)[1].split("## Risk", 1)[0].split())
+    risk = " ".join(body.split("## Risk", 1)[1].split("```", 1)[0].split())
+    assert "Screenshots:" in validation and "raw URL" in validation and "AC-N" in validation
+    assert "Flaky:" in risk and "filed issue" in risk
+    step5 = " ".join((PLUGIN_ROOT / "skills" / "finish" / "SKILL.md").read_text().split())
+    step5 = step5.split("**Open or update the pull request.**", 1)[1].split("Local green proves the branch")[0]
+    assert "Screenshots list" in step5 and "Flaky list" in step5, "finish step 5 doesn't carry verify's lists"
+
+
 def test_every_skill_and_agent_reading_the_tracker_doc_falls_back_to_setups_fork_check():
     readers = [
         path
