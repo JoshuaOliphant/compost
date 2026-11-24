@@ -279,6 +279,7 @@ def test_the_first_frontend_slice_installs_a_missing_e2e_tool_and_gates_its_run(
     step3 = text.split("**Cut tracer bullets.**", 1)[1].split("**Write each issue**")[0]
     for phrase in (
         "`## Frontend` section",
+        "has no E2E entry",
         "not in the project's dependencies",
         "the first frontend issue adds it",
         "its run as a gate in `docs/agents/testing.md`",
