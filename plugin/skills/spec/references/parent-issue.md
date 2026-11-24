@@ -34,6 +34,10 @@ Bounded work uses the sections marked **bounded**. Architectural work uses all o
 <!-- bounded, architectural -->
 - <the key decisions and the motivation for them; four or five bullets for bounded work>
 
+## Frontend
+<!-- only for frontend work, a change to a rendered page or component; left out otherwise -->
+- <one bullet per user-facing flow: who does what, on which page, and what they see>
+
 ## User stories and acceptance criteria
 <!-- bounded, architectural -->
 
@@ -116,6 +120,7 @@ runs again:
 ```markdown
 ## Readiness
 - [x] Every AC-N names the kind of test and the seam that proves it
+- [x] Every user-visible AC-N names an e2e test (frontend work)
 - [x] Every prerequisite's check ran: <n> confirmed, <n> unconfirmed
 - [x] No open question left unsorted
 - [x] Rabbit holes: <each, or "None"> (architectural)

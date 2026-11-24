@@ -19,6 +19,7 @@ The Run contract section of the [parent issue](parent-issue.md) has three lists:
 The short check, for bounded work:
 
 - every AC-N names the kind of test and the seam that will prove it;
+- with a Frontend section on the parent, every AC-N whose Then is user-visible names an e2e test;
 - every prerequisite's check has run;
 - no open question is left unsorted.
 

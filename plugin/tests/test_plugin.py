@@ -235,10 +235,56 @@ def test_spec_ends_with_a_readiness_check_and_one_approval_for_architectural_wor
 def test_the_readiness_check_is_short_for_bounded_work_and_full_for_architectural_work():
     text = " ".join((PLUGIN_ROOT / "skills" / "spec" / "references" / "readiness.md").read_text().split())
     short, full = text.split("The short check, for bounded work:", 1)[1].split("The full check, for architectural work")
-    for item in ("names the kind of test and the seam", "every prerequisite's check has run", "no open question"):
+    for item in (
+        "names the kind of test and the seam",
+        "whose Then is user-visible names an e2e test",
+        "every prerequisite's check has run",
+        "no open question",
+    ):
         assert item in short, f"the short check lacks {item!r}"
     for item in ("rabbit holes", "no-gos", "pre-mortem"):
         assert item in full and item not in short, f"{item!r} belongs to the full check only"
+
+
+def test_spec_declares_frontend_work_and_names_an_e2e_test_for_each_user_visible_then():
+    spec = " ".join((PLUGIN_ROOT / "skills" / "spec" / "SKILL.md").read_text().split())
+    step7 = spec.split("**Write the spec**", 1)[1].split("**Add Gherkin feature files")[0]
+    assert "rendered page or component" in step7 and "Frontend section" in step7, "spec's step 7 skips frontend work"
+    template = (PLUGIN_ROOT / "skills" / "spec" / "references" / "parent-issue.md").read_text()
+    assert "\n## Frontend\n" in template, "the parent template lacks a Frontend section"
+    frontend = " ".join(template.split("\n## Frontend\n", 1)[1].split("\n## ", 1)[0].split())
+    for phrase in ("only for frontend work", "one bullet per user-facing flow"):
+        assert phrase in frontend, f"the Frontend section lacks {phrase!r}"
+    record = template.split("## Readiness\n", 1)[1].split("```", 1)[0]
+    assert "user-visible AC-N names an e2e test" in record, "the readiness record lacks the e2e item"
+    criteria = " ".join((PLUGIN_ROOT / "skills" / "spec" / "references" / "acceptance-criteria.md").read_text().split())
+    assert "A user-visible Then names its e2e test." in criteria
+
+
+def test_setup_records_an_e2e_entry_naming_playwright_in_the_stacks_flavour():
+    reference = (PLUGIN_ROOT / "skills" / "setup" / "references" / "testing.md").read_text()
+    assert "\n## E2E\n" in reference, "testing.md's template lacks an E2E section"
+    e2e = reference.split("\n## E2E\n", 1)[1].split("\n## ", 1)[0].split("````", 1)[0]
+    entry = [line.split(":", 1)[0] for line in e2e.splitlines() if line.startswith("- ")]
+    assert entry == ["- Tool", "- Tests", "- Start app", "- Baselines"]
+    detection = " ".join(reference.split("## Template for docs/agents/testing.md", 1)[0].split())
+    for flavour in ("`pytest-playwright`", "`@playwright/test`"):
+        assert flavour in detection, f"setup's e2e detection doesn't recommend {flavour}"
+    step6 = " ".join((PLUGIN_ROOT / "skills" / "setup" / "SKILL.md").read_text().split())
+    assert "E2E entry" in step6.split("**Test convention and gates.**", 1)[1].split("**Observability.**")[0]
+
+
+def test_the_first_frontend_slice_installs_a_missing_e2e_tool_and_gates_its_run():
+    text = " ".join((PLUGIN_ROOT / "skills" / "slice" / "SKILL.md").read_text().split())
+    step3 = text.split("**Cut tracer bullets.**", 1)[1].split("**Write each issue**")[0]
+    for phrase in (
+        "`## Frontend` section",
+        "has no E2E entry",
+        "not in the project's dependencies",
+        "the first frontend issue adds it",
+        "its run as a gate in `docs/agents/testing.md`",
+    ):
+        assert phrase in step3, f"slice's step 3 lacks {phrase!r}"
 
 
 def test_every_skill_and_agent_reading_the_tracker_doc_falls_back_to_setups_fork_check():
