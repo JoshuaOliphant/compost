@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Settings</title></head>
+<body>
+  <nav><a href="index.html">Home</a> | <a href="settings.html">Settings</a></nav>
+  <h1>Settings</h1>
+  <form id="settings-form">
+    <label>Theme
+      <select name="theme"><option value="light">Light</option><option value="dark">Dark</option></select>
+    </label>
+    <label>Font size <input name="fontSize" type="number" min="10" max="32"></label>
+    <button type="submit">Save</button>
+  </form>
+  <p id="status" role="status"></p>
+  <script src="settings.js"></script>
+</body>
+</html>
