@@ -8,6 +8,8 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 
 - `compost:spec` ends with a readiness check and posts a run contract on the parent (OLI-122): Stops (compost's fixed list plus any the spec adds; the five irreversible stops can't be dropped), Prerequisites (what only a person can supply, each with a check, confirmed or unconfirmed), and Departures. The result goes on the parent as a readiness record: a short check for bounded work, a full one with rabbit holes, no-gos, and a pre-mortem for architectural work. Bounded work hands off with no approval; architectural work asks once, naming the spec and its run contract.
 - `compost:implement` stops for a prerequisite only a person can supply that is missing or unconfirmed, the eighth allowed stop.
+- `compost:setup` records an E2E entry in `docs/agents/testing.md` (OLI-124): the e2e tool, where its tests live, the command that starts the app, and where screenshot baselines live. It adopts the tool in use, recommends Playwright in the stack's flavour (`pytest-playwright` or `@playwright/test`) for a repo that renders pages or components, and records `Tool: none` otherwise. When a frontend spec meets a repo without the tool, `compost:slice` has the first frontend issue install it, fill the E2E entry, and add its run as a gate.
+- `compost:spec` declares frontend work (OLI-125): a parent that changes a rendered page or component gets a Frontend section naming each user-facing flow, every user-visible Then names an e2e test as its proof, and the readiness check fails one that doesn't.
 
 ## [0.48.0] - 2026-11-21
 

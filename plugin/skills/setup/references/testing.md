@@ -122,4 +122,4 @@ only `compost:build`'s walk by hand.
 Delete rows for gates the repo doesn't have. Keep the Exclusions list, empty at first, so later
 agreements have a place to go. With no mutation tool, keep the section with `Tool: none` so
 `compost:verify` and `compost:build` know to walk the mutations by hand. With no e2e tool, keep the
-E2E section with `Tool: none`.
+E2E entry with `Tool: none`.

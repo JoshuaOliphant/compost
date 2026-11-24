@@ -282,6 +282,7 @@ def test_the_first_frontend_slice_installs_a_missing_e2e_tool_and_gates_its_run(
         "has no E2E entry",
         "not in the project's dependencies",
         "the first frontend issue adds it",
+        "fills the E2E entry",
         "its run as a gate in `docs/agents/testing.md`",
     ):
         assert phrase in step3, f"slice's step 3 lacks {phrase!r}"
