@@ -212,6 +212,7 @@ def test_branching_skills_fast_forward_the_default_branch_and_rule_when_it_canno
             ],
         ),
     ],
+    ids=["stop guard", "run contract"],
 )
 def test_implements_references_keep_the_rules_their_step_points_to(reference, step, phrases):
     text = " ".join((PLUGIN_ROOT / "skills" / "implement" / "references" / reference).read_text().split())
