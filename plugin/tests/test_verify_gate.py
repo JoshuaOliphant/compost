@@ -73,7 +73,7 @@ def test_observe_lets_an_unstamped_push_through_and_logs_session_repo_and_sha(wo
         ("bash -lc true && git push", "push"),
         ("echo 'unterminated && git push", None),
         ("gh pr create --draft --title x --body y", "pr-create"),
-        ("gh api repos/o/r/pulls -f title=x -f head=b -f base=main", "pr-create"),
+        ("gh api repos/o/r/pulls -f title=x -f head=main -f base=main", "pr-create"),
         ("gh api repos/o/r/pulls --raw-field=title=x", "pr-create"),
         ("gh api --method post repos/o/r/pulls --input body.json", "pr-create"),
         ("gh api -X POST /repos/o/r/pulls/", "pr-create"),
@@ -138,6 +138,8 @@ def test_the_repo_is_the_one_the_command_points_at(work_repo, gate_log, command,
         ("git push -u origin +feature:other", "feature"),
         ("git push --push-option ci.skip origin feature", "feature"),
         ("git push origin HEAD:main", None),
+        ("git push origin refs/notes/compost-verify", None),
+        ("git push origin +refs/notes/compost-verify:refs/notes/compost-verify", None),
         ("git push", None),
     ],
 )
@@ -174,7 +176,14 @@ def test_a_push_after_a_heredoc_is_still_gated(work_repo, gate_log):
 
 @pytest.mark.parametrize(
     "command, judged",
-    [("gh pr create --head feature --title t", "feature"), ("gh pr create --head=me:feature", "feature")],
+    [
+        ("gh pr create --head feature --title t", "feature"),
+        ("gh pr create --head=me:feature", "feature"),
+        ("gh pr create -H feature", "feature"),
+        ("gh api repos/o/r/pulls -H 'Accept: application/vnd.github+json' -f head=feature -f base=main", "feature"),
+        ("gh api repos/o/r/pulls --raw-field=head=me:feature", "feature"),
+    ],
+    ids=["--head", "--head=owner:branch", "-H", "api -f head with -H header", "api --raw-field=head="],
 )
 def test_a_pr_create_is_judged_by_its_head_branch(work_repo, gate_log, monkeypatch, command, judged):
     run_git(work_repo, "branch", "feature", "HEAD~1")

@@ -61,7 +61,7 @@ def git_target(words: list[str], here: Path) -> tuple[Path, str] | None:
     if len(positional) < 2:
         return here, "HEAD"
     source = positional[1].lstrip("+").split(":")[0]
-    return (here, source) if source else None
+    return (here, source) if source and not source.startswith("refs/notes/") else None  # notes are no code
 
 
 def creates_pr(words: list[str]) -> bool:
@@ -118,10 +118,15 @@ def commands(command: str) -> list[list[str]]:
 
 
 def pr_head(words: list[str]) -> str:
-    """The branch a `gh pr create` proposes: its --head (an `owner:branch` names the branch), else HEAD."""
+    """The branch a PR create proposes: `gh pr create`'s --head or -H, or the `head` field of a `gh api` call (whose -H
+    is a header); an `owner:branch` names the branch. HEAD when none is given."""
+    api = words[1:2] == ["api"]
     for index, word in enumerate(words):
-        if word.startswith("--head=") or (word in {"--head", "-H"} and index + 1 < len(words)):
-            value = word.split("=", 1)[1] if "=" in word else words[index + 1]
+        flag, _, inline = word.partition("=")
+        value = inline if inline else (words[index + 1] if index + 1 < len(words) else "")
+        if api and flag in BODY_FLAGS - {"--input"} and value.startswith("head="):
+            return value[len("head=") :].split(":")[-1]
+        if not api and flag in {"--head", "-H"} and value:
             return value.split(":")[-1]
     return "HEAD"
 

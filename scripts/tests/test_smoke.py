@@ -189,6 +189,8 @@ if (state / "fail").exists() and (state / "fail").read_text() == key:
     sys.exit(1)
 if key == "-p":
     (state / "env.json").write_text(json.dumps(sorted(os.environ)))
+    login = Path(os.environ["CLAUDE_CONFIG_DIR"]) / ".credentials.json"
+    (state / "login.txt").write_text(login.read_text() if login.exists() else "")
     sys.stdout.write((state / "stream.jsonl").read_text())
 elif key == "plugin list":
     sys.stdout.write((state / "listing.json").read_text())
@@ -386,9 +388,12 @@ def test_any_failing_step_exits_non_zero_names_it_and_keeps_the_scratch_dir(
     assert len(list(fake.scratch.iterdir())) == 1
 
 
-@pytest.mark.parametrize("where", ["CLAUDE_CONFIG_DIR", "HOME"])
-def test_the_throwaway_config_keeps_the_users_login(fake, tmp_path, where):
-    """On Linux an OAuth login lives in the config dir's .credentials.json; without it the turn runs logged out."""
+@pytest.mark.parametrize(
+    "where, failing", [("CLAUDE_CONFIG_DIR", False), ("HOME", False), ("HOME", True)]
+)
+def test_the_turn_runs_logged_in_and_no_kept_dir_holds_the_login(fake, tmp_path, where, failing):
+    """On Linux an OAuth login lives in the config dir's .credentials.json; without it the turn runs logged out. A
+    dir kept for its logs (after --keep or a failure) must not keep a copy of it."""
     config = tmp_path / "user-config"
     login = (
         config / ".credentials.json"
@@ -400,9 +405,12 @@ def test_the_throwaway_config_keeps_the_users_login(fake, tmp_path, where):
     environ = {"PATH": os.environ["PATH"], "HOME": str(tmp_path)}
     if where == "CLAUDE_CONFIG_DIR":
         environ["CLAUDE_CONFIG_DIR"] = str(config)
-    assert fake.run("--keep", environ=environ) == 0
+    if failing:
+        (fake.state / "stream.jsonl").write_text("")
+    assert fake.run("--keep", environ=environ) == int(failing)
+    assert (fake.state / "login.txt").read_text() == '{"token": "t"}'
     [kept] = fake.scratch.iterdir()
-    assert (kept / "config" / ".credentials.json").read_text() == '{"token": "t"}'
+    assert not (kept / "config" / ".credentials.json").exists()
 
 
 def test_wrapper_runs_the_python_script():

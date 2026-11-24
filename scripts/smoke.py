@@ -294,6 +294,9 @@ def main(argv: list[str] | None = None, environ: Mapping[str, str] = os.environ)
         print(f"smoke: FAIL {failure.step}: {failure.why}")
         print(f"smoke: kept {root}")
         return 1
+    finally:
+        # a dir kept for its logs must not hold a copy of the user's login
+        (root / "config" / ".credentials.json").unlink(missing_ok=True)
     print("smoke: passed")
     if args.keep:
         print(f"smoke: kept {root}")
