@@ -2,6 +2,13 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.49.0] - 2026-11-24
+
+### Added
+
+- `compost:spec` ends with a readiness check and posts a run contract on the parent (OLI-122): Stops (compost's fixed list plus any the spec adds; the five irreversible stops can't be dropped), Prerequisites (what only a person can supply, each with a check, confirmed or unconfirmed), and Departures. The result goes on the parent as a readiness record: a short check for bounded work, a full one with rabbit holes, no-gos, and a pre-mortem for architectural work. Bounded work hands off with no approval; architectural work asks once, naming the spec and its run contract.
+- `compost:implement` stops for a prerequisite only a person can supply that is missing or unconfirmed, the eighth allowed stop.
+
 ## [0.48.0] - 2026-11-21
 
 ### Changed
