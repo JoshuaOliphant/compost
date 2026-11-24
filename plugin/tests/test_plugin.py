@@ -323,6 +323,88 @@ def test_the_first_frontend_slice_installs_a_missing_e2e_tool_and_gates_its_run(
         assert phrase in step3, f"slice's step 3 lacks {phrase!r}"
 
 
+def verify_step(title):
+    text = " ".join((PLUGIN_ROOT / "skills" / "verify" / "SKILL.md").read_text().split())
+    assert f"**{title}**" in text, f"verify has no {title!r} step"
+    return re.split(r" \d+\. \*\*| ## ", text.split(f"**{title}**", 1)[1], maxsplit=1)[0]
+
+
+def verify_frontend_reference():
+    reference = PLUGIN_ROOT / "skills" / "verify" / "references" / "frontend.md"
+    assert reference.exists(), "verify has no frontend reference"
+    return " ".join(reference.read_text().split())
+
+
+@pytest.mark.parametrize(
+    ("step", "phrases"),
+    [
+        pytest.param(
+            "Map every acceptance criterion to a passing test.",
+            ["a user-visible AC-N needs a passing e2e test that drives the running app", "naming the AC-N"],
+            id="ac-12-user-visible-ac-needs-an-e2e-test",
+        ),
+        pytest.param(
+            "Prove frontend work in the running app.",
+            ["(references/frontend.md)", "screenshot each changed screen", "what it shows against its AC-N"],
+            id="ac-13-changed-screens-are-screenshotted-and-read",
+        ),
+        pytest.param(
+            "Prove frontend work in the running app.",
+            ["pixel comparison only against baselines that already exist", "never creating one"],
+            id="ac-15-ac-16-pixel-comparison-only-against-existing-baselines",
+        ),
+        pytest.param(
+            "Prove frontend work in the running app.",
+            ["undeclared frontend change", "apply this step and step 5's e2e rule", "as a ruling when unattended"],
+            id="ac-17-undeclared-ui-changes-are-flagged",
+        ),
+        pytest.param(
+            "Prove frontend work in the running app.",
+            ["rerun a failing e2e test once", "list it under Risk and file an issue", "fails verify, naming the test"],
+            id="ac-20-ac-21-one-rerun-sorts-flaky-from-failing",
+        ),
+        pytest.param(
+            "Run the verify command, and any gate it leaves out, fresh.",
+            ["An e2e test is the exception: it gets one rerun"],
+            id="first-failure-stop-spares-the-e2e-rerun",
+        ),
+        pytest.param(
+            "Find the gates.",
+            ["E2E entry", "`## Frontend` section"],
+            id="reads-the-e2e-entry-and-the-frontend-section",
+        ),
+        pytest.param(
+            "Report the evidence.",
+            ["the Screenshots list (AC-N, raw URL on the screenshots branch", "the Flaky list"],
+            id="report-lists-screenshots-and-flaky-tests",
+        ),
+    ],
+)
+def test_verify_proves_frontend_work_with_e2e_tests_and_screenshots(step, phrases):
+    body = verify_step(step)
+    for phrase in phrases:
+        assert phrase in body, f"verify's {step!r} step lacks {phrase!r}"
+
+
+@pytest.mark.parametrize(
+    "phrases",
+    [
+        pytest.param(["`Tool: none`", "every user-visible AC-N is unmet"], id="ac-12-no-e2e-tool-fails-the-ac"),
+        pytest.param(
+            ["`screenshots/<feature branch>`", "`<issue id>/<AC-N>-<screen>.png`", "never merged"],
+            id="ac-13-screenshots-branch",
+        ),
+        pytest.param(["--update-snapshots=none", "git status --porcelain"], id="ac-16-no-baseline-reaches-the-branch"),
+        pytest.param(["What counts as UI files", ".tsx", "templates"], id="ac-17-ui-files-are-listed"),
+        pytest.param(["--last-failed", "--lf", "Flaky e2e test:"], id="ac-20-ac-21-rerun-only-the-failures"),
+    ],
+)
+def test_verify_frontend_reference_says_how(phrases):
+    text = verify_frontend_reference()
+    for phrase in phrases:
+        assert phrase in text, f"verify's frontend reference lacks {phrase!r}"
+
+
 def test_every_skill_and_agent_reading_the_tracker_doc_falls_back_to_setups_fork_check():
     readers = [
         path
