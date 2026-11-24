@@ -62,6 +62,11 @@ def test_observe_lets_an_unstamped_push_through_and_logs_session_repo_and_sha(wo
         ("git push", "push"),
         ("git push -u origin main", "push"),
         ("git push -u origin no-such-branch", None),
+        ("git push origin", "push"),
+        ("x=1 git push", "push"),
+        ("sudo git push", "push"),
+        ("exec git push", "push"),
+        ("time git push", "push"),
         ("GIT_TRACE=1 git push", "push"),
         ("git status && git push --follow-tags", "push"),
         ("git -c push.default=current push", "push"),
@@ -86,6 +91,16 @@ def test_observe_lets_an_unstamped_push_through_and_logs_session_repo_and_sha(wo
         ("nohup git push", "push"),
         ("gh api --method=POST repos/o/r/pulls --input body.json", "pr-create"),
         ("gh api -XPOST repos/o/r/pulls", "pr-create"),
+        ("gh api --method POST repos/o/r/pulls", "pr-create"),
+        ("gh api --method=POST repos/o/r/pulls", "pr-create"),
+        ("gh api repos/o/r/pulls -F title=x", "pr-create"),
+        ("gh api repos/o/r/pulls --field title=x", "pr-create"),
+        ("gh api repos/o/r/pulls --input body.json", "pr-create"),
+        (
+            "gh api -H A --header A -q . --jq . -t t --template t --hostname h --cache 1h -p p --preview p "
+            "-X POST repos/o/r/pulls",
+            "pr-create",
+        ),
         ("gh api repos/o/r/issues -f title='list pulls'", None),
         ("git push origin :feat", None),
         ("git status", None),
@@ -96,6 +111,7 @@ def test_observe_lets_an_unstamped_push_through_and_logs_session_repo_and_sha(wo
         ("git push origin --delete feat", None),
         ("git commit -m 'git push later'", None),
         ("gh pr list", None),
+        ("gh search pulls -F x", None),
         ("glab mr list", None),
         ("echo pr create", None),
         ("hub pr create", None),
@@ -122,8 +138,17 @@ def test_only_a_push_or_a_pr_create_is_gated(work_repo, gate_log, command, kind)
         "git -c core.pager=cat -C work push",
         "git -C ~/work push",
         "cd ~/work && git push",
+        "git -C '{repo}' push",
     ],
-    ids=["git -C absolute", "cd absolute", "cd relative", "git -C relative after -c", "git -C home", "cd home"],
+    ids=[
+        "git -C absolute",
+        "cd absolute",
+        "cd relative",
+        "git -C relative after -c",
+        "git -C home",
+        "cd home",
+        "git -C quoted",
+    ],
 )
 def test_the_repo_is_the_one_the_command_points_at(work_repo, gate_log, command, monkeypatch):
     monkeypatch.setenv("HOME", str(work_repo.parent))
@@ -137,6 +162,17 @@ def test_the_repo_is_the_one_the_command_points_at(work_repo, gate_log, command,
         ("git push origin feature", "feature"),
         ("git push -u origin +feature:other", "feature"),
         ("git push --push-option ci.skip origin feature", "feature"),
+        ("git push -o ci.skip origin feature", "feature"),
+        ("git push --repo origin origin feature", "feature"),
+        ("git push --receive-pack git-receive-pack origin feature", "feature"),
+        ("git push --exec git-receive-pack origin feature", "feature"),
+        ("git -c core.pager=cat push origin feature", "feature"),
+        ("git push origin feature main", "feature"),
+        ("git push 2>/dev/null origin feature", "feature"),
+        ("git push </dev/null origin feature", "feature"),
+        (">log git push origin feature", "feature"),
+        ("git push -d origin feature", None),
+        ("git push origin --delete feature", None),
         ("git push origin HEAD:main", None),
         ("git push origin refs/notes/compost-verify", None),
         ("git push origin +refs/notes/compost-verify:refs/notes/compost-verify", None),
@@ -159,9 +195,10 @@ def test_the_commit_judged_is_the_one_the_push_sends(work_repo, gate_log, comman
         "git commit -m \"$(cat <<'EOF'\nfeat: gate pushes\n\ngit push of an unstamped HEAD is now logged\nEOF\n)\"",
         "gh issue create --title t --body-file - <<EOF\ngh pr create --draft\ngit push origin main\nEOF",
         'git commit -m "fix: x; git push later (maybe) | gh pr create"',
-        "cat <<-EOF > notes.md\n\tgit push\n\tEOF",
+        "cat <<-EOF > notes.md\n\tA\n\tgit push\n\tEOF",
+        "cat <<'EOF' > notes.md\n\tEOF\ngit push\nEOF",
     ],
-    ids=["heredoc-commit-message", "heredoc-issue-body", "quoted-message", "indented-heredoc"],
+    ids=["heredoc-commit-message", "heredoc-issue-body", "quoted-message", "indented-heredoc", "tab-is-no-end"],
 )
 def test_words_inside_quotes_or_a_heredoc_are_never_a_command(work_repo, gate_log, monkeypatch, command):
     monkeypatch.setenv(verify_gate.MODE_VAR, "enforce")
@@ -169,8 +206,17 @@ def test_words_inside_quotes_or_a_heredoc_are_never_a_command(work_repo, gate_lo
     assert lines(gate_log) == []
 
 
-def test_a_push_after_a_heredoc_is_still_gated(work_repo, gate_log):
-    gate(hook("cat <<EOF > m.txt\ngit push\nEOF\ngit push origin main", work_repo))
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cat <<EOF > m.txt\ngit push\nEOF\ngit push origin main",
+        "cat <<-EOF > m.txt\n\tgit push\n\tEOF\ngit push origin main",
+        "cat <<A - <<B\ngit push\nA\ngit push\nB\ngit push origin main",
+    ],
+    ids=["heredoc", "indented heredoc", "two heredocs on a line"],
+)
+def test_a_push_after_a_heredoc_is_still_gated(work_repo, gate_log, command):
+    gate(hook(command, work_repo))
     assert [line["kind"] for line in lines(gate_log)] == ["push"]
 
 
@@ -182,8 +228,9 @@ def test_a_push_after_a_heredoc_is_still_gated(work_repo, gate_log):
         ("gh pr create -H feature", "feature"),
         ("gh api repos/o/r/pulls -H 'Accept: application/vnd.github+json' -f head=feature -f base=main", "feature"),
         ("gh api repos/o/r/pulls --raw-field=head=me:feature", "feature"),
+        ("gh api repos/o/r/pulls --jq head=main -f head=feature", "feature"),
     ],
-    ids=["--head", "--head=owner:branch", "-H", "api -f head with -H header", "api --raw-field=head="],
+    ids=["--head", "--head=owner:branch", "-H", "api -f head with -H header", "api --raw-field=head=", "api --jq"],
 )
 def test_a_pr_create_is_judged_by_its_head_branch(work_repo, gate_log, monkeypatch, command, judged):
     run_git(work_repo, "branch", "feature", "HEAD~1")
@@ -206,6 +253,7 @@ def test_enforce_blocks_twice_naming_verify_then_lets_the_third_through_as_a_byp
         assert output["hookEventName"] == "PreToolUse"
         assert output["permissionDecision"] == "deny"
         assert "compost:verify" in output["permissionDecisionReason"]
+        assert f"commit {run_git(work_repo, 'rev-parse', 'HEAD')[:12]} (HEAD)" in output["permissionDecisionReason"]
         assert f"block {attempt} of 2" in output["permissionDecisionReason"]
         monkeypatch.setenv(verify_gate.MODE_VAR, "observe")
         for _ in range(observed_after):

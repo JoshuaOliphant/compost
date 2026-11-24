@@ -101,7 +101,7 @@ def without_heredoc_bodies(command: str) -> str:
 
 def commands(command: str) -> list[list[str]]:
     """The simple commands in a Bash command line, as words: tokenized shell-aware, so a separator inside quotes is
-    text, and split on control operators. A redirection (`>`, `2>&1`) and its target are dropped."""
+    text, and split on control operators. A redirection (`>`, `2>&1`), its fd and its target are dropped."""
     lexer = shlex.shlex(without_heredoc_bodies(command), posix=True, punctuation_chars=OPERATOR_CHARS)
     lexer.whitespace, lexer.whitespace_split = " \t\r", True
     found, words = [], []
@@ -110,6 +110,8 @@ def commands(command: str) -> list[list[str]]:
         if token and set(token) <= set(OPERATOR_CHARS):
             if "<" in token or ">" in token:
                 next(tokens, None)
+                if words and words[-1].isdigit():
+                    words.pop()  # the fd a redirection names (`2>`), which the lexer splits off as a word
             else:
                 found, words = found + [words], []
         else:
