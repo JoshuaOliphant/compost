@@ -11,7 +11,7 @@ CONTRACT_STOPS = re.compile(r"^Run contract stops:[ \t]*\n((?:- .*(?:\n|$))*)", 
 # What Claude Code writes as the tool result when --permission-prompts none denies a call.
 DENIED = "Permission for this tool use was denied"
 # jev.py's stop-guard blocks at this score; a message waits, or names a stop, at the same line.
-AT = 0.5
+STOP_GUARD_THRESHOLD = 0.5
 
 
 def events(paths: list[Path]) -> list[dict]:
@@ -94,12 +94,12 @@ def report(paths: list[Path], verdicts: list[dict]) -> dict:
     waits = [
         {"message": message, "waits": verdict["waits"], "allowed": verdict["allowed"]}
         for message, verdict in zip(ends, verdicts)
-        if verdict["waits"] >= AT
+        if verdict["waits"] >= STOP_GUARD_THRESHOLD
     ]
     return {
         "turn_ends": len(ends),
         "waits_on_user": len(waits),
-        "waits_naming_a_stop": sum(wait["allowed"] >= AT for wait in waits),
+        "waits_naming_a_stop": sum(wait["allowed"] >= STOP_GUARD_THRESHOLD for wait in waits),
         "permission_denials": permission_denials(paths),
         "contract_stops": contract_stops(paths),
         "waits": waits,
@@ -107,7 +107,7 @@ def report(paths: list[Path], verdicts: list[dict]) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="count.py", description=__doc__)
+    parser = argparse.ArgumentParser(prog="count.py")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("payloads").add_argument("transcripts", nargs="+", type=Path)
     reporting = commands.add_parser("report")
