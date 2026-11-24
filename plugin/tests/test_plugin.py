@@ -205,6 +205,7 @@ def test_branching_skills_fast_forward_the_default_branch_and_rule_when_it_canno
                 "Stop before the first build only when a gap is on the Stops list",
                 "a line `Run contract stops:`, then one `- <stop>` line per Stops item, word for word, then a blank line",
                 "Print it again every time implement loads",
+                "1. **Print the Stops.** Before anything that can stop the run",
                 "Run each prerequisite's check before any worker branches",
                 "marked unconfirmed, or one whose check fails now, stops the run there",
                 "name the prerequisite and the check you ran",
