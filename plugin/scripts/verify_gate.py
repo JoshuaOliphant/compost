@@ -46,7 +46,7 @@ def git_target(words: list[str], here: Path) -> tuple[Path, list[str]] | None:
     """The directory a `git ... push` runs in (after any -C) and the revisions it sends: the source of every refspec
     that ships code (`tag <name>` is one refspec), else HEAD. Deletes (`-d`, `:branch`), notes refs (compost:finish
     pushes the stamps) and wildcards are not judged; None when nothing else is left, or the git command is not a push.
-    `--all`, `--mirror` and `--branches` judge HEAD only: judging every branch would block on old ones nobody is
+    `--all`, `--mirror`, `--branches` and a push of wildcards only judge HEAD: judging every branch would block on old ones nobody is
     shipping now."""
     index = 1
     while index < len(words) and words[index].startswith("-"):
@@ -69,6 +69,8 @@ def git_target(words: list[str], here: Path) -> tuple[Path, list[str]] | None:
             refspec = f"refs/tags/{next(refspecs, '')}"
         sources.append(refspec.lstrip("+").split(":")[0])
     shipped = [source for source in sources if source and "*" not in source and not source.startswith("refs/notes/")]
+    if not shipped and any("*" in source for source in sources):
+        shipped = ["HEAD"]  # a wildcard-only push sends many branches: judged on HEAD, as `--all` is
     return (here, shipped) if shipped else None
 
 

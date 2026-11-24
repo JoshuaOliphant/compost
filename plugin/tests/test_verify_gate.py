@@ -63,6 +63,8 @@ def test_observe_lets_an_unstamped_push_through_and_logs_session_repo_and_sha(wo
         ("git push -u origin main", "push"),
         ("git push -u origin no-such-branch", None),
         ("git push origin HEAD tag v9", "push"),
+        ("git push origin 'refs/heads/*:refs/heads/*'", "push"),
+        ("git push origin 'refs/heads/*:refs/heads/*' :old refs/notes/compost-verify", "push"),
         ("git push origin", "push"),
         ("x=1 git push", "push"),
         ("sudo git push", "push"),
