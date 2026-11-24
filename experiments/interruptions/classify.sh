@@ -14,4 +14,4 @@ python3 "$HERE/count.py" payloads "${FILES[@]}" | while IFS= read -r payload; do
   [ -n "$STOPS" ] && payload=$(echo "$payload" | jq -c --argjson stops "$STOPS" '.contract_stops = $stops')
   echo "$payload" | uv run --quiet "$JEV" stop-guard | jq -c . >> "$VERDICTS"
 done
-python3 "$HERE/count.py" report --verdicts "$VERDICTS" "${FILES[@]}"
+python3 "$HERE/count.py" report --verdicts "$VERDICTS" "${FILES[@]}" | jq --argjson stops "${STOPS:-null}" '.contract_stops = ($stops // .contract_stops)'

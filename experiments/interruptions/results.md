@@ -38,6 +38,7 @@ not rates.
 | implement: waits naming a Stop | 8 | 5 |
 | implement: permission denials | 0 | 0 |
 | implement: resumes | 8 (cap) | 8 (cap) |
+| implement: first wait already at the merge stop | yes | yes |
 | reached the PR body | no | no |
 | setup + spec: waits on the user | 1 + 1 | 1 + 1 |
 | stop-guard blocks (all sessions) | 0 | 0 |
@@ -48,16 +49,22 @@ inside one `claude -p` call. Denials are 0 in the on-disk session and subagent t
 
 ## Reading
 
-- **AC-22 is not met:** neither run reached the PR body. Both arms built, tested, and reviewed the
-  feature on an `export-settings` branch. Then both held at "merge to main", which is an allowed
-  stop, for the remaining resumes. Neither loaded `compost:finish`, so no PR body was posted on an
-  issue file. Both treated finish as merging, and a local tracker has no draft PR to open in
-  between. That is why most of each arm's waits are the same merge stop repeated.
-- **Every wait named a Stop in both arms.** Before scored 8/8 and after 5/5. The after spec's Stops
-  only restate implement's fixed list (merging, force-push, deploy, deleting data, outside messages),
-  so this sample can't separate the contract from the fixed list.
+- **AC-22 is not met.** Its first clause fails: neither run reached the PR body. Its second clause
+  holds for after: all 5 of its waits named a Stop.
+- **Both arms skipped the hand-off.** Both built, tested, and reviewed the feature on an
+  `export-settings` branch. Neither loaded `compost:finish`, which implement's step 10 names in
+  both versions ("push, and hand off through `compost:finish`"). Instead, both said the only step
+  left was merging to main and held there for the remaining resumes. The same step also says
+  "Without a PR, report the feature branch by name", and with a local tracker both runs read that as
+  the end.
+- **The counts don't show a contract effect.** Each arm's first wait was already at the merge stop,
+  and every wait after it repeats that stop. 8 against 5 is how many repeated holding messages Jev
+  scored as waiting. Every wait named a Stop in both arms. The after spec's Stops only restate
+  implement's fixed list (merging, force-push, deploy, deleting data, outside messages), so this
+  sample can't separate the contract from the fixed list.
 - **The after run never printed a `Run contract stops:` block.** It loaded implement from the
-  checkout under test, but neither its stream-json nor its on-disk transcript contains the block.
+  checkout under test, but neither its stream-json nor its on-disk transcript contains the block
+  (case-insensitive search for "contract stops").
   So the guard ran on the fixed list, and the after/implement stops above come from `spec.md`.
 - **After's first implement stop asked for review.** It skipped `compost:review` and closed with
   "Say if you want the review run, or the branch merged." Jev scored it as naming a Stop

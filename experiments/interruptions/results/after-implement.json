@@ -3,7 +3,9 @@
   "waits_on_user": 5,
   "waits_naming_a_stop": 5,
   "permission_denials": 0,
-  "contract_stops": [],
+  "contract_stops": [
+    "Merging to the repository's default branch; a force-push or history rewrite on a shared branch; a deploy or release; deleting data; a message that reaches people beyond the run's own issues. This repo has no remote, so never create a repository or push."
+  ],
   "waits": [
     {
       "message": "The Export button is built and committed on branch `export-settings` (1413e8e). It sits beside Save on the settings page and downloads the saved settings as `settings.json`. All six tests pass with `npm test`, the five new ones for AC-1 to AC-5 plus the existing reload test. I did not run `compost:review` on this change.\n\n- **Spec shape:** `.scratch/export-settings/` held only `spec.md` and no `issues/` slices. I treated the whole spec as one unit and built it directly rather than slicing it first, so there is no issue file or parent checklist to tick.\n- **Tests:** each AC has an e2e test in `tests/settings.spec.js` that reads the file from Playwright's download event. Before the implementation, all five new tests failed; after it, all pass.\n- **Implementation:**\n  - `settings.js` reuses `loadSettings()` and keeps only `theme` and `fontSize`.\n  - The file is pretty-printed with 2-space indent.\n  - It never touches the form or the saved settings.\n  - The button is `type=\"button\"`, so it doesn't submit the form or show \"Saved\".\n- **Not done:** `compost:review` didn't run, and I did no hand mutation walk-through.\n- **Not pushed:** the repo has no remote, per the run contract, and nothing was merged to `main`.\n\nSay if you want the review run, or the branch merged.",
