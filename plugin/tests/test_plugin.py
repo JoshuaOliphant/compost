@@ -231,8 +231,9 @@ def test_a_run_contract_keeps_every_irreversible_stop_and_the_prerequisite_stop_
     contract = " ".join(template.split("## Run contract", 1)[1].split("\n## ", 1)[0].split())
     for heading in ("### Stops", "### Prerequisites", "### Departures"):
         assert heading in contract, f"the Run contract template lacks {heading!r}"
+    stop_lines = template.split("### Stops", 1)[1].split("###", 1)[0].splitlines()
     for stop in meta.IRREVERSIBLE_STOPS:
-        assert stop in contract, f"the Run contract template doesn't name the irreversible stop {stop!r}"
+        assert f"- {stop}" in stop_lines, f"the Run contract template doesn't give {stop!r} its own bullet"
 
 
 @pytest.mark.parametrize(
@@ -404,6 +405,22 @@ def test_verify_frontend_reference_says_how(phrases):
     text = verify_frontend_reference()
     for phrase in phrases:
         assert phrase in text, f"verify's frontend reference lacks {phrase!r}"
+
+
+@pytest.mark.parametrize(
+    ("step", "phrase"),
+    [
+        ("Orient.", "Read [references/run-contract.md](references/run-contract.md) now"),
+        ("Orient.", "before anything that can stop the run, print the contract's Stops block"),
+        ("Close out.", "load `compost:finish` now"),
+        ("Close out.", "posts the PR body (on the issue file for a local tracker)"),
+    ],
+    ids=["reads-the-contract", "prints-before-stopping", "loads-finish", "finish-posts-the-body"],
+)
+def test_implement_reads_the_contract_first_and_ends_by_loading_finish(step, phrase):
+    text = " ".join((PLUGIN_ROOT / "skills" / "implement" / "SKILL.md").read_text().split())
+    body = re.split(r" \d+\. \*\*|For a run that outlives", text.split(f"**{step}**", 1)[1], maxsplit=1)[0]
+    assert phrase in body, f"implement's {step!r} step lacks {phrase!r}"
 
 
 def test_finish_puts_verifys_screenshots_under_validation_and_flaky_tests_under_risk():

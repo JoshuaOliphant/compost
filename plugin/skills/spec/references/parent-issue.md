@@ -89,11 +89,14 @@ Bounded work uses the sections marked **bounded**. Architectural work uses all o
 ## Run contract
 <!-- bounded, architectural -->
 ### Stops
-- <compost:implement's fixed stop list, then any stop this spec adds. A contract never drops these:
-  merging to the repository's default branch; a force-push or a history rewrite on a shared branch;
-  a deploy or release, including one flagged for the user's approval; deleting data; a message that
-  reaches people beyond the run's own issues: an email, a chat post, or a comment, mention, or
-  review request on someone else's issue or pull request>
+<!-- one bullet per stop, word for word: compost:implement's fixed stop list, then any stop this spec
+     adds. A contract never drops these five: -->
+- merging to the repository's default branch
+- a force-push or a history rewrite on a shared branch
+- a deploy or release, including one flagged for the user's approval
+- deleting data
+- a message that reaches people beyond the run's own issues: an email, a chat post, or a comment, mention, or review request on someone else's issue or pull request
+- <each further fixed stop, then each stop this spec adds>
 
 ### Prerequisites
 - <what only a person can supply> — check: `<command>` — confirmed | unconfirmed
