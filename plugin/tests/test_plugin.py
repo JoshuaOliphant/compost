@@ -235,10 +235,30 @@ def test_spec_ends_with_a_readiness_check_and_one_approval_for_architectural_wor
 def test_the_readiness_check_is_short_for_bounded_work_and_full_for_architectural_work():
     text = " ".join((PLUGIN_ROOT / "skills" / "spec" / "references" / "readiness.md").read_text().split())
     short, full = text.split("The short check, for bounded work:", 1)[1].split("The full check, for architectural work")
-    for item in ("names the kind of test and the seam", "every prerequisite's check has run", "no open question"):
+    for item in (
+        "names the kind of test and the seam",
+        "whose Then is user-visible names an e2e test",
+        "every prerequisite's check has run",
+        "no open question",
+    ):
         assert item in short, f"the short check lacks {item!r}"
     for item in ("rabbit holes", "no-gos", "pre-mortem"):
         assert item in full and item not in short, f"{item!r} belongs to the full check only"
+
+
+def test_spec_declares_frontend_work_and_names_an_e2e_test_for_each_user_visible_then():
+    spec = " ".join((PLUGIN_ROOT / "skills" / "spec" / "SKILL.md").read_text().split())
+    step7 = spec.split("**Write the spec**", 1)[1].split("**Add Gherkin feature files")[0]
+    assert "rendered page or component" in step7 and "Frontend section" in step7, "spec's step 7 skips frontend work"
+    template = (PLUGIN_ROOT / "skills" / "spec" / "references" / "parent-issue.md").read_text()
+    assert "\n## Frontend\n" in template, "the parent template lacks a Frontend section"
+    frontend = " ".join(template.split("\n## Frontend\n", 1)[1].split("\n## ", 1)[0].split())
+    for phrase in ("only for frontend work", "one bullet per user-facing flow"):
+        assert phrase in frontend, f"the Frontend section lacks {phrase!r}"
+    record = template.split("## Readiness\n", 1)[1].split("```", 1)[0]
+    assert "user-visible AC-N names an e2e test" in record, "the readiness record lacks the e2e item"
+    criteria = " ".join((PLUGIN_ROOT / "skills" / "spec" / "references" / "acceptance-criteria.md").read_text().split())
+    assert "A user-visible Then names its e2e test." in criteria
 
 
 def test_setup_records_an_e2e_entry_naming_playwright_in_the_stacks_flavour():

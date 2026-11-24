@@ -134,6 +134,8 @@ a quick lookup can answer.
      semantic invariant already decides is an assumption citing it, not a question, and gets a
      criterion for its failure side. The scenarios say what done means. Format and
      anti-patterns are in [acceptance criteria](references/acceptance-criteria.md).
+   - When the request changes a rendered page or component, add the Frontend section, and give each
+     user-visible Then its e2e test.
    - When the work spans several repositories, name the repo each AC-N lives in, in a heading
      over its group of criteria (`## In agent-plugins`) or on its line before its id. Each repo's review judges only its own criteria and lists the
      rest as not verifiable there, and only a criterion the spec places in another repo counts.
