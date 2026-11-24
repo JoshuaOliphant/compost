@@ -150,7 +150,8 @@ def test_lane_routing_table_names_only_models_and_efforts_the_agent_tool_takes()
 
 def test_implements_stop_list_opens_each_item_with_the_stop_hooks_allowed_stop_in_order():
     text = (PLUGIN_ROOT / "skills" / "implement" / "SKILL.md").read_text()
-    block = text.split("Stop only for:\n", 1)[1].split("\n\n", 1)[0]
+    lead = r"Stop only for the run\s+contract's Stops \(step 1\), which always hold:\n"
+    block = re.split(lead, text, maxsplit=1)[1].split("\n\n", 1)[0]
     items = [" ".join(item.split()) for item in re.split(r"^\s*- ", block, flags=re.MULTILINE) if item.strip()]
     assert len(items) == len(meta.ALLOWED_STOPS)
     for item, stop in zip(items, meta.ALLOWED_STOPS, strict=True):
@@ -179,17 +180,46 @@ def test_branching_skills_fast_forward_the_default_branch_and_rule_when_it_canno
         assert phrase in rule, f"{skill}'s {step!r} step lacks {phrase!r}"
 
 
-def test_stop_guard_reference_keeps_the_rules_step_9_points_to():
-    text = " ".join((PLUGIN_ROOT / "skills" / "implement" / "references" / "stop-guard.md").read_text().split())
-    for phrase in (
-        "stop only for the list",
-        "resuming loads implement again, which starts a new run",
-        "or the rest of the run is unguarded",
-        "keeping to the list is still on you",
-    ):
-        assert phrase in text, f"stop-guard.md lost {phrase!r}"
-    step9 = " ".join((PLUGIN_ROOT / "skills" / "implement" / "SKILL.md").read_text().split())
-    assert "(references/stop-guard.md)" in step9.split("**Decide, log, proceed.**", 1)[1].split("**Close out.**")[0]
+@pytest.mark.parametrize(
+    ("reference", "step", "phrases"),
+    [
+        (
+            "stop-guard.md",
+            "Decide, log, proceed.",
+            [
+                "stop only for the list",
+                "resuming loads implement again, which starts a new run",
+                "or the rest of the run is unguarded",
+                "keeping to the list is still on you",
+                "plus any stop the parent's Run contract adds",
+                "the latest `Run contract stops:` block in your own messages since implement last loaded",
+            ],
+        ),
+        (
+            "run-contract.md",
+            "Orient.",
+            [
+                "Step 1 keeps to it before any worker branches",
+                "On a parent without one, run the [readiness check](../../spec/references/readiness.md)",
+                "whose **Ruling:** line ends `(assumed)`, then post the readiness record",
+                "Stop before the first build only when a gap is on the Stops list",
+                "a line `Run contract stops:`, then one `- <stop>` line per Stops item, word for word, then a blank line",
+                "Print it again every time implement loads",
+                "Run each prerequisite's check before any worker branches",
+                "marked unconfirmed, or one whose check fails now, stops the run there",
+                "name the prerequisite and the check you ran",
+                "stop only for an item on the contract's Stops, and post every other decision as a ruling comment",
+            ],
+        ),
+    ],
+)
+def test_implements_references_keep_the_rules_their_step_points_to(reference, step, phrases):
+    text = " ".join((PLUGIN_ROOT / "skills" / "implement" / "references" / reference).read_text().split())
+    for phrase in phrases:
+        assert phrase in text, f"{reference} lost {phrase!r}"
+    skill = " ".join((PLUGIN_ROOT / "skills" / "implement" / "SKILL.md").read_text().split())
+    body = re.split(r" \d+\. \*\*", skill.split(f"**{step}**", 1)[1], maxsplit=1)[0]
+    assert f"(references/{reference})" in body, f"implement's {step!r} step doesn't link {reference}"
 
 
 def test_a_run_contract_keeps_every_irreversible_stop_and_the_prerequisite_stop_is_allowed():
@@ -239,6 +269,9 @@ def test_the_readiness_check_is_short_for_bounded_work_and_full_for_architectura
         assert item in short, f"the short check lacks {item!r}"
     for item in ("rabbit holes", "no-gos", "pre-mortem"):
         assert item in full and item not in short, f"{item!r} belongs to the full check only"
+    without_record = full.split("A parent without a record", 1)[1]
+    for item in ("`compost:implement` runs the same check", "ruling marked `(assumed)`", "only when a gap is on"):
+        assert item in without_record, f"readiness.md doesn't say implement {item!r}"
 
 
 def test_every_skill_and_agent_reading_the_tracker_doc_falls_back_to_setups_fork_check():

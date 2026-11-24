@@ -29,3 +29,9 @@ The full check, for architectural work, adds:
 - a pre-mortem: how the run fails, told as if it already had.
 
 Post the result as the readiness record, in the format the parent issue template gives.
+
+## A parent without a record
+
+`compost:implement` runs the same check when it starts on a parent with no readiness record. It
+fills each gap as a ruling marked `(assumed)`, posts the record, and stops before the first build
+only when a gap is on the contract's Stops list ([implement's run contract](../../implement/references/run-contract.md)).
