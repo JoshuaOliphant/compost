@@ -5,7 +5,18 @@ import re
 import subprocess
 from pathlib import Path
 
-SKIPPED = {".git", ".worktrees", ".venv", "node_modules", "__pycache__", ".pytest_cache", "dist", "build", "target", "vendor"}
+SKIPPED = {
+    ".git",
+    ".worktrees",
+    ".venv",
+    "node_modules",
+    "__pycache__",
+    ".pytest_cache",
+    "dist",
+    "build",
+    "target",
+    "vendor",
+}
 SOURCE_CHARS = 700
 PYTHON_FILE = re.compile(r"^(test_.*|.*_test)\.py$")
 JS_FILE = re.compile(r"\.(test|spec)\.(js|mjs|cjs|ts|mts|cts|tsx|jsx)$")
