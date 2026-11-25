@@ -19,8 +19,9 @@ decision so you can overrule it out loud.
 Input: the repo root and either the coverage report (`coverage json -o coverage.json --fail-under 0`, or
 `pytest --cov-report=json`) or explicit lines. Consecutive missing lines become one block, shown to
 Jev with four lines of context; for Python, also the definition that holds them. Other stacks pass
-`uncovered`, read from their own report: a Go profile line `pkg/x.go:12.2,14.3 2 0` (count 0) is
-lines 12 to 14 of `x.go`; `cargo llvm-cov --json`, `c8`/`vitest --coverage` (`coverage-final.json`),
+`uncovered`, read from their own report: a Go profile line
+`example.com/shop/cart/cart.go:12.2,14.3 2 0` (count 0) is lines 12 to 14 of `cart/cart.go`, once
+the module path from `go.mod` (`example.com/shop/`) is stripped; `cargo llvm-cov --json`, `c8`/`vitest --coverage` (`coverage-final.json`),
 and JaCoCo XML list missed lines per file the same way. Give `file` relative to `repo`.
 
 ```json

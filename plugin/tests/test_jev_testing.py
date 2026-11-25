@@ -46,14 +46,23 @@ def repo(tmp_path):
     (tmp_path / "cart").mkdir()
     (tmp_path / "cart" / "cart_test.go").write_text("package cart\n\nfunc TestTotal(t *testing.T) {\n}\n")
     (tmp_path / "cart" / "cart.go").write_text("package cart\n\nfunc TestNotATestFile() {}\n")
+    (tmp_path / "src" / "test" / "java").mkdir(parents=True)
+    (tmp_path / "src" / "lib.rs").write_text("#[test]\nfn adds() {}\n")
+    for name in ("CartTest.java", "TestCart.java", "CartIT.java", "CartSpec.kt", "Cart.java"):
+        (tmp_path / "src" / "test" / "java" / name).write_text(f"@Test\nvoid in{name.split('.')[0]}() {{}}\n")
     (tmp_path / "target" / "debug").mkdir(parents=True)
     (tmp_path / "target" / "debug" / "gen.rs").write_text("#[test]\nfn built_copy() {}\n")
     return tmp_path
 
 
-def test_collect_finds_python_functions_class_methods_and_js_and_go_tests(repo):
+def test_collect_finds_tests_in_every_language_it_reads_and_skips_build_output(repo):
     assert sorted(suite.collect(repo)) == [
         "cart/cart_test.go::TestTotal",
+        "src/lib.rs::adds",
+        "src/test/java/CartIT.java::inCartIT",
+        "src/test/java/CartSpec.kt::inCartSpec",
+        "src/test/java/CartTest.java::inCartTest",
+        "src/test/java/TestCart.java::inTestCart",
         "tests/test_export.py::AsyncGreeting::test_greets_later",
         "tests/test_export.py::GreetTest::test_greet",
         "tests/test_export.py::TestEscaping::test_commas_are_quoted",
@@ -71,11 +80,14 @@ func helper() {}
 
 func TestTotal(t *testing.T) {
 \tif total(nil) != 0 {
-\t\tt.Fatal("empty")
+\t\tt.Fatal("empty {")
 \t}
 }
 
 func (s *CartSuite) TestEmpty() {
+}
+
+func (s *OrderSuite) TestEmpty() {
 }
 
 func ExampleTotal() {
@@ -84,6 +96,10 @@ func ExampleTotal() {
 }
 
 func FuzzTotal(f *testing.F) {}
+
+func TestMain(m *testing.M) {}
+
+func Testable() {}
 """
 
 RUST = """pub fn total(prices: &[u32]) -> u32 {
@@ -104,9 +120,20 @@ mod tests {
 
     #[rstest]
     #[case(1)]
+    #[case(2)]
+    #[case(3)]
+    #[case(4)]
+    #[case(5)]
+    #[case(6)]
+    #[case(7)]
     pub fn positive(#[case] n: u32) { assert!(n > 0) }
 
     #[test]
+}
+
+mod more {
+    #[test]
+    fn empty_totals_zero() {}
 }
 """
 
@@ -120,6 +147,11 @@ JAVA = """class CartTest {
     @ValueSource(ints = {1, 2})
     public void positive(int n) {
     }
+
+    @TestFactory
+    Stream<DynamicTest> dynamic() {
+        return Stream.of();
+    }
 }
 """
 
@@ -130,6 +162,12 @@ KOTLIN = """class CartTests {
     }
 
     @Test fun plain() {}
+
+    @Test
+    fun expression() = assertEquals(1, one())
+
+    @Test
+    fun after() {}
 }
 """
 
@@ -140,25 +178,25 @@ KOTLIN = """class CartTests {
         (
             "cart/cart_test.go",
             GO,
-            ["TestTotal", "TestEmpty", "ExampleTotal", "FuzzTotal"],
-            'func TestTotal(t *testing.T) {\n\tif total(nil) != 0 {\n\t\tt.Fatal("empty")\n\t}\n}',
+            ["TestTotal", "TestEmpty", "TestEmpty#2", "ExampleTotal", "FuzzTotal"],
+            'func TestTotal(t *testing.T) {\n\tif total(nil) != 0 {\n\t\tt.Fatal("empty {")\n\t}\n}',
         ),
         (
             "src/cart.rs",
             RUST,
-            ["empty_totals_zero", "sums_later", "positive"],
+            ["tests::empty_totals_zero", "tests::sums_later", "tests::positive", "more::empty_totals_zero"],
             "    #[test]\n    fn empty_totals_zero() {\n        assert_eq!(total(&[]), 0);\n    }",
         ),
         (
             "src/test/java/CartTest.java",
             JAVA,
-            ["emptyTotalsZero", "positive"],
+            ["emptyTotalsZero", "positive", "dynamic"],
             "    @Test\n    void emptyTotalsZero() {\n        assertEquals(0, total(List.of()));\n    }",
         ),
         (
             "src/test/kotlin/CartTests.kt",
             KOTLIN,
-            ["empty cart totals zero", "plain"],
+            ["empty cart totals zero", "plain", "expression", "after"],
             "    @Test\n    fun `empty cart totals zero`() {\n        assertEquals(0, total(emptyList()))\n    }",
         ),
     ],
@@ -168,6 +206,11 @@ def test_brace_language_tests_are_found_by_their_marker_with_their_whole_body(re
     tests = suite.tests_in(relative, source)
     assert list(tests) == [f"{relative}::{name}" for name in wanted]
     assert tests[f"{relative}::{wanted[0]}"] == first
+
+
+def test_a_kotlin_expression_body_ends_at_the_blank_line_after_it():
+    tests = suite.tests_in("CartTests.kt", KOTLIN)
+    assert tests["CartTests.kt::expression"] == "    @Test\n    fun expression() = assertEquals(1, one())"
 
 
 def test_a_test_body_that_never_closes_stops_at_the_line_cap():

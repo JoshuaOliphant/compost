@@ -67,7 +67,7 @@ command can: judge whether it ran what changed, and prove the fact the change is
 3. **Hold the coverage gate.** The gate is 100% line coverage, measured with the stack's own tool
    as `docs/agents/testing.md` records it: for example
    `uv run pytest --cov --cov-report=term-missing --cov-fail-under=100`, `go test -coverprofile`,
-   `vitest --coverage`, or `cargo llvm-cov`. Ask Jev first: hand `test-value` the missing lines
+   `vitest --coverage`, `cargo llvm-cov`, or JaCoCo (`./gradlew jacocoTestReport`, `mvn jacoco:report`). Ask Jev first: hand `test-value` the missing lines
    ([jev](references/jev.md)), as a coverage.py JSON report (`--cov-report=json`) for Python or as
    `{file, lines}` read from the other tool's report.
    Blocks in `exclude` are the proposed exclusions for the third case below; the rest need a
@@ -76,8 +76,10 @@ command can: judge whether it ran what changed, and prove the fact the change is
    - It is dead: delete it.
    - Covering it would take a test that proves nothing (asserting a constant, re-testing the
      framework, a `__main__` guard): stop and bring the user the file and line numbers, with a
-     proposed exclusion (`exclude_also` in the coverage config, or a `pragma: no cover` on that
-     line) or a lower threshold. Do not pad the suite to reach the number. When running
+     proposed exclusion in the stack's own form (`exclude_also` or `pragma: no cover` for
+     coverage.py, `/* c8 ignore next */` or `/* istanbul ignore next */` for JS, JaCoCo `excludes`,
+     `--ignore-filename-regex` for `cargo llvm-cov`; Go has no pragma, so filter the profile and
+     record the pattern in `testing.md`) or a lower threshold. Do not pad the suite to reach the number. When running
      unattended, under `compost:implement`, or as a worker, post the proposal as a ruling comment
      on the issue, list it in the PR's Risk section, and continue; the user decides at
      `compost:finish`.

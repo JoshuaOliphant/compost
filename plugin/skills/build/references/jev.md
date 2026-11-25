@@ -24,14 +24,16 @@ Given/When/Then. Tests are found by reading the source, so no test runner is nee
 | Stack | Test files | Tests | Node id |
 |---|---|---|---|
 | Python | `test_*.py`, `*_test.py` | `test_*` functions, methods of `Test*` and `TestCase` classes | `tests/test_x.py::TestX::test_y` |
-| JS/TS | `*.test.*`, `*.spec.*` | `test(...)` and `it(...)` calls | `web/x.test.ts::sorts by title` |
-| Go | `*_test.go` | `Test*`, `Example*`, `Fuzz*` functions and suite methods | `cart/cart_test.go::TestTotal` |
-| Rust | any `.rs` outside `target/` | functions under `#[test]`, `#[tokio::test]`, `#[rstest]` | `src/cart.rs::empty_totals_zero` |
-| Java, Kotlin | `*Test.java`, `*Tests.kt`, ... | methods under `@Test`, `@ParameterizedTest`, `@RepeatedTest`, `@TestFactory` | `src/test/java/CartTest.java::positive` |
+| JS/TS | `*.test.*`, `*.spec.*` in `js`, `mjs`, `cjs`, `ts`, `mts`, `cts`, `tsx`, `jsx` | `test(...)` and `it(...)` calls | `web/x.test.ts::sorts by title` |
+| Go | `*_test.go` | `Test*`, `Example*`, `Fuzz*` functions and suite methods, as `go test` names them (not `TestMain`, not `Testable`) | `cart/cart_test.go::TestTotal` |
+| Rust | any `.rs` outside `target/` | functions under `#[test]`, `#[tokio::test]`, `#[rstest]`, with their `mod` path | `src/cart.rs::tests::empty_totals_zero` |
+| Java, Kotlin | `Test*`, `*Test`, `*Tests`, `*TestCase`, `*IT`, `*Spec` (`.java` or `.kt`) | methods under `@Test`, `@ParameterizedTest`, `@RepeatedTest`, `@TestFactory` | `src/test/java/CartTest.java::positive` |
 
 Any other stack (Ruby, Elixir, C#, shell) gives `no tests found`: skip the Jev test tools for it
 and say so in one line, as build step 4 says. A Go subtest (`t.Run("case", ...)`) or a table row
-is not its own node; pass the enclosing function and name the case in your placement map.
+is not its own node; pass the enclosing function and name the case in your placement map. Two
+tests that read as one id in a file (same-named methods on two Go suites or `@Nested` classes)
+come back as `name` and `name#2`.
 
 ```json
 {"repo": ".",

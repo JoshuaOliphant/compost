@@ -53,6 +53,9 @@ ran.
 |---|---|---|
 | `pytest -k <expr>` | The expression matches nothing: exit code 5, and the summary says only "8 deselected" | The collected count in the summary is the number you expect |
 | pytest overall | Tests skipped by a missing optional dependency or a `skipif` | `-rs` lists skips; count them against the AC table |
+| `go test` | A package prints `[no test files]`, or `-run <regex>` matches nothing and prints `ok ... [no tests to run]` | `-v` lists a `--- PASS` line for each test the AC table names |
+| `cargo test` | A filter matches nothing: `running 0 tests` and `test result: ok` | The `running N tests` count and the named tests in the output |
+| vitest, jest | `No test files found` (vitest exits 1, jest with `--passWithNoTests` exits 0), or `.skip`/`.only` left in a file | The summary's test count, and no `skipped` beyond the ones you expect |
 | coverage | `source` names the wrong package, or the installed copy is measured instead of `src/` | The report lists the files the diff touched |
 | ruff, mypy, ty | An `exclude` or `include` setting leaves the changed path out | `ruff check --show-files` or the checker's file count includes the changed files |
 | pre-commit hook | Its `files:` pattern misses the changed files and it reports "Skipped" | The hook's line shows "Passed", not "(no files to check)Skipped" |

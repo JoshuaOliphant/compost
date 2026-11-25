@@ -55,7 +55,7 @@ no test counts until you have seen it fail for the right reason.
    idiom (`docs/agents/testing.md` names the runner):
    - fixtures, factories, and builders: `conftest.py` and `tests/factories*` in Python, shared
      `testutil`/`helpers_test.go` packages in Go, `beforeEach` and `test-utils` in JS/TS, a
-     `tests/common` module in Rust
+     `tests/common` module in Rust, `@BeforeEach` and `testFixtures` in JUnit
    - case tables: `mark.parametrize` in Python, `[]struct{...}` tables with `t.Run` in Go,
      `test.each`/`it.each` in JS/TS, `#[rstest]` cases in Rust, `@ParameterizedTest` in JUnit
    - the tests that already exercise the code you will change: grep for its symbols
@@ -80,13 +80,12 @@ no test counts until you have seen it fail for the right reason.
    `extend` names the test that already covers the criterion; `add-beside` names the one to write
    next to ([jev](references/jev.md) has the full output). Read the named test before you act on
    it. Jev's test tools read tests in Python, JS/TS, Go, Rust, Java, and Kotlin. When the suite is
-   in another language, skip find-test, duplicate-test, and ac-exercised for this issue, say so in
-   one line ("Jev test tools skipped: <language> suite"), and place each criterion from your
-   survey. Exit 3 means Jev is unavailable, and exit 2 with `no tests found` means it cannot read
+   in another language, skip find-test here and duplicate-test in step 11, say so in one line
+   ("Jev test tools skipped: <language> suite"), and place each criterion from your survey. Exit 3 means Jev is unavailable, and exit 2 with `no tests found` means it cannot read
    this suite: in both cases place it from your survey, and say so in your report.
    Either way, take the first of these that fits:
    1. Change the expectation in a test that already covers the behavior.
-   2. Add a case to an existing parametrized table.
+   2. Add a case to an existing case table.
    3. Write a test in the existing file, on existing fixtures. Extend a fixture or factory with a
       parameter before writing another.
    4. Add a fixture only when nothing fits, and put it beside the ones it resembles.
@@ -103,7 +102,9 @@ no test counts until you have seen it fail for the right reason.
    A test that duplicates a fixture, or re-covers behavior another test already covers, is a
    defect. Fix it the way you would fix a bug. When the change makes an existing test obsolete,
    fold what it still proves into a table and delete it. Give each case an id that names the
-   behavior, such as `id="expired-at-exact-instant"`, so `compost:verify` can map AC-N to a node id.
+   behavior, such as `id="expired-at-exact-instant"` in pytest, a `t.Run` name in Go (mapped as
+   `TestX/case`), `@ParameterizedTest(name = ...)` in JUnit, or a named `#[case]` in rstest, so
+   `compost:verify` can map AC-N to a node id.
    See [fitting a test in](references/fitting-a-test-in.md) for a worked before and after.
 
 5. **Name the break before writing the test body.** Say which production change would make the
@@ -176,7 +177,7 @@ no test counts until you have seen it fail for the right reason.
     suite's language: compare each new test against its neighbours in the file yourself, and say
     so in your report. When
     `docs/agents/testing.md` records mutation testing for Python, also make each new test earn its place by
-    mutation (`thin.py` is Python-only; other stacks skip this and rely on step 10): collect per-test coverage and run `thin.py matrix --tests <new node ids>`, then
+    mutation: collect per-test coverage and run `thin.py matrix --tests <new node ids>`, then
     `thin.py verdict`, as `compost:thin` does. A new test the verdict calls redundant or
     kills-nothing gets step 5 of that skill, a break by hand, and folds into its subsumer when
     the break confirms it. Run the full
