@@ -2,6 +2,15 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.52.0] - 2026-11-25
+
+### Added
+
+- Verify stamps and a push gate (OLI-109). `compost:verify` step 9 stamps the commit it verified as a git note under `refs/notes/compost-verify` (`scripts/stamp.py write|show|log`), and `compost:finish` reads the stamp on HEAD instead of trusting memory, then pushes the notes. A new PreToolUse hook, `scripts/verify_gate.py`, watches `git push` and PR creates (`gh`, `glab`), judging every commit a push sends (or the PR's head branch); deletes, wildcards and `refs/notes/` refspecs are never gated, and `--all`, `--mirror`, `--branches` and a wildcard-only push judge HEAD only. With `COMPOST_VERIFY_GATE` unset it observes: an unstamped commit goes through and is logged to `~/.claude/verify-gate/log.jsonl`. `enforce` blocks twice per session, then lets every later attempt in that session through as a logged bypass; `off` disables it.
+- Diff-triggered checks (OLI-111). A `## Checks` section in the base's REVIEW.md lists items with a Trigger, a Check, and a Source. review-changes decides which ones the diff triggers, sends those to the Standards reviewer, and fails the axis unless each one is answered at a `file:line`. diagnose, retro, and review propose new checks after a miss, and prune removes stale ones. compost's own REVIEW.md starts with four checks from real incidents.
+- A recorded smoke command (OLI-110). `compost:setup` writes a `## Run` section into `docs/agents/testing.md`: a smoke command that boots the app and drives one real flow, plus a feature map. `compost:verify` reaches the "reproduced live" rung through it, and `compost:build` tries it before `/run`. compost has its own `scripts/smoke`: it installs the plugin from the working tree into a throwaway config, runs its Stop hooks, and runs one haiku turn that must load a compost skill.
+- Gate drift (OLI-113). `scripts/gate_drift.py <base> <head>` lists every edit a branch makes to the checks that judge it: changed gate files, added weakeners (`pragma: no cover`, `noqa`, skips, threshold or ignore config, sleeps or retries in tests), and removed tests. `compost:verify` reads the gates as recorded at the base, runs those too, and needs a ruling for every gate change. `compost:finish` lists them under Risk.
+
 ## [0.51.0] - 2026-11-25
 
 ### Changed

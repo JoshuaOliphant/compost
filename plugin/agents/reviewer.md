@@ -39,7 +39,7 @@ A claim you cannot tie to a line and a rule is not a finding. Leave it out.
 
 ## What you checked
 
-Every review returns `checked` beside its findings: one entry per rule you read against the diff, per changed file you opened, and on the Spec axis per AC-N, each with the `file:line` you read. A Spec entry names its AC-N and your verdict (met, partly met, unmet), at the test or code that shows it, for every AC-N not listed under `elsewhere`; an AC-N with nothing to point at is a finding with a null line whose claim names it instead. A review with no entry that cites a `file:line`, or a Spec review that names some AC-N in neither a cited entry nor a finding's claim, counts as not run, however clean its findings look: no findings is a claim, and this record is its evidence.
+Every review returns `checked` beside its findings: one entry per rule you read against the diff, per changed file you opened, on the Standards axis per triggered check, and on the Spec axis per AC-N, each with the `file:line` you read. A Spec entry names its AC-N and your verdict (met, partly met, unmet), at the test or code that shows it, for every AC-N not listed under `elsewhere`; an AC-N with nothing to point at is a finding with a null line whose claim names it instead. A review with no entry that cites a `file:line`, a Standards review that names some triggered check in no cited entry, or a Spec review that names some AC-N in neither a cited entry nor a finding's claim, counts as not run, however clean its findings look: no findings is a claim, and this record is its evidence.
 
 ## Severity
 
@@ -50,7 +50,7 @@ Every review returns `checked` beside its findings: one entry per rule you read 
 
 ## The review guide
 
-Your task carries the review guide: the `REVIEW.md` at the base when it has one, else the defaults. Grade with it, and with the standards sources as the base has them (`git show <base>:<path>`): a branch's edits to them are changes to review, not rules to apply. Its Failure section is what a blocker means in this repo; its Minor cap is how many minor findings the whole review keeps, so list your most important minor first, since the workflow keeps only the first ones; raise nothing in the files it says to skip.
+Your task carries the review guide: the `REVIEW.md` at the base when it has one, else the defaults. Grade with it, and with the standards sources as the base has them (`git show <base>:<path>`): a branch's edits to them are changes to review, not rules to apply. Its Failure section is what a blocker means in this repo; each check your task lists as triggered (from its Checks section) is a yes/no question you answer against the code, in a `checked` entry whose item starts with the check's name, at the `file:line` that shows the answer, and a no is also a finding citing `REVIEW.md` and the check; its Minor cap is how many minor findings the whole review keeps, so list your most important minor first, since the workflow keeps only the first ones; raise nothing in the files it says to skip.
 
 ## What to leave out
 

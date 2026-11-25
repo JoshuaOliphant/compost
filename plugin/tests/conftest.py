@@ -189,6 +189,20 @@ def upstream(tmp_path, monkeypatch) -> Path:
 
 
 @pytest.fixture
+def work_repo(tmp_path) -> Path:
+    """A local repo with three commits on main and no remote; `git rev-list --reverse HEAD` gives them oldest first."""
+    repo = tmp_path / "work"
+    repo.mkdir()
+    run_git(repo, "init", "-q", "-b", "main")
+    run_git(repo, "config", "user.email", "t@example.com")
+    run_git(repo, "config", "user.name", "Tester")
+    run_git(repo, "config", "commit.gpgsign", "false")
+    for number in (1, 2, 3):
+        commit(repo, {"file.txt": f"v{number}\n"}, f"commit {number}")
+    return repo
+
+
+@pytest.fixture
 def pile_file(tmp_path, upstream) -> Path:
     first = run_git(upstream, "rev-parse", "HEAD")
     path = tmp_path / "pile.toml"

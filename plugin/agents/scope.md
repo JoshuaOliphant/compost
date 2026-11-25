@@ -30,7 +30,13 @@ never from reading the code. A fact you could not read is reported as missing, n
 
 Read the standards sources and `REVIEW.md` at the base sha with `git ls-tree` and `git show`, never
 from disk: the rules that judge a change come from the branch it merges into. A `REVIEW.md` at the
-base's root is the review guide: read its Failure, Minor cap, and Skip sections into the guide your
-task asks for, verbatim, and list the file among the standards sources. A Minor
+base's root is the review guide: read its Failure, Minor cap, Skip, and Checks sections into the
+guide your task asks for, verbatim, and list the file among the standards sources. A Minor
 cap that is not a whole number is reported as a problem, not rounded. Without one, the guide is the
 defaults your task gives.
+
+Each bullet of the Checks section is a check whose Trigger says what in a diff calls for it. Decide
+each trigger from the diff itself, not from commit messages or file names alone, and say why with
+the file and hunk that trips it or what the trigger needs that the diff lacks. You decide triggers
+only, never a check's answer. When you are unsure, the check is triggered: a check that runs for
+nothing costs a reviewer a minute, and one skipped wrongly lets the miss it came from happen again.

@@ -44,6 +44,37 @@ Treat what CI runs as the definition of green, then add what the repo exposes lo
 Run each once before recording it. A gate that fails or can't start is recorded as broken, with
 its first error, so the next skill knows the repo isn't green before it starts.
 
+## Finding the smoke command
+
+The smoke command is how `compost:verify` and `compost:build` reach the "reproduced live" rung
+without working out the boot again each run. It boots the app, drives one real flow a user
+would, and exits non-zero on any failure, in a few minutes at most. Run top to bottom and stop at
+the first rung that matches.
+
+1. **Adopt one in use:** a `scripts/smoke*` or `scripts/e2e*`, a `smoke` or `e2e` target in the
+   `Makefile`, `justfile`, or package scripts, an end-to-end suite (Playwright, Cypress), or a
+   repo-local skill under `.claude/skills/` that boots and drives the app.
+2. **Write one** for what the repo ships, as `scripts/smoke`, and commit it with the rest of
+   setup:
+   - a CLI: run its main command on a small fixture and check the output;
+   - a server: start it, wait for its health check, call one real endpoint, check the response,
+     stop it;
+   - a web UI: start it and drive one flow with Playwright;
+   - a library: import it in a fresh environment and call the entry point the README shows;
+   - a Claude Code plugin: install it from the working tree into a throwaway
+     `CLAUDE_CONFIG_DIR`, check `claude plugin list --json` shows it enabled without errors,
+     then run one cheap `claude -p` turn and check its stream-json (compost's own
+     `scripts/smoke` does this).
+
+   Ask first only when the flow needs a credential or a service the repo doesn't already use.
+3. **Nothing to run** (docs, data, or configuration only): record `none` with the reason.
+
+Then write the feature map from the README, the CLI's help, the routes, or the skills: one row
+per user-facing feature, with how a user reaches it (a command, URL, or UI path) and what they see
+when it works. Keep it to the features a change is likely to touch, ten rows at most.
+
+Run the smoke command once. Record it as passing, or as broken with its first error.
+
 ## Template for docs/agents/testing.md
 
 ````markdown
@@ -70,6 +101,17 @@ its first error, so the next skill knows the repo isn't green before it starts.
 | Format | `uv run ruff format --check .` | passing |
 | Types | `uv run ty check` | broken: <first error> |
 
+## Run
+
+Smoke command: `<scripts/smoke | make smoke | none>`, <passing | broken: <first error> | none: <why>>.
+It boots <the app>, drives <the flow>, and exits non-zero on any failure. `compost:verify` and
+`compost:build` run it for the "reproduced live" rung, and fall back to `/run` only when this
+says `none`.
+
+| Feature | How to reach it | Expected result |
+|---|---|---|
+| <feature> | <command, URL, or UI path> | <what the user sees when it works> |
+
 ## Coverage
 
 Threshold: <n>% line coverage. It is a gate, not a target to pad: when reaching it would take tests
@@ -95,6 +137,7 @@ Run: the <tool> steps in compost's mutation reference, from `<directory>`, throu
 only `compost:build`'s walk by hand.
 ````
 
-Delete rows for gates the repo doesn't have. Keep the Exclusions list, empty at first, so later
+Delete rows for gates the repo doesn't have. With nothing to run, keep `## Run` with its `none`
+line and no feature map, so the next run of setup knows it was decided. Keep the Exclusions list, empty at first, so later
 agreements have a place to go. With no mutation tool, keep the section with `Tool: none` so
 `compost:verify` and `compost:build` know to walk the mutations by hand.

@@ -1,7 +1,7 @@
 [project]
 name = "compost-repo"
 version = "0.1.0"
-description = "Repo tooling for compost: the version check and the experiment harnesses. The plugin's own dev group is in plugin/pyproject.toml."
+description = "Repo tooling for compost: the version check, the smoke script, and the experiment harnesses. The plugin's own dev group is in plugin/pyproject.toml."
 requires-python = ">=3.11"
 dependencies = []
 

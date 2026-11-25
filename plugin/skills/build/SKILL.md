@@ -101,6 +101,13 @@ no test counts until you have seen it fail for the right reason.
    mocks, or more than a line or two of setup is a test in the wrong place; it belongs in the
    suite, and so do edge-case tables.
 
+   For logic with a rule rather than a list of cases, add a property test (Hypothesis,
+   fast-check, proptest) beside the examples: round-trip for parse and serialize, an invariant
+   that holds for every input, an idempotent operation applied twice, or equivalence with a
+   naive version that is obviously right. For a rewrite that must keep behavior, write a
+   differential test with the old code as the oracle. Both find edge cases you did not think of,
+   since you did not write the inputs.
+
    A test that duplicates a fixture, or re-covers behavior another test already covers, is a
    defect. Fix it the way you would fix a bug. When the change makes an existing test obsolete,
    fold what it still proves into a table and delete it. Give each case an id that names the
@@ -136,8 +143,9 @@ no test counts until you have seen it fail for the right reason.
    the test and run it again. If you wrote the code first, undo the production edit in the
    working tree, run the test, watch it fail, and reapply. When a failing test is impractical
    (a rendering detail, a race, a service that cannot be faked), say why in an issue comment and
-   run the closest executable check instead, such as a script against the real code or the
-   bundled `/run` driving the app. Record its output.
+   run the closest executable check instead: the smoke command `docs/agents/testing.md` records
+   under `## Run` first, then a script against the real code or the bundled `/run` driving the
+   app. Record its output.
 
 8. **Refactor inside the change.** Leave the code you touched clean. Replace rather than
    deprecate: no compatibility shims, no `_old` or `_legacy` twins, no flag keeping the previous

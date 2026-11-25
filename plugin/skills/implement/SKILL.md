@@ -82,8 +82,7 @@ the work so each step can be checked before the next builds on it
      `compost:build`, then `compost:verify`; a subagent would only add a handoff.
    - **Several independent issues or lanes:** a lane earns a subagent when its work outweighs the
      handoff: a brief, a worktree, a merge, and a report to read. Lanes that are each a short edit
-     (a doc fix, a config value, a few lines) don't; work them yourself, in order, as
-     above. Spawn the rest, one subagent per lane in a single message, so the lanes run in
+     (a doc fix, a config value) don't; work them yourself, in order. Spawn the rest, one subagent per lane in a single message, so the lanes run in
      parallel, each with `isolation: "worktree"` and in the background, without asking. A lane of
      one issue is just that issue; a worker with a longer lane works its issues in order. In a
      lane-routing run every lane spawns, whatever its size. With agent teams enabled
@@ -91,9 +90,8 @@ the work so each step can be checked before the next builds on it
      `isolation`, so its brief makes the worktree.
    - Before starting an issue, in a lane or yourself, push its branch name at the feature SHA
      (`git push origin <feature SHA>:refs/heads/<issue>-<slug>`) and comment `Started
-     <issue>-<slug>` on the issue, tagged with the session id, so a session in another clone sees
-     the issue as taken and by whom. Then rerun `frontier.py issues`; if the issue now reads
-     taken, another session got there first, so pick the next.
+     <issue>-<slug>` on the issue, tagged with the session id, so other sessions see it taken. Then rerun `frontier.py issues`; if it now reads taken,
+     another session got there first: pick the next.
    - An isolated worktree starts from the default branch, not the feature branch. Every brief names
      the feature branch's head SHA, and the worker switches to it before any work.
    - Write each brief from [references/task-brief.md](references/task-brief.md): the issue, its
@@ -140,7 +138,8 @@ the work so each step can be checked before the next builds on it
      issue's `compost:review` comments, each headed `Review round <n>`, not from memory, so the cap
      holds across a pause or a compacted context. Rule on each remaining
      finding (park it, or make the smallest change that unblocks dependent issues) and post the
-     ruling. A loop that won't converge is a design problem, not an effort problem.
+     ruling. A loop that won't converge is a design problem, not an effort problem. A failing gate
+     gets three rounds too ([task brief](references/task-brief.md)).
 
 7. **Record progress.** When an issue passes review, tick it on the parent's checklist (only this
    skill ticks the parent; workers tick their own issue's AC boxes) and comment on the issue with

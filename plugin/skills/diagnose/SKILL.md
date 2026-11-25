@@ -33,6 +33,8 @@ comes first, the theory second, and the fix last, at the root. The why is in
    - **Red-capable**: it drives the real code path and asserts the user's exact symptom, so it can
      catch this bug. "Runs without erroring" does not qualify.
    - **Deterministic**: same verdict every run. For a flaky bug, a pinned, high reproduction rate.
+     A flaky test is never skipped, slept past, or retried until green: fix the cause this loop
+     finds, or delete the test with the reason in a ruling when none turns up.
    - **Fast**: seconds, not minutes. An agent eval, where the bug is what an agent did, is slow
      and flaky by nature: iterate on single trials, and judge cuts and the fix by its rate over N.
    - **Agent-runnable**: it runs unattended. A human in the loop only through
@@ -139,6 +141,10 @@ comes first, the theory second, and the fix last, at the root. The why is in
      next person debugging here learns from it.
    - If the deciding fact took a deep dig, propose the cheap, always-on signal (a log field, a span
      attribute, a sharper error message) that would have shown it at first look.
+   - If review could have caught the root cause and no test or lint rule can, propose a check for
+     the repo's `REVIEW.md`, in the shape [the starter](../setup/references/review-md.md) gives,
+     with this bug's issue or commit as its Source. The user adds it; unattended, put it in a
+     ruling comment on the issue instead.
 
    If the investigation shows the cause is truly environmental or external (a timing dependency on
    another service, a platform quirk), record what you ruled out, handle it at the boundary with a

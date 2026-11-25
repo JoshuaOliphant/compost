@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# ABOUTME: compost's smoke command: installs the working tree's plugin into a throwaway config and drives one turn.
+# ABOUTME: A thin wrapper so `scripts/smoke` is the recorded command; the logic and its tests are in smoke.py.
+exec python3 "$(dirname "$0")/smoke.py" "$@"

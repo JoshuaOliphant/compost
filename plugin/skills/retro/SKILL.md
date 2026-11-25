@@ -48,7 +48,9 @@ fixing files nothing and says so in one line.
    - **Coding standards:** the reviewer missed a mistake, or a standard is unclear or obsolete.
      Classify it first: a mechanical one gets a check
      ([make mistakes impossible](../../canon/make-mistakes-impossible.md)); only a judgement call
-     becomes a written standard.
+     becomes a written standard. A judgement a diff shows is at stake becomes a check for
+     `REVIEW.md`, in the shape [the starter](../setup/references/review-md.md) gives, with the
+     session's issue or PR as its Source, so review asks it whenever its trigger matches.
    - **Instruction weight:** `AGENTS.md` or `CLAUDE.md` carries steering that belongs in a check or
      in what review reads.
    - **Tool economy:** a tool call, CLI, or MCP server cost far more tokens or time than the answer
@@ -84,7 +86,8 @@ fixing files nothing and says so in one line.
 7. **File the candidates, most severe first.** One issue per candidate in the repo's tracker, with
    the session evidence, what step 5 found (the data that backs the cause and what the run would
    have done without it, or, with no data, that the cause is unchecked and what would settle it),
-   the category, and the fix with its placement, if step 5 left one. A candidate outside the
+   the category, and the fix with its placement, if step 5 left one. A proposed `REVIEW.md` check
+   goes in its issue as the exact bullet; the user adds it, and an unattended run never writes it. A candidate outside the
    repo (the user's global `CLAUDE.md`, a personal skill, an MCP server's config) is not filed:
    write the proposed change as exact text in the report. End with one line per candidate:
    severity, category, and the issue link or proposal.

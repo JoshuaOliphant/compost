@@ -6,8 +6,9 @@ pytest, adopted from the existing suite.
 
 - The plugin's tests live in `plugin/tests/`. Shared fixtures are in `plugin/tests/conftest.py`,
   which also puts `plugin/scripts/` on the import path.
-- The repo-level version check keeps its tests in `scripts/tests/`, collected by the root
-  `pytest` run, which also collects the experiment harnesses' tests under `experiments/`.
+- The repo-level scripts (version check, smoke) keep their tests in `scripts/tests/`, collected
+  by the root `pytest` run, which also collects the experiment harnesses' tests under
+  `experiments/`.
 - Each acceptance criterion AC-N maps to a test node id or parametrize id, recorded in the
   issue's AC table.
 - BDD feature files: no.
@@ -19,12 +20,30 @@ pytest, adopted from the existing suite.
 | Gate | Command | Status |
 |---|---|---|
 | Coverage | `cd plugin && uv run --group dev pytest` | passing |
-| Repo tests | `uv run --group dev pytest -q` (version check, experiment harnesses) | passing |
+| Repo tests | `uv run --group dev pytest -q` (version check, smoke script, experiment harnesses) | passing |
 | Lint | `uv run --group dev ruff check .` | passing |
 | Format | `uv run --group dev ruff format --check .` | passing |
 
 The live Jev evals (`pytest -m jev`, from `plugin/`) are not a gate: they need a TypeSafe key (or an
 Ollaya server, though their floors were set on Jev) and the private compost-evals checkout.
+
+## Run
+
+Smoke command: `scripts/smoke`, passing (under a minute on haiku). What it runs and its options are
+in its docstring and `scripts/smoke --help`.
+
+| Feature | How to reach it | Expected result |
+|---|---|---|
+| Install | `scripts/smoke`, or `claude plugin install compost@compost` | `claude plugin list --json` shows `compost@compost` enabled, no `errors` |
+| Skill loading | `claude -p "Load the compost:verify skill"` (the smoke turn) | a `Skill` tool_use for `compost:verify`, then a clean `result` |
+| Stop guard | the Stop hook in `plugin/hooks/hooks.json` | exit 0 always; blocks only an unattended implement run's wait on the user |
+| `compost:setup` | "set up compost" | `docs/agents/*.md` written, including `## Run` in `testing.md` |
+| `compost:spec` | "spec this out" | a parent issue labelled `spec` with Given/When/Then ACs |
+| `compost:slice` | "slice this" | sub-issues with ACs, files, and blocking edges |
+| `compost:build` | "build OLI-N" | a commit naming the issue, each AC under a test seen red |
+| `compost:verify` | "verify this" | fresh gate output, AC table, proof rung reached |
+| `compost:review` | "review this branch" | `/compost:review-changes` findings, worked through |
+| `compost:implement` | "implement the spec" | a reviewed, draft-PR-ready branch per issue |
 
 ## Coverage
 

@@ -1,16 +1,20 @@
 # ABOUTME: Checks the plugin as shipped: frontmatter, links, compost:<name> and ${CLAUDE_PLUGIN_ROOT} references,
 # ABOUTME: pile.toml feeds and NOTICE, the tracker-doc fork-check fallback, the lane-routing table's values,
 # ABOUTME: implement's stop list against the Stop hook's, that branching skills update the default branch first,
-# ABOUTME: and that git tracks every shipped file. Runs on the real files.
+# ABOUTME: the smoke, stamp, and verification rules the skills carry, and that git tracks every shipped file.
+import io
 import itertools
+import json
 import os
 import re
+import shlex
 import subprocess
 
 import pile
 import pytest
+import stamp
 import yaml
-from conftest import PLUGIN_ROOT
+from conftest import PLUGIN_ROOT, commit
 from jevtools import meta
 
 LOCAL_ONLY = {"tests", ".venv", ".pytest_cache", "__pycache__"}
@@ -179,6 +183,79 @@ def test_branching_skills_fast_forward_the_default_branch_and_rule_when_it_canno
         assert phrase in rule, f"{skill}'s {step!r} step lacks {phrase!r}"
 
 
+def step_text(skill, step):
+    text = " ".join((PLUGIN_ROOT / "skills" / skill / "SKILL.md").read_text().split())
+    return re.split(r" \d+\. \*\*", text.split(f"**{step}**", 1)[1], maxsplit=1)[0]
+
+
+@pytest.mark.parametrize(
+    ("skill", "step", "reports"),
+    [
+        ("verify", "Prove the one fact the change is safe because of.", "feature-map rows"),
+        ("build", "See every new or changed test fail for the right reason.", None),
+    ],
+)
+def test_live_checks_run_the_recorded_smoke_command_before_falling_back_to_run(skill, step, reports):
+    rule = step_text(skill, step)
+    smoke = rule.find("smoke command")
+    assert smoke != -1 and "`## Run`" in rule, f"{skill}'s {step!r} step does not read the recorded smoke command"
+    assert smoke < rule.find("`/run`"), f"{skill}'s {step!r} step reaches for /run before the smoke command"
+    assert reports is None or reports in rule
+
+
+@pytest.mark.parametrize(
+    ("skill", "step", "phrases"),
+    [
+        pytest.param(
+            "build",
+            "Place each acceptance criterion.",
+            ("property test", "round-trip", "invariant", "idempotent", "naive", "differential test", "oracle"),
+            id="AC-1-build-names-property-and-differential-tests",
+        ),
+        pytest.param(
+            "verify",
+            "Run the verify command, and any gate it leaves out, fresh.",
+            ("flaky test is never skipped, slept past, or retried", "delete", "ruling"),
+            id="AC-2-verify-bans-flaky-shortcuts",
+        ),
+        pytest.param(
+            "diagnose",
+            "Build the feedback loop.",
+            ("flaky test is never skipped, slept past, or retried", "delete", "ruling"),
+            id="AC-2-diagnose-bans-flaky-shortcuts",
+        ),
+        pytest.param(
+            "implement",
+            "Review every issue.",
+            ("failing gate", "three", "references/task-brief.md"),
+            id="AC-3-implement-caps-gate-rounds",
+        ),
+    ],
+)
+def test_skills_carry_property_tests_the_flaky_test_ban_and_the_gate_round_cap(skill, step, phrases):
+    rule = step_text(skill, step)
+    for phrase in phrases:
+        assert phrase in rule, f"{skill}'s {step!r} step lacks {phrase!r}"
+
+
+def test_task_brief_caps_a_failing_gate_at_three_rounds_then_rules_and_moves_on():
+    brief = " ".join((PLUGIN_ROOT / "skills" / "implement" / "references" / "task-brief.md").read_text().split())
+    how = brief.split("## How to work", 1)[1].split("## Report", 1)[0]
+    for phrase in ("failing gate", "third round", "ruling", "failing output", "DONE_WITH_CONCERNS"):
+        assert phrase in how, f"the task brief's How to work lacks {phrase!r}"
+
+
+def test_setup_records_a_smoke_command_and_feature_map_under_run():
+    rule = step_text("setup", "Test convention, gates, and the run.")
+    assert "`## Run`" in rule and "smoke command" in rule and "feature map" in rule
+    reference = (PLUGIN_ROOT / "skills" / "setup" / "references" / "testing.md").read_text()
+    template = reference.split("## Template for docs/agents/testing.md", 1)[1]
+    run = template.split("\n## Run\n", 1)[1].split("\n## ", 1)[0]
+    assert "| Feature | How to reach it | Expected result |" in run
+    for status in ("passing", "broken: <first error>", "none: <why>"):
+        assert status in run, f"the ## Run template has no {status!r} status"
+
+
 def test_stop_guard_reference_keeps_the_rules_step_9_points_to():
     text = " ".join((PLUGIN_ROOT / "skills" / "implement" / "references" / "stop-guard.md").read_text().split())
     for phrase in (
@@ -204,3 +281,36 @@ def test_every_skill_and_agent_reading_the_tracker_doc_falls_back_to_setups_fork
         assert "fork check" in text and "setup/references/issue-tracker-github.md" in text, (
             f"{path.relative_to(PLUGIN_ROOT)} reads the tracker doc but has no fallback for one without the fork check"
         )
+
+
+def step(skill: str, title: str) -> str:
+    """The text of a skill's numbered step, from its bold title to the next step or section."""
+    text = (PLUGIN_ROOT / "skills" / skill / "SKILL.md").read_text()
+    return re.split(r"^(?:\d+\. \*\*|## )", text.split(f"**{title}**", 1)[1], maxsplit=1, flags=re.MULTILINE)[0]
+
+
+def stamp_commands(text: str) -> list[list[str]]:
+    """Each `scripts/stamp.py ...` invocation in skill text, as stamp.main's argv, line continuations joined."""
+    return [shlex.split(call) for call in re.findall(r"scripts/stamp\.py ([^`\n]+)", text.replace("\\\n", " "))]
+
+
+def test_verify_stamps_only_on_done_and_finish_sends_an_unstamped_head_back_to_verify(work_repo, monkeypatch):
+    """Runs the stamp commands as the skills give them: finish's read prints none until verify's write runs."""
+    verify = step("verify", "Report the evidence.")
+    finish = " ".join(step("finish", "Confirm the branch is ready.").split())
+    assert 'When you say "done", and never otherwise, stamp the commit' in " ".join(verify.split())
+    assert "`none` means" in finish and "run `compost:verify` again first" in finish
+    [write], [show] = stamp_commands(verify), stamp_commands(finish)
+    assert write[0] == "write" and show == ["show", "HEAD"]
+    monkeypatch.chdir(work_repo)
+
+    def shown() -> str:
+        out = io.StringIO()
+        assert stamp.main(show, out) == 0
+        return out.getvalue().strip()
+
+    assert shown() == "none"
+    assert stamp.main(write) == 0
+    assert json.loads(shown())["ac"] == "7/7"
+    commit(work_repo, {"file.txt": "after verify\n"}, "a commit after verify")
+    assert shown() == "none"
