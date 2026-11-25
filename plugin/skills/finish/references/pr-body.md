@@ -46,6 +46,8 @@ seeing. Pick the smallest view that makes the key point clear.>
 - <Anything deferred, with the issue that tracks it.>
 - Flaky: <each e2e test from verify's Flaky list that passed only on its rerun, with its filed issue.>
 - <Coverage exclusions proposed and why the lines earn no test.>
+- Gate drift: <each `gate_drift.py` gate change as kind, path, detail, with its ruling, and any base gate
+  that failed on this branch>, or "None: the branch edits none of its own checks."
 
 Closes #<parent>, closes #<sub-issue>, closes #<sub-issue>
 ```

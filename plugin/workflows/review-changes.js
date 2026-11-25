@@ -6,7 +6,7 @@ export const meta = {
   whenToUse: 'compost:review is the normal entry point: it runs this workflow, runs the harness code review beside it, and works through the findings; call this directly only for the two axes alone. After verify passes on an issue, or whenever a branch or work-in-progress diff needs review, whatever its size. Pass {base, head, issue, spec, since, prior, skeptics, jev, full}, all optional: base defaults to the merge-base with the default branch, head to HEAD, issue to one found in the commits or branch name, spec (the issue text, fetched by the caller; scope then fetches nothing) to none, since (the head the last review round reviewed; reviewers then judge only what changed after it) and prior (the findings and rulings of that round, which reviewers and skeptics are told) to none, skeptics (votes per finding worth a skeptic) to 1, jev (the path to compost scripts/jev.py, which ranks files by structural risk) to this plugin\'s own copy, full (force separate Standards and Spec reviewers on a small diff) to false. A diff of 50 changed lines or fewer that Jev ranks and finds not structural gets one reviewer covering both axes. A bare string is treated as base.',
   phases: [
     { title: 'Scope', detail: 'pin the base, the diff, the spec, and the standards sources; rank files by structural risk' },
-    { title: 'Standards', detail: 'reviewer against instructions files, CONTEXT.md, ADRs, and the canon (on a small diff, one light reviewer covers both axes here); skeptics refute each finding worth one' },
+    { title: 'Standards', detail: 'reviewer against instructions files, CONTEXT.md, ADRs, the canon, and the REVIEW.md checks the diff triggers (on a small diff, one light reviewer covers both axes here); skeptics refute each finding worth one' },
     { title: 'Spec', detail: 'reviewer against the issue AC-N and interfaces; skeptics refute each finding worth one' },
   ],
 }
@@ -62,10 +62,24 @@ const SCOPE_SCHEMA = {
         minorCap: { type: 'integer', description: 'Most minor findings the whole review keeps' },
         failure: { type: 'string', description: "REVIEW.md's Failure section, verbatim; empty for the defaults" },
         skip: { type: 'string', description: "REVIEW.md's Skip section, verbatim; empty for the defaults" },
+        checks: { type: 'string', description: "REVIEW.md's Checks section, verbatim; empty when it has none" },
         problem: { type: 'string', description: 'Why a REVIEW.md value could not be read; empty otherwise' },
       },
     },
     skipped: { type: 'array', items: { type: 'string' }, description: 'The changed files a skip rule of the guide covers' },
+    triggers: {
+      type: 'array',
+      description: "One entry per check in the guide's Checks section: whether this diff trips its Trigger",
+      items: {
+        type: 'object',
+        required: ['name', 'triggered', 'why'],
+        properties: {
+          name: { type: 'string', description: 'The check\'s bold name, as REVIEW.md writes it' },
+          triggered: { type: 'boolean' },
+          why: { type: 'string', description: 'The changed file and hunk that trips the trigger, or what the trigger needs that the diff lacks' },
+        },
+      },
+    },
     delta: {
       type: 'object',
       description: 'Only when a since commit was given: the lines changed since the last round',
@@ -252,7 +266,7 @@ const scope = await agent(
 ${baseHint} The head under review is \`${head}\`.
 1. Resolve the fixed point and the head with \`git rev-parse\`. Set dirty to true when \`git status --porcelain\` lists a changed file with uncommitted edits. Record repo as the owner/name in \`git remote get-url origin\` (no host, no .git), or the name of the directory \`git rev-parse --show-toplevel\` prints when there is no origin. Record diffCommand as \`git diff <base-sha>...<head-sha>\` (three dots, against the merge-base), shortstat as the line \`git diff --shortstat <base-sha>...<head-sha>\` prints, verbatim, the commits from \`git log --oneline <base-sha>..<head-sha>\`, and the changed files from \`git diff --name-only <base-sha>...<head-sha>\`. Record changed from \`git diff -U0 <base-sha>...<head-sha>\`: for each file, every hunk header \`@@ -a,b +c,d @@\` gives the range [c, c+d-1] (d left out means 1), and a pure deletion (d is 0) gives [c, c+1], the lines around the cut.
 2. ${specStep}
-3. List the standards sources as they stand at the fixed point, never from disk: list them with \`git ls-tree -r --name-only <base-sha>\` and read each with \`git show <base-sha>:<path>\`, so a branch is judged by the rules of the branch it merges into, not by its own edits to them. They are CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces). When the fixed point has a REVIEW.md at its root, list it too and set guide from it: source "REVIEW.md", failure and skip from its Failure and Skip sections verbatim, and minorCap from its Minor cap section as a whole number (if it holds none, use 5 and say why in guide.problem). Without one, set guide to \`{source: "defaults", minorCap: 5, failure: "", skip: ""}\`. Then set skipped to the changed files a skip rule covers: REVIEW.md's, or by default generated files (a generated-file header, *_pb2.py, minified bundles), vendored ones (vendor/, third_party/), and lock files (uv.lock, package-lock.json, *.lock, requirements*.lock).${riskStep}${deltaStep}
+3. List the standards sources as they stand at the fixed point, never from disk: list them with \`git ls-tree -r --name-only <base-sha>\` and read each with \`git show <base-sha>:<path>\`, so a branch is judged by the rules of the branch it merges into, not by its own edits to them. They are CLAUDE.md and AGENTS.md at the root and in directories the diff touches, CONTEXT.md or CONTEXT-MAP.md, docs/adr/*.md, CODING_STANDARDS.md, CONTRIBUTING.md, and linter or formatter configs (so reviewers know what tooling already enforces). When the fixed point has a REVIEW.md at its root, list it too and set guide from it: source "REVIEW.md", failure, skip, and checks from its Failure, Skip, and Checks sections verbatim (checks "" when it has no Checks section), and minorCap from its Minor cap section as a whole number (if it holds none, use 5 and say why in guide.problem). Without one, set guide to \`{source: "defaults", minorCap: 5, failure: "", skip: ""}\`. Then set skipped to the changed files a skip rule covers: REVIEW.md's, or by default generated files (a generated-file header, *_pb2.py, minified bundles), vendored ones (vendor/, third_party/), and lock files (uv.lock, package-lock.json, *.lock, requirements*.lock). For each check in guide.checks (one bullet each, \`- **<name>**: Trigger: ... Check: ... Source: ...\`), read its Trigger against \`git diff <base-sha>...<head-sha>\` and add \`{name, triggered, why}\` to triggers, with why naming the changed file and hunk that trips it, or what the trigger needs that the diff lacks. Decide triggers only; answering a check is the reviewers' job. When unsure, it is triggered.${riskStep}${deltaStep}
 
 If the fixed point does not resolve or the diff is empty, say so in problem and return every other field empty: base, head, repo, diffCommand, and shortstat as "", commits, files, and standardsSources as [], and spec as \`{found: false, source: "", id: "", text: ""}\`.`,
   { label: 'scope', phase: 'Scope', schema: SCOPE_SCHEMA, effort: 'low', agentType: 'compost:scope' },
@@ -337,6 +351,49 @@ const guideNote = guide.source === 'REVIEW.md'
 - Skip: generated, vendored, and lock files, and anything a configured linter or formatter enforces.
 - Evidence: every behaviour claim cites a file:line, not an inference from naming.`
 
+// A check is one bullet of the guide's Checks section, `- **<name>**: Trigger: ... Check: ... Source: ...`, its
+// continuation lines folded in. The scope agent decides each trigger; a check it gave no decision on runs.
+// The indexes of the lines inside a fenced code block. As in CommonMark, a fence opens with three or more backticks
+// or tildes indented at most three spaces (a backtick run with another backtick after it is inline code), and closes
+// only with a run of the same character at least as long and nothing after it; an unclosed fence runs to the end.
+function fencedLineSet(lines) {
+  const fenced = new Set()
+  for (let i = 0, open = ''; i < lines.length; i++) {
+    const [, run = '', rest = ''] = lines[i].match(/^ {0,3}(`{3,}|~{3,})(.*)$/) || []
+    if (open) {
+      fenced.add(i)
+      if (run[0] === open[0] && run.length >= open.length && !rest.trim()) open = ''
+    } else if (run && !(run[0] === '`' && rest.includes('`'))) {
+      fenced.add(i)
+      open = run
+    }
+  }
+  return fenced
+}
+
+// One check per top-level bullet; a fenced example or an indented sub-bullet is text of the check above it.
+function parseChecks(section) {
+  const items = []
+  const lines = String(section || '').split('\n')
+  const fenced = fencedLineSet(lines)
+  lines.forEach((line, i) => {
+    const bullet = !fenced.has(i) && line.match(/^[-*+]\s+(.*)$/)
+    if (bullet) items.push(bullet[1].trim())
+    else if (items.length && line.trim()) items[items.length - 1] += ` ${line.trim()}`
+  })
+  const named = items.map(text => ({ name: ((text.match(/^\*\*(.+?)\*\*/) || text.match(/^([^:]+):/) || [])[1] || '').trim(), text }))
+  return named.filter((check, i) => check.name && named.findIndex(other => sameName(other.name, check.name)) === i)
+}
+const sameName = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase()
+
+const guideChecks = guide.source === 'REVIEW.md' ? parseChecks(guide.checks) : []
+const checks = guideChecks.map(check => {
+  const decided = (Array.isArray(scope.triggers) ? scope.triggers : []).find(entry => entry && sameName(entry.name, check.name))
+  if (!decided) return { ...check, status: 'triggered', why: 'the scoping agent gave no decision on it, so it runs' }
+  return { ...check, status: decided.triggered === false ? 'not triggered' : 'triggered', why: String(decided.why || '') }
+})
+const triggeredChecks = checks.filter(check => check.status === 'triggered')
+
 const skipNote = skippedFiles.size
   ? `\nSkipped by the review guide; raise nothing in these: ${[...skippedFiles].join(', ')}`
   : ''
@@ -354,6 +411,14 @@ const repoUnderReview = String(scope.repo || '')
 const IN_REPO = `This diff is in ${repoUnderReview || 'a repository the scoping agent could not name'}.`
 
 const SPEC_ONLY = `Grade only against the spec text in this prompt. Do not fetch any issue or spec file yourself (no \`gh issue view\`, no \`gh api\` on issues), even when the diff, the commits, or the conversation name a different one.`
+
+function checksNote() {
+  if (!triggeredChecks.length) return ''
+  return `
+
+Checks this diff triggers, from the base's REVIEW.md. Answer each check's question against the code. Under checked, give each its own entry whose item starts with the check's name as written here and gives your yes or no, at the file:line that shows it; the workflow fails this axis when a triggered check has no such entry. A check whose answer is a problem is also a finding, citing REVIEW.md and the check.
+${triggeredChecks.map(check => `- ${check.text} (triggered: ${check.why})`).join('\n')}`
+}
 
 const AXES = [
   {
@@ -375,7 +440,7 @@ ${SMELL_BASELINE}
 
 Skip anything a linter, formatter, or type checker configured in this repo already enforces.
 
-Under checked, list each rule you read against the diff and each changed file you opened, at the file:line you read.`,
+Under checked, list each rule you read against the diff and each changed file you opened, at the file:line you read.${checksNote()}`,
   },
   {
     name: 'Spec',
@@ -522,21 +587,9 @@ const specAcs = [...new Set(String(specDoc.text || '').match(/\bAC-\d+\b/g) || [
   .map(id => ({ id, named: new RegExp(`\\b${id}\\b`) }))
 
 const specLines = String(specDoc.text || '').split('\n')
-// Lines inside a fenced code block, so a shell comment there ("# install the CLI") is never read as a heading. As in
-// CommonMark, a fence opens with three or more backticks or tildes indented at most three spaces (a backtick run with
-// another backtick after it is inline code), and closes only with a run of the same character at least as long and
-// nothing after it; an unclosed fence runs to the end. A heading, likewise, is indented at most three spaces.
-const fencedLines = new Set()
-for (let i = 0, open = ''; i < specLines.length; i++) {
-  const [, run = '', rest = ''] = specLines[i].match(/^ {0,3}(`{3,}|~{3,})(.*)$/) || []
-  if (open) {
-    fencedLines.add(i)
-    if (run[0] === open[0] && run.length >= open.length && !rest.trim()) open = ''
-  } else if (run && !(run[0] === '`' && rest.includes('`'))) {
-    fencedLines.add(i)
-    open = run
-  }
-}
+// Lines inside a fenced code block, so a shell comment there ("# install the CLI") is never read as a heading. A
+// heading, like a fence, is indented at most three spaces.
+const fencedLines = fencedLineSet(specLines)
 const headingLevel = (line, i) => (fencedLines.has(i) ? 0 : ((line.match(/^ {0,3}(#{1,6})\s/) || [])[1] || '').length)
 
 // The line that defines an AC-N: one it leads, after markup only ("#### AC-3", "- **AC-3** Given"), or one where its id
@@ -618,6 +671,13 @@ function uncheckedReason(axis, review, placed, kept) {
   }
   const cited = entries.filter(entry => entry && FILE_LINE.test(String(entry.at || '')))
   if (cited.length === 0) return 'the reviewer cited no file:line for anything it checked'
+  if (axis.name === 'Standards') {
+    // As with an AC-N on Spec, a triggered check counts as answered only by a cited entry that names it.
+    const unanswered = triggeredChecks
+      .filter(check => !cited.some(entry => String(entry.item || '').toLowerCase().includes(check.name.toLowerCase())))
+      .map(check => check.name)
+    return unanswered.length ? `the reviewer did not answer check${unanswered.length > 1 ? 's' : ''} ${unanswered.join(', ')} at a file:line` : ''
+  }
   if (axis.name !== 'Spec') return ''
   // A finding about an AC-N (one with no line to cite, or one only partly met) maps it too. Its claim must
   // name the AC-N: evidence quotes AC-Ns in passing, which says nothing about whether they were checked.
@@ -753,11 +813,13 @@ return {
   standards,
   spec,
   guide: { source: guide.source, minorCap, ...(guideProblem ? { problem: guideProblem } : {}) },
+  ...(checks.length ? { checks: checks.map(({ name, status, why }) => ({ name, status, why })) } : {}),
   notRun: NOT_RUN,
   summary: [
     ...[standards, spec]
       .map(a => `${a.axis}: ${a.status}, ${a.survivors.length} survived, ${a.refuted.length} refuted, ${a.unjudged.length} unjudged; worst ${worst(a)}`),
     `Review guide: ${guide.source}; minor cap ${minorCap}, ${minorsCut} cut${guideProblem ? ` (${guideProblem})` : ''}`,
+    ...(checks.length ? [`Checks: ${checks.map(check => `${check.name} ${check.status}`).join('; ')}`] : []),
     `Not run here: ${NOT_RUN.join('; ')}`,
   ].join('\n'),
 }

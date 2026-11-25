@@ -2,7 +2,7 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
-## [0.49.0] - 2026-11-24
+## [0.53.0] - 2026-11-25
 
 ### Added
 
@@ -17,7 +17,23 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 - `compost:implement` keeps to the parent's run contract (OLI-123): it reads its run-contract reference first and, before anything that can stop the run, prints the contract's Stops as a `Run contract stops:` block; it runs the readiness check itself on a parent with no readiness record (gaps become rulings marked `(assumed)`) and checks each prerequisite before any worker branches. A missing or unconfirmed prerequisite is the eighth allowed stop.
 - The stop-guard Stop hook reads the latest `Run contract stops:` block since implement loaded and allows the contract's added stops beside the fixed list, with no tracker call.
 - `compost:implement`'s close-out loads `compost:finish`, which posts the PR body (on the issue file with a local tracker), instead of ending on the feature branch's name.
-- `compost:verify`'s steps after the new frontend step move from 6-9 to 7-10; references that cite them follow.
+- `compost:verify`'s steps after the new frontend step move from 6-9 to 7-10, so the verify stamp is written in step 10; references that cite them, including finish and the verify gate's message, follow.
+
+## [0.52.0] - 2026-11-25
+
+### Added
+
+- Verify stamps and a push gate (OLI-109). `compost:verify` step 9 stamps the commit it verified as a git note under `refs/notes/compost-verify` (`scripts/stamp.py write|show|log`), and `compost:finish` reads the stamp on HEAD instead of trusting memory, then pushes the notes. A new PreToolUse hook, `scripts/verify_gate.py`, watches `git push` and PR creates (`gh`, `glab`), judging every commit a push sends (or the PR's head branch); deletes, wildcards and `refs/notes/` refspecs are never gated, and `--all`, `--mirror`, `--branches` and a wildcard-only push judge HEAD only. With `COMPOST_VERIFY_GATE` unset it observes: an unstamped commit goes through and is logged to `~/.claude/verify-gate/log.jsonl`. `enforce` blocks twice per session, then lets every later attempt in that session through as a logged bypass; `off` disables it.
+- Diff-triggered checks (OLI-111). A `## Checks` section in the base's REVIEW.md lists items with a Trigger, a Check, and a Source. review-changes decides which ones the diff triggers, sends those to the Standards reviewer, and fails the axis unless each one is answered at a `file:line`. diagnose, retro, and review propose new checks after a miss, and prune removes stale ones. compost's own REVIEW.md starts with four checks from real incidents.
+- A recorded smoke command (OLI-110). `compost:setup` writes a `## Run` section into `docs/agents/testing.md`: a smoke command that boots the app and drives one real flow, plus a feature map. `compost:verify` reaches the "reproduced live" rung through it, and `compost:build` tries it before `/run`. compost has its own `scripts/smoke`: it installs the plugin from the working tree into a throwaway config, runs its Stop hooks, and runs one haiku turn that must load a compost skill.
+- Gate drift (OLI-113). `scripts/gate_drift.py <base> <head>` lists every edit a branch makes to the checks that judge it: changed gate files, added weakeners (`pragma: no cover`, `noqa`, skips, threshold or ignore config, sleeps or retries in tests), and removed tests. `compost:verify` reads the gates as recorded at the base, runs those too, and needs a ruling for every gate change. `compost:finish` lists them under Risk.
+
+## [0.51.0] - 2026-11-25
+
+### Changed
+
+- Jev's test tools (find-test, duplicate-test, ac-exercised) read Go, Rust, Java, and Kotlin suites, not only Python and JS/TS (OLI-132). Go takes `Test*`, `Example*`, and `Fuzz*` functions in `*_test.go` as `go test` names them (not `TestMain` or `Testable`); Rust takes functions under `#[test]`, `#[tokio::test]`, and `#[rstest]`, keyed by their `mod` path; Java and Kotlin take methods under `@Test` and its JUnit relatives in `Test*`, `*Test(s)`, `*TestCase`, and `*IT` files (JUnit style; Kotest and Spek DSL specs are not read). Each test's source runs to its closing brace, ignoring braces inside one-line strings, rune and char literals, and comments; a literal or comment that spans lines still counts, within an 80-line cap. Two tests that read as one id in a file both stay, the second as `name#2`. ac-exercised reads a Go subtest id, `TestX/case`, as a case of `TestX`. JS/TS also reads `.mts` and `.cts`. `target/`, `vendor/`, and compost's own `.worktrees/` are skipped in every language, so a repo with a build worktree open no longer sees each test twice.
+- build, verify, and diagnose no longer assume Python. build's survey names each stack's fixtures and case tables; build, verify, and diagnose say to skip Jev's test tools with a one-line note when the suite is in a language they do not read, instead of calling them and getting `no tests found`. verify's coverage gate names the other stacks' tools, and its `test-value` reference says how to turn a Go, Rust, JS, or JaCoCo report into `uncovered` lines. jev-lint and thin.py stay Python-only and the skills now say so where they are called.
 
 ## [0.48.0] - 2026-11-21
 

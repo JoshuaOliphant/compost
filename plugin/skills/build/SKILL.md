@@ -51,9 +51,13 @@ no test counts until you have seen it fail for the right reason.
    each failing test, fix one in its own `fix:` commit only if it blocks a gate, and post a ruling
    on this issue saying which failures you are carrying.
 
-3. **Survey the suite before writing any test.** Find what exists to build on:
-   - fixtures, factories, and builders (`conftest.py`, `tests/factories*`, `tests/helpers*`)
-   - parametrized tables (`grep -rn "mark.parametrize" tests/`)
+3. **Survey the suite before writing any test.** Find what exists to build on, in the stack's own
+   idiom (`docs/agents/testing.md` names the runner):
+   - fixtures, factories, and builders: `conftest.py` and `tests/factories*` in Python, shared
+     `testutil`/`helpers_test.go` packages in Go, `beforeEach` and `test-utils` in JS/TS, a
+     `tests/common` module in Rust, `@BeforeEach` and `testFixtures` in JUnit
+   - case tables: `mark.parametrize` in Python, `[]struct{...}` tables with `t.Run` in Go,
+     `test.each`/`it.each` in JS/TS, `#[rstest]` cases in Rust, `@ParameterizedTest` in JUnit
    - the tests that already exercise the code you will change: grep for its symbols
    - how tests are named, grouped, and split across files
 
@@ -75,11 +79,15 @@ no test counts until you have seen it fail for the right reason.
 
    `extend` names the test that already covers the criterion; `add-beside` names the one to write
    next to ([jev](references/jev.md) has the full output). Read the named test before you act on
-   it. Exit 3 means Jev is unavailable, and exit 2 with `no tests found` means it cannot read this
+   it. Jev's test tools read tests in Python, JS/TS, Go, Rust, and JUnit-style Java and Kotlin.
+   When the suite is
+   in another language, skip find-test here and duplicate-test in step 11, say so in one line
+   ("Jev test tools skipped: <language> suite"), and place each criterion from your survey.
+   Exit 3 means Jev is unavailable, and exit 2 with `no tests found` means it cannot read this
    suite: in both cases place it from your survey, and say so in your report.
    Either way, take the first of these that fits:
    1. Change the expectation in a test that already covers the behavior.
-   2. Add a case to an existing parametrized table.
+   2. Add a case to an existing case table.
    3. Write a test in the existing file, on existing fixtures. Extend a fixture or factory with a
       parameter before writing another.
    4. Add a fixture only when nothing fits, and put it beside the ones it resembles.
@@ -93,10 +101,19 @@ no test counts until you have seen it fail for the right reason.
    mocks, or more than a line or two of setup is a test in the wrong place; it belongs in the
    suite, and so do edge-case tables.
 
+   For logic with a rule rather than a list of cases, add a property test (Hypothesis,
+   fast-check, proptest) beside the examples: round-trip for parse and serialize, an invariant
+   that holds for every input, an idempotent operation applied twice, or equivalence with a
+   naive version that is obviously right. For a rewrite that must keep behavior, write a
+   differential test with the old code as the oracle. Both find edge cases you did not think of,
+   since you did not write the inputs.
+
    A test that duplicates a fixture, or re-covers behavior another test already covers, is a
    defect. Fix it the way you would fix a bug. When the change makes an existing test obsolete,
    fold what it still proves into a table and delete it. Give each case an id that names the
-   behavior, such as `id="expired-at-exact-instant"`, so `compost:verify` can map AC-N to a node id.
+   behavior, such as `id="expired-at-exact-instant"` in pytest, a `t.Run` name in Go (mapped as
+   `TestX/case`), `@ParameterizedTest(name = ...)` in JUnit, or a named `#[case]` in rstest, so
+   `compost:verify` can map AC-N to a node id.
    See [fitting a test in](references/fitting-a-test-in.md) for a worked before and after.
 
 5. **Name the break before writing the test body.** Say which production change would make the
@@ -126,8 +143,9 @@ no test counts until you have seen it fail for the right reason.
    the test and run it again. If you wrote the code first, undo the production edit in the
    working tree, run the test, watch it fail, and reapply. When a failing test is impractical
    (a rendering detail, a race, a service that cannot be faked), say why in an issue comment and
-   run the closest executable check instead, such as a script against the real code or the
-   bundled `/run` driving the app. Record its output.
+   run the closest executable check instead: the smoke command `docs/agents/testing.md` records
+   under `## Run` first, then a script against the real code or the bundled `/run` driving the
+   app. Record its output.
 
 8. **Refactor inside the change.** Leave the code you touched clean. Replace rather than
    deprecate: no compatibility shims, no `_old` or `_legacy` twins, no flag keeping the previous
@@ -164,9 +182,10 @@ no test counts until you have seen it fail for the right reason.
     `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/jev.py duplicate-test --input <file>` on
     `{"repo": ".", "base": "<the SHA the branch started from>"}` ([jev](references/jev.md)), and
     fold every `fold into <test>` into that test as step 4 says. Jev collects test functions, not
-    doctests, and on a suite it cannot read it returns `"tests": []` with exit 0. On exit 3, or when
-    a new test is missing from its `tests`: compare each new test against its neighbours in the
-    file yourself, and say so in your report. When
+    doctests, and on a suite it cannot read it returns `"tests": []` with exit 0. On exit 3, when
+    a new test is missing from its `tests`, or when step 4 skipped the Jev test tools for this
+    suite's language: compare each new test against its neighbours in the file yourself, and say
+    so in your report. When
     `docs/agents/testing.md` records mutation testing for Python, also make each new test earn its place by
     mutation: collect per-test coverage and run `thin.py matrix --tests <new node ids>`, then
     `thin.py verdict`, as `compost:thin` does. A new test the verdict calls redundant or

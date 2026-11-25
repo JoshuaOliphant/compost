@@ -22,6 +22,7 @@ compost/
 │   └── pyproject.toml                # the plugin's dev group and its 100% coverage gate
 ├── experiments/                      # eval harnesses and results; never installed
 ├── scripts/check_version_bumps.py    # CI on PRs into main: version above main's, with a changelog entry
+├── scripts/smoke                     # installs the working tree into a throwaway config and drives one turn
 ├── docs/agents/                      # how the compost skills work in this repo
 └── pyproject.toml                    # root dev group (pytest, ruff) for scripts/ and experiments/
 ```

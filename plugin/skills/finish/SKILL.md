@@ -19,7 +19,10 @@ yours to do without asking.
    A skipped review is a gap to close here, never a line under Risk, and so is one recorded as
    incomplete on an axis. Every `compost:review`
    finding is fixed or answered on the issue with a `file:line` reason. `compost:verify` ran on
-   the current HEAD. If commits landed after its last run, run it again first.
+   the current HEAD: read its stamp rather than your memory of the run, with
+   `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/stamp.py show HEAD`. It prints the summary verify's step 10
+   wrote on this SHA, or `none`. `none` means verify never said done on this commit, or commits
+   landed after it did: run `compost:verify` again first.
 
 2. **Record where you are.** Capture these now, because cleanup runs from another directory:
 
@@ -62,12 +65,24 @@ yours to do without asking.
    `git worktree remove` it. A worktree-isolated session may refuse to work outside its own
    worktree; then take the merge-into-the-branch path above.
 
-5. **Open or update the pull request.** Push the branch and open a draft PR against the target,
-   or update the open one. The body has five sections: Goal, Decisions, Changes, Validation,
+5. **Open or update the pull request.** Push the branch, then its verify stamps:
+   `git push origin "$branch"`, then `git push origin refs/notes/compost-verify`. Git never
+   fetches notes, so a stamp pushed from another clone rejects the notes push. Then merge the
+   remote's notes into yours and push again:
+
+   ```bash
+   git fetch origin refs/notes/compost-verify:refs/notes/compost-verify-origin
+   git notes --ref=compost-verify merge -s cat_sort_uniq refs/notes/compost-verify-origin
+   git push origin refs/notes/compost-verify
+   ```
+
+   Open a draft PR against the target, or update the open one. The body has five sections: Goal, Decisions, Changes, Validation,
    Risk. Decisions summarizes the rulings posted as issue comments. Validation carries
-   `compost:verify`'s evidence, verify's Screenshots list as images, and the merge-result run. Risk
-   calls the change a one-way or two-way door with its blast radius, names whatever is unproven,
-   deferred, or excluded from coverage, and carries verify's Flaky list. End the body with a `Closes` line for the issue, or for
+   `compost:verify`'s evidence, verify's Screenshots list as images, and the merge-result run.
+   Risk calls the change a one-way or two-way door with its blast radius, names whatever is
+   unproven, deferred, or excluded from coverage, carries verify's Flaky list, and lists every
+   gate change `compost:verify` found (an edit the branch makes to its own checks) with its
+   ruling. End the body with a `Closes` line for the issue, or for
    the parent and every sub-issue (`Closes #12, closes #13, closes #14`), keeping any the PR
    already has; leave out `ready-for-human` sub-issues and any another session holds
    (`compost:implement` step 2's taken), and the parent while any of those is open. Use the
@@ -123,7 +138,9 @@ yours to do without asking.
      If the merge stops on conflicts, the target moved after step 4: `git merge --abort`,
      `git switch "$branch"`, and go back to step 4. Otherwise run the suite on the result. If it
      is red, `git switch "$branch"` and stop with the branch and worktree in place and nothing
-     pushed. If it is green, `git push origin HEAD:<target>`. A rejected push also means the
+     pushed. If it is green, stamp the merge commit with that run, as verify's step 10 does
+     (`stamp.py write --json '{"gates": "<green>/<run>", "merge_of": "<branch head>"}'`), so the
+     verify gate passes it, then `git push origin HEAD:<target>` and push the notes as in step 5. A rejected push also means the
      target moved: `git switch "$branch"` and go back to step 4. Then close the issue, or the
      parent, the way the tracker says (for a local tracker, `Status: closed` and a closing note
      naming the merge commit).

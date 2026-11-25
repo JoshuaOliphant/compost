@@ -1,13 +1,13 @@
 ---
 name: setup
-description: Configures a repo once for the compost skills, recording its issue tracker, domain doc layout, core docs, test convention, verify gates, and observability stack under docs/agents/, and offers to move CLAUDE.md into AGENTS.md. Use when the user says "set up compost", "configure this repo", "set up the issue tracker", "migrate CLAUDE.md to AGENTS.md", "record our test gates", "set up observability", or a compost skill finds docs/agents/issue-tracker.md missing.
+description: Configures a repo once for the compost skills, recording its issue tracker, domain doc layout, core docs, test convention, verify gates, smoke command and feature map, and observability stack under docs/agents/, and offers to move CLAUDE.md into AGENTS.md. Use when the user says "set up compost", "configure this repo", "set up the issue tracker", "migrate CLAUDE.md to AGENTS.md", "record our test gates", "set up observability", or a compost skill finds docs/agents/issue-tracker.md missing.
 ---
 
 # Setup
 
 The other compost skills assume a few facts about the repo: where issues live, where the glossary
 and ADRs live, which docs are core, how tests are written, which gates must pass before
-anything counts as done, and how to read what the running code emits.
+anything counts as done, how to run the app, and how to read what the running code emits.
 Setup finds those facts, confirms the ones that branch, and writes them to `docs/agents/`, where
 every skill reads them. It also points the repo's instructions file at those docs and offers to
 consolidate the instructions into `AGENTS.md`.
@@ -86,7 +86,7 @@ edits the user made by hand.
    a `REVIEW.md` from [review-md](references/review-md.md), so the repo can tune them. Write it only
    on a yes; unattended, don't write it and say so in the report.
 
-6. **Test convention and gates.** Work out the convention with the detection ladder in
+6. **Test convention, gates, and the run.** Work out the convention with the detection ladder in
    [testing](references/testing.md): adopt the pattern already in use, default by stack when there
    are no tests, and ask only for a greenfield repo with no clear stack. Then list the gates
    `compost:verify` will run: the suite command, the coverage command and threshold (100% line
@@ -95,8 +95,13 @@ edits the user made by hand.
    or doesn't run as broken, with its output's first error, rather than dropping it. Record the
    mutation tool the same way: adopt one already configured, or offer the stack's default from
    [mutation testing](../verify/references/mutation.md), and run it once over the last commit
-   that changed source. Record the E2E entry by "Finding the e2e tool" in
-   [testing](references/testing.md), and write `docs/agents/testing.md` from its template.
+   that changed source. Then record how to run the app, under `## Run`: a smoke command that
+   boots it, drives one real flow, and exits non-zero on failure, and a feature map of its
+   user-facing features, how to reach each, and the expected result. Find or write the smoke
+   command with the ladder in the same reference, run it once, and record it as passing or
+   broken with its first error. A repo with nothing to run records `none` and why. Record the
+   E2E entry by "Finding the e2e tool" in the same reference, and write `docs/agents/testing.md`
+   from its template.
 
 7. **Observability.** Find the telemetry the repo's running code emits with the detection ladder
    in [observability](references/observability.md): the observability harness, another stack

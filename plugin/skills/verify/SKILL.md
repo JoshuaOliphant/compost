@@ -28,55 +28,54 @@ command can: judge whether it ran what changed, and prove the fact the change is
    the parent issue has a `## Frontend` section; step 6 needs both.
 
    Then find the verify command `testing.md` names. When it names none, build one before running
-   anything: a `scripts/verify`, or a target in the repo's task runner, that
-   - runs every gate in order and exits non-zero on the first failure;
-   - fails when a gate collects, lints, or measures nothing;
-   - fails on a skipped or xfailed test that an AC table names;
-   - checks every issue's AC table (AC-N to test node id) against this run, closed issues
-     included: each named test must exist, run, and pass. A row whose test cell reads
-     `superseded by #N` is retired: the command skips it and prints it, so the report names it.
-     The table it reads looks like this:
-
-     ```markdown
-     | AC | Test |
-     |---|---|
-     | AC-1 | tests/test_fees.py::test_no_fee_inside_grace_period |
-     | AC-3 | superseded by #42 |
-     ```
-   - reads the tables in bulk, not one tracker call per issue: from the local tracker's files, or
-     for a remote tracker one listing call scoped to issues that carry a table, or a committed
-     cache of the tables. Verify refreshes the cache whenever it posts a table or retires a row, except as a
-     `compost:implement` worker: parallel lanes that each rewrite one committed file conflict when
-     they land, so workers leave the cache alone and the orchestrator refreshes it after each
-     landing. The command warns when the cache is older than the newest edit to an AC table itself:
-     the edit time of the comment or file that holds a table, not the issue's updated time, which
-     moves on every comment or label change and would make the warning noise. A table edited
-     outside verify won't reach the cache otherwise. With hundreds of issues, a call per issue is
-     slow and runs into rate limits.
+   anything, by [the verify command](references/verify-command.md): a `scripts/verify` or task-runner
+   target that runs every gate in order, fails when a gate measures nothing, and checks every
+   issue's AC table against this run.
 
    Record it in `testing.md` as the gate and commit both, so the next session finds it.
 
+   A branch must not judge itself with checks it rewrote: read the gates at the base too
+   (`git show <base>:docs/agents/testing.md`, likewise the threshold, verify command and CI
+   config). A gate the branch dropped or loosened still runs in step 2 at base strength. List the
+   branch's edits to its checks:
+
+   ```bash
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/gate_drift.py <base> HEAD
+   ```
+
+   It lists each gate change as JSON (exit 1 when any): a changed gate file, an added weakener,
+   or a removed test. Rule on each: why the check changed and why that is sound. Unattended
+   (implement, a worker), post them as one ruling comment and continue; `compost:finish` lists
+   them under Risk.
+
 2. **Run the verify command, and any gate it leaves out, fresh.** Run them in this worktree now,
-   not earlier and not somewhere else. Read each exit code and the whole output. Stop at the first
+   not earlier and not somewhere else. After a gate change, run the base's gates on this tree too;
+   one failing fails the run, and only the user can accept that. Read each exit code and the whole output. Stop at the first
    failure and read its log before touching anything else: the first failing log carries the
    information, and later failures are often its echoes. An e2e test is the exception: it gets one
    rerun, as step 6 says. A failing test outside the change gets
    run on the base SHA first. Red there, it is pre-existing: file an issue, fix it in its own `fix:` commit
    only if it blocks a gate, and post a ruling. Green there, the change broke it: fix it if the
    cause is plain; otherwise hand it to `compost:diagnose`. A warning the gate prints is a finding too: fix it, or say why it stays.
+   A flaky test is never skipped, slept past, or retried until green: fix its cause, or delete it in a ruling.
    When a subagent did the work, read `git diff` yourself rather than trusting its report.
 
-3. **Hold the coverage gate.** The gate is 100% line coverage, for example
-   `uv run pytest --cov --cov-report=term-missing --cov-fail-under=100`. Ask Jev first: write the
-   report as JSON (`--cov-report=json`) and run `test-value` on it ([jev](references/jev.md)).
+3. **Hold the coverage gate.** The gate is 100% line coverage, measured with the stack's own tool
+   as `docs/agents/testing.md` records it: for example
+   `uv run pytest --cov --cov-report=term-missing --cov-fail-under=100`, `go test -coverprofile`,
+   `vitest --coverage`, `cargo llvm-cov`, or JaCoCo (`./gradlew jacocoTestReport`, `mvn jacoco:report`). Ask Jev first: hand `test-value` the missing lines
+   ([jev](references/jev.md)), as a coverage.py JSON report (`--cov-report=json`) for Python or as
+   `{file, lines}` read from the other tool's report.
    Blocks in `exclude` are the proposed exclusions for the third case below; the rest need a
    test. Exit 3 means Jev is unavailable: sort them yourself. For each missing line:
    - It is behavior: go back to `compost:build` and fit a test in.
    - It is dead: delete it.
    - Covering it would take a test that proves nothing (asserting a constant, re-testing the
      framework, a `__main__` guard): stop and bring the user the file and line numbers, with a
-     proposed exclusion (`exclude_also` in the coverage config, or a `pragma: no cover` on that
-     line) or a lower threshold. Do not pad the suite to reach the number. When running
+     proposed exclusion in the stack's own form (`exclude_also` or `pragma: no cover` for
+     coverage.py, `/* c8 ignore next */` or `/* istanbul ignore next */` for JS, JaCoCo `excludes`,
+     `--ignore-filename-regex` for `cargo llvm-cov`; Go has no pragma, so filter the profile and
+     record the pattern in `testing.md`) or a lower threshold. Do not pad the suite to reach the number. When running
      unattended, under `compost:implement`, or as a worker, post the proposal as a ruling comment
      on the issue, list it in the PR's Risk section, and continue; the user decides at
      `compost:finish`.
@@ -109,10 +108,11 @@ command can: judge whether it ran what changed, and prove the fact the change is
    run proves nothing. A passing test can still miss its criterion, so ask Jev whether each
    test asserts its Then: run `ac-exercised` with the table ([jev](references/jev.md)) and read
    every criterion in `to_read` against its test. One whose test never checks the Then is unmet.
-   Exit 3: read each test's assertions against its Then yourself. Under a parent with a Frontend
-   section, or for an undeclared frontend change (step 6), a user-visible AC-N needs a passing e2e
-   test that drives the running app; one mapped only to a unit test is unmet, and verify fails
-   naming the AC-N.
+   Exit 3, or a suite in a language Jev's test tools do not read (any but Python, JS/TS, Go,
+   Rust, Java, and Kotlin): say so in one line and read each test's assertions against its Then
+   yourself. Under a parent with a Frontend section, or for an undeclared frontend change (step
+   6), a user-visible AC-N needs a passing e2e test that drives the running app; one mapped only
+   to a unit test is unmet, and verify fails naming the AC-N.
 
    A green command proves only what it checks. When no line of its output covers an AC-N, extend
    the repo before claiming anything: a test first (load `compost:build` to fit it in), and a new
@@ -144,9 +144,12 @@ command can: judge whether it ran what changed, and prove the fact the change is
       version, with the line read from that file alone (`cat -n a b c` numbers across files).
    3. Walked: you traced the bad case step by step and showed it cannot happen.
    4. Ran: a script or test calls the real code and fails loudly if the fact is false.
-   5. Reproduced live: the running app shows it. Use the bundled `/run` to start and drive it.
-      The bundled `/verify` does the same but only the user can run it; suggest it when they
-      want to see it themselves.
+   5. Reproduced live: the running app shows it. Run the `## Run` smoke command from
+      `docs/agents/testing.md` (at the changed path, if it takes one); use the bundled `/run`
+      only when `## Run` is missing or `none`. The bundled `/verify` does the same but only the
+      user can run it; suggest it when they want to see it themselves.
+
+   Report the `## Run` feature-map rows the change touches, each with its result.
 
    When `docs/agents/observability.md` records a stack and the change runs at runtime, reach the
    last rung through it: exercise the changed path once, then query for its span, log, or metric
@@ -163,11 +166,13 @@ command can: judge whether it ran what changed, and prove the fact the change is
 8. **Make silent checks prove they ran.** A check that prints nothing when it fails looks the
    same as one that never ran. Before counting it as a pass, show it did work: the number of
    tests collected, the number of files linted, or one run where it caught a planted defect.
-   Common cases, such as pytest collecting nothing or coverage measuring the wrong package, are
+   Common cases, such as a runner collecting nothing (pytest's `collected 0 items`, Go's
+   `[no test files]`) or coverage measuring the wrong package, are
    in [the proof ladder](references/proof-ladder.md).
 
 9. **Check the comments in the diff.** For Python, run [jev-lint](references/jev-lint.md) over
-   the branch first. If it exits 3 (no key), say so and do the manual pass. Either way, read every
+   the branch first; it reads only Python, so for other languages say so in one line and go
+   straight to the manual pass. If it exits 3 (no key), say so and do the manual pass. Either way, read every
    comment the diff adds. Keep only:
    - legal or license headers
    - behavior forced by an external dependency, platform, or protocol we cannot reshape
@@ -192,6 +197,17 @@ command can: judge whether it ran what changed, and prove the fact the change is
     and its command's output ([jev](references/jev.md)), and fix or drop each one in `unbacked`.
     Exit 3: reread each output against its claim yourself. Say "done" only
     when every row is met and every gate is green. Otherwise state the actual status.
+    When you say "done", and never otherwise, stamp the commit you verified for `compost:finish`
+    and the verify gate:
+
+    ```bash
+    uv run ${CLAUDE_PLUGIN_ROOT}/scripts/stamp.py write --json \
+      '{"gates": "4/4", "ac": "7/7", "mutants": "41/45", "rung": "e2e"}'
+    ```
+
+    Fields: gates green/run, AC met/total, mutants killed/run (or `null`),
+    step 7's rung. It stamps HEAD (or `--rev`) as a note under `refs/notes/compost-verify`;
+    `stamp.py show <rev>` and `log <range>` read stamps.
 
 ## Next moves
 
