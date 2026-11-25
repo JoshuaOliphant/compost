@@ -112,7 +112,9 @@ comes first, the theory second, and the fix last, at the root. The why is in
    re-run the original loop against the full scenario. To find the neighbours, ask Jev first: run
    `find-test` with the repo and the bug as a criterion, "Given <the minimal repro>, When <the
    call>, Then <the correct result>" ([jev](../build/references/jev.md)), and extend or sit beside
-   the test it names. Exit 3 means Jev is unavailable: grep the suite for the code under the fix.
+   the test it names. Jev reads Python, JS/TS, Go, Rust, Java, and Kotlin suites; for any other
+   language skip it up front. In that case, or on exit 3 (Jev unavailable) or exit 2 with
+   `no tests found`, say so in one line and grep the suite for the code under the fix.
    Fix the pattern, not the instance: search for the same mistake elsewhere and fix those too.
 
    Ask whether the state that triggered the symptom is legitimate. If the system may be in it (an

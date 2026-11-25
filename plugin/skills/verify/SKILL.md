@@ -55,46 +55,47 @@ command can: judge whether it ran what changed, and prove the fact the change is
 
    Record it in `testing.md` as the gate and commit both, so the next session finds it.
 
-   A branch must not judge itself with checks it rewrote. Read the gates at the base (the branch
-   the work merges into, such as `origin/main`) too: `git show <base>:docs/agents/testing.md`,
-   and the threshold, verify command, and CI config the same way. A gate the branch dropped or
-   loosened still runs in step 2 at its base strength. Then list the branch's edits to its checks:
+   A branch must not judge itself with checks it rewrote: read the gates at the base too
+   (`git show <base>:docs/agents/testing.md`, likewise the threshold, verify command and CI
+   config). A gate the branch dropped or loosened still runs in step 2 at base strength. List the
+   branch's edits to its checks:
 
    ```bash
    python3 ${CLAUDE_PLUGIN_ROOT}/scripts/gate_drift.py <base> HEAD
    ```
 
-   It prints a JSON list of gate changes, each `{kind, path, detail}`, and exits 1 when there are
-   any: a changed gate file (gates doc, `REVIEW.md`, CI, lint, test or coverage config), an added
-   weakener (`pragma: no cover`, `noqa`, a skip, a sleep or retry in a test), or a removed test.
-   Give each gate change a ruling: why the check changed, and why that is sound. Unattended,
-   under `compost:implement`, or as a worker, post them as one ruling comment and continue;
-   `compost:finish` lists them under Risk.
+   It lists each gate change as JSON (exit 1 when any): a changed gate file, an added weakener,
+   or a removed test. Rule on each: why the check changed and why that is sound. Unattended
+   (implement, a worker), post them as one ruling comment and continue; `compost:finish` lists
+   them under Risk.
 
 2. **Run the verify command, and any gate it leaves out, fresh.** Run them in this worktree now,
-   not earlier and not somewhere else. When step 1 found a gate change, run the base's gates too,
-   on this tree. A base gate failing here fails the run even when the branch's passes; only the
-   user can accept that, so report it beside its ruling. Read each exit code and the whole output. Stop at the first
+   not earlier and not somewhere else. After a gate change, run the base's gates on this tree too;
+   one failing fails the run, and only the user can accept that. Read each exit code and the whole output. Stop at the first
    failure and read its log before touching anything else: the first failing log carries the
    information, and later failures are often its echoes. A failing test outside the change gets
    run on the base SHA first. Red there, it is pre-existing: file an issue, fix it in its own `fix:` commit
    only if it blocks a gate, and post a ruling. Green there, the change broke it: fix it if the
    cause is plain; otherwise hand it to `compost:diagnose`. A warning the gate prints is a finding too: fix it, or say why it stays.
-   A flaky test is never skipped, slept past, or retried until green: fix its cause, or delete
-   it with the reason in a ruling.
+   A flaky test is never skipped, slept past, or retried until green: fix its cause, or delete it in a ruling.
    When a subagent did the work, read `git diff` yourself rather than trusting its report.
 
-3. **Hold the coverage gate.** The gate is 100% line coverage, for example
-   `uv run pytest --cov --cov-report=term-missing --cov-fail-under=100`. Ask Jev first: write the
-   report as JSON (`--cov-report=json`) and run `test-value` on it ([jev](references/jev.md)).
+3. **Hold the coverage gate.** The gate is 100% line coverage, measured with the stack's own tool
+   as `docs/agents/testing.md` records it: for example
+   `uv run pytest --cov --cov-report=term-missing --cov-fail-under=100`, `go test -coverprofile`,
+   `vitest --coverage`, `cargo llvm-cov`, or JaCoCo (`./gradlew jacocoTestReport`, `mvn jacoco:report`). Ask Jev first: hand `test-value` the missing lines
+   ([jev](references/jev.md)), as a coverage.py JSON report (`--cov-report=json`) for Python or as
+   `{file, lines}` read from the other tool's report.
    Blocks in `exclude` are the proposed exclusions for the third case below; the rest need a
    test. Exit 3 means Jev is unavailable: sort them yourself. For each missing line:
    - It is behavior: go back to `compost:build` and fit a test in.
    - It is dead: delete it.
    - Covering it would take a test that proves nothing (asserting a constant, re-testing the
      framework, a `__main__` guard): stop and bring the user the file and line numbers, with a
-     proposed exclusion (`exclude_also` in the coverage config, or a `pragma: no cover` on that
-     line) or a lower threshold. Do not pad the suite to reach the number. When running
+     proposed exclusion in the stack's own form (`exclude_also` or `pragma: no cover` for
+     coverage.py, `/* c8 ignore next */` or `/* istanbul ignore next */` for JS, JaCoCo `excludes`,
+     `--ignore-filename-regex` for `cargo llvm-cov`; Go has no pragma, so filter the profile and
+     record the pattern in `testing.md`) or a lower threshold. Do not pad the suite to reach the number. When running
      unattended, under `compost:implement`, or as a worker, post the proposal as a ruling comment
      on the issue, list it in the PR's Risk section, and continue; the user decides at
      `compost:finish`.
@@ -127,7 +128,9 @@ command can: judge whether it ran what changed, and prove the fact the change is
    run proves nothing. A passing test can still miss its criterion, so ask Jev whether each
    test asserts its Then: run `ac-exercised` with the table ([jev](references/jev.md)) and read
    every criterion in `to_read` against its test. One whose test never checks the Then is unmet.
-   Exit 3: read each test's assertions against its Then yourself.
+   Exit 3, or a suite in a language Jev's test tools do not read (any but Python, JS/TS, Go,
+   Rust, Java, and Kotlin): say so in one line and read each test's assertions against its Then
+   yourself.
 
    A green command proves only what it checks. When no line of its output covers an AC-N, extend
    the repo before claiming anything: a test first (load `compost:build` to fit it in), and a new
@@ -150,14 +153,12 @@ command can: judge whether it ran what changed, and prove the fact the change is
       version, with the line read from that file alone (`cat -n a b c` numbers across files).
    3. Walked: you traced the bad case step by step and showed it cannot happen.
    4. Ran: a script or test calls the real code and fails loudly if the fact is false.
-   5. Reproduced live: the running app shows it. Run the smoke command `docs/agents/testing.md`
-      records under `## Run`, pointed at the changed path where it takes arguments. Fall back
-      to the bundled `/run` to start and drive the app only when `## Run` is missing or records
-      `none`. The bundled `/verify` does the same but only the user can run it; suggest it when
-      they want to see it themselves.
+   5. Reproduced live: the running app shows it. Run the `## Run` smoke command from
+      `docs/agents/testing.md` (at the changed path, if it takes one); use the bundled `/run`
+      only when `## Run` is missing or `none`. The bundled `/verify` does the same but only the
+      user can run it; suggest it when they want to see it themselves.
 
-   When `## Run` has a feature map, name in the report the feature-map rows the change touches
-   and each one's result: reached through the smoke command or by hand, as expected or not.
+   Report the `## Run` feature-map rows the change touches, each with its result.
 
    When `docs/agents/observability.md` records a stack and the change runs at runtime, reach the
    last rung through it: exercise the changed path once, then query for its span, log, or metric
@@ -174,11 +175,13 @@ command can: judge whether it ran what changed, and prove the fact the change is
 7. **Make silent checks prove they ran.** A check that prints nothing when it fails looks the
    same as one that never ran. Before counting it as a pass, show it did work: the number of
    tests collected, the number of files linted, or one run where it caught a planted defect.
-   Common cases, such as pytest collecting nothing or coverage measuring the wrong package, are
+   Common cases, such as a runner collecting nothing (pytest's `collected 0 items`, Go's
+   `[no test files]`) or coverage measuring the wrong package, are
    in [the proof ladder](references/proof-ladder.md).
 
 8. **Check the comments in the diff.** For Python, run [jev-lint](references/jev-lint.md) over
-   the branch first. If it exits 3 (no key), say so and do the manual pass. Either way, read every
+   the branch first; it reads only Python, so for other languages say so in one line and go
+   straight to the manual pass. If it exits 3 (no key), say so and do the manual pass. Either way, read every
    comment the diff adds. Keep only:
    - legal or license headers
    - behavior forced by an external dependency, platform, or protocol we cannot reshape
@@ -202,18 +205,17 @@ command can: judge whether it ran what changed, and prove the fact the change is
    and its command's output ([jev](references/jev.md)), and fix or drop each one in `unbacked`.
    Exit 3: reread each output against its claim yourself. Say "done" only
    when every row is met and every gate is green. Otherwise state the actual status.
-   When you say "done", and never otherwise, stamp the commit you verified, so `compost:finish`
-   and the verify gate can tell this SHA was verified:
+   When you say "done", and never otherwise, stamp the commit you verified for `compost:finish`
+   and the verify gate:
 
    ```bash
    uv run ${CLAUDE_PLUGIN_ROOT}/scripts/stamp.py write --json \
      '{"gates": "4/4", "ac": "7/7", "mutants": "41/45", "rung": "e2e"}'
    ```
 
-   The object holds gates green/run, AC met/total, mutants killed/run (`null` with no mutation
-   tool), and step 6's rung. It stamps HEAD (or `--rev`) as a git note under
-   `refs/notes/compost-verify`, so a later commit starts with none. `stamp.py show <rev>` prints
-   a stamp or `none`; `stamp.py log <range>` lists each commit's.
+   Fields: gates green/run, AC met/total, mutants killed/run (or `null`),
+   step 6's rung. It stamps HEAD (or `--rev`) as a note under `refs/notes/compost-verify`;
+   `stamp.py show <rev>` and `log <range>` read stamps.
 
 ## Next moves
 
