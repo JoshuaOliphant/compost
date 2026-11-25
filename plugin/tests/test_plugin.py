@@ -286,7 +286,6 @@ def test_the_readiness_check_is_short_for_bounded_work_and_full_for_architectura
         assert item in without_record, f"readiness.md doesn't say implement {item!r}"
 
 
-
 def step_text(skill, step):
     text = " ".join((PLUGIN_ROOT / "skills" / skill / "SKILL.md").read_text().split())
     return re.split(r" \d+\. \*\*", text.split(f"**{step}**", 1)[1], maxsplit=1)[0]
