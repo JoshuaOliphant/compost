@@ -50,7 +50,8 @@ block between 1.24 and 2.02.
 
 Input: the repo root and the AC table, each AC-N with its Given/When/Then and the node id of its
 test, parametrized case included when a row stands for it: `test_x[case]` in pytest, `TestX/case`
-for a Go subtest. Node ids follow [build's table](../../build/references/jev.md#find-test-step-4-and-diagnose-step-7);
+for a Go subtest, with spaces in the `t.Run` name turned to underscores as `go test` prints
+them (`TestTotal/with_discount`). Node ids follow [build's table](../../build/references/jev.md#find-test-step-4-and-diagnose-step-7);
 a suite in another language gets `probability: null` for every row, so read those yourself.
 
 ```json

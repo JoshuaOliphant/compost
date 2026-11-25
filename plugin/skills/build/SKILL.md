@@ -79,10 +79,12 @@ no test counts until you have seen it fail for the right reason.
 
    `extend` names the test that already covers the criterion; `add-beside` names the one to write
    next to ([jev](references/jev.md) has the full output). Read the named test before you act on
-   it. Jev's test tools read tests in Python, JS/TS, Go, Rust, Java, and Kotlin. When the suite is
+   it. Jev's test tools read tests in Python, JS/TS, Go, Rust, and JUnit-style Java and Kotlin.
+   When the suite is
    in another language, skip find-test here and duplicate-test in step 11, say so in one line
-   ("Jev test tools skipped: <language> suite"), and place each criterion from your survey. Exit 3 means Jev is unavailable, and exit 2 with `no tests found` means it cannot read
-   this suite: in both cases place it from your survey, and say so in your report.
+   ("Jev test tools skipped: <language> suite"), and place each criterion from your survey.
+   Exit 3 means Jev is unavailable, and exit 2 with `no tests found` means it cannot read this
+   suite: in both cases place it from your survey, and say so in your report.
    Either way, take the first of these that fits:
    1. Change the expectation in a test that already covers the behavior.
    2. Add a case to an existing case table.

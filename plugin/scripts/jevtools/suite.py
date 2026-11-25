@@ -29,11 +29,11 @@ RUST_FILE = re.compile(r"\.rs$")
 RUST_MARK = re.compile(r"^\s*#\[(?:\w+::)*(?:test|rstest)\b")
 RUST_NAME = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+(\w+)")
 RUST_MOD = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*\{")
-JVM_FILE = re.compile(r"^Test\w*\.(java|kt)$|(?:Tests?|TestCase|IT|Spec)\.(java|kt)$")
+JVM_FILE = re.compile(r"^Test\w*\.(java|kt)$|(?:Tests?|TestCase|IT)\.(java|kt)$")
 JVM_MARK = re.compile(r"^\s*@(?:Test|ParameterizedTest|RepeatedTest|TestFactory)\b")
 JVM_NAME = re.compile(r"(?:\bfun\s+(?:`([^`]+)`|(\w+))|^\s*(?!@)(?:[\w$<>\[\],.?]+\s+)+(\w+))\s*\(")
 NAME_REACH = 40
-LITERAL = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])\'|`[^`]*`|//.*')
+LITERAL = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])\'|`[^`]*`|/\*.*?\*/|//.*')
 BRACE_LINES = 80
 
 
@@ -92,7 +92,9 @@ def js_tests(source: str, relative: str, limit: int) -> dict[str, str]:
 
 
 def braces(line: str) -> tuple[int, bool]:
-    """The line's net brace depth and whether it opens one, outside string and rune literals and `//` comments."""
+    """The line's net brace depth and whether it opens one, outside one-line string and rune literals and comments.
+    A literal or comment spanning lines (Go raw strings, text blocks, `/* ... */` blocks) still counts; the line cap
+    bounds the damage."""
     code = LITERAL.sub("", line)
     return code.count("{") - code.count("}"), "{" in code
 

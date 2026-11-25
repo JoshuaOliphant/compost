@@ -62,7 +62,6 @@ def test_collect_finds_tests_in_every_language_it_reads_and_skips_build_output(r
         "cart/cart_test.go::TestTotal",
         "src/lib.rs::adds",
         "src/test/java/CartIT.java::inCartIT",
-        "src/test/java/CartSpec.kt::inCartSpec",
         "src/test/java/CartTest.java::inCartTest",
         "src/test/java/TestCart.java::inTestCart",
         "tests/test_export.py::AsyncGreeting::test_greets_later",
@@ -82,7 +81,7 @@ func helper() {}
 
 func TestTotal(t *testing.T) {
 \tif total(nil) != 0 {
-\t\tt.Fatal("empty {")
+\t\tt.Fatal("empty {") /* } */
 \t}
 }
 
@@ -181,7 +180,7 @@ KOTLIN = """class CartTests {
             "cart/cart_test.go",
             GO,
             ["TestTotal", "TestEmpty", "TestEmpty#2", "ExampleTotal", "FuzzTotal"],
-            'func TestTotal(t *testing.T) {\n\tif total(nil) != 0 {\n\t\tt.Fatal("empty {")\n\t}\n}',
+            'func TestTotal(t *testing.T) {\n\tif total(nil) != 0 {\n\t\tt.Fatal("empty {") /* } */\n\t}\n}',
         ),
         (
             "src/cart.rs",
