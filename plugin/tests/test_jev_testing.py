@@ -50,6 +50,8 @@ def repo(tmp_path):
     (tmp_path / "src" / "lib.rs").write_text("#[test]\nfn adds() {}\n")
     for name in ("CartTest.java", "TestCart.java", "CartIT.java", "CartSpec.kt", "Cart.java"):
         (tmp_path / "src" / "test" / "java" / name).write_text(f"@Test\nvoid in{name.split('.')[0]}() {{}}\n")
+    (tmp_path / ".worktrees" / "12-x" / "cart").mkdir(parents=True)
+    (tmp_path / ".worktrees" / "12-x" / "cart" / "cart_test.go").write_text("func TestInAWorktree(t *testing.T) {}\n")
     (tmp_path / "target" / "debug").mkdir(parents=True)
     (tmp_path / "target" / "debug" / "gen.rs").write_text("#[test]\nfn built_copy() {}\n")
     return tmp_path
