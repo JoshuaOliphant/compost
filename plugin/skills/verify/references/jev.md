@@ -18,7 +18,10 @@ decision so you can overrule it out loud.
 
 Input: the repo root and either the coverage report (`coverage json -o coverage.json --fail-under 0`, or
 `pytest --cov-report=json`) or explicit lines. Consecutive missing lines become one block, shown to
-Jev with four lines of context and the definition that holds them.
+Jev with four lines of context; for Python, also the definition that holds them. Other stacks pass
+`uncovered`, read from their own report: a Go profile line `pkg/x.go:12.2,14.3 2 0` (count 0) is
+lines 12 to 14 of `x.go`; `cargo llvm-cov --json`, `c8`/`vitest --coverage` (`coverage-final.json`),
+and JaCoCo XML list missed lines per file the same way. Give `file` relative to `repo`.
 
 ```json
 {"repo": ".", "coverage": "coverage.json"}
@@ -45,7 +48,9 @@ block between 1.24 and 2.02.
 ## ac-exercised (step 5)
 
 Input: the repo root and the AC table, each AC-N with its Given/When/Then and the node id of its
-test, parametrized case included when a row stands for it.
+test, parametrized case included when a row stands for it: `test_x[case]` in pytest, `TestX/case`
+for a Go subtest. Node ids follow [build's table](../../build/references/jev.md#find-test-step-4-and-diagnose-step-7);
+a suite in another language gets `probability: null` for every row, so read those yourself.
 
 ```json
 {"repo": ".", "criteria": [

@@ -1,23 +1,34 @@
-# ABOUTME: Finds a repo's tests as node ids with their source, for Python (ast) and JS/TS (test/it calls),
-# ABOUTME: in the working tree or at a git revision. The Jev test tools choose among these; nothing here calls Jev.
+# ABOUTME: Finds a repo's tests as node ids with their source: Python (ast), JS/TS (test/it calls), Go, Rust, Java and
+# ABOUTME: Kotlin, in the working tree or at a git revision. The Jev test tools choose among these; nothing calls Jev.
 import ast
 import re
 import subprocess
 from pathlib import Path
 
-SKIPPED = {".git", ".venv", "node_modules", "__pycache__", ".pytest_cache", "dist", "build"}
+SKIPPED = {".git", ".venv", "node_modules", "__pycache__", ".pytest_cache", "dist", "build", "target", "vendor"}
 SOURCE_CHARS = 700
 PYTHON_FILE = re.compile(r"^(test_.*|.*_test)\.py$")
 JS_FILE = re.compile(r"\.(test|spec)\.(js|mjs|cjs|ts|tsx|jsx)$")
 JS_TEST = re.compile(r"""^\s*(?:test|it)\s*\(\s*(['"`])(.+?)\1""")
 JS_LINES = 15
+GO_FILE = re.compile(r"_test\.go$")
+GO_TEST = re.compile(r"^func\s+(?:\([^)]*\)\s*)?((?:Test|Example|Fuzz)\w*)\s*\(")
+RUST_FILE = re.compile(r"\.rs$")
+RUST_MARK = re.compile(r"^\s*#\[(?:\w+::)*(?:test|rstest)\b")
+RUST_NAME = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+(\w+)")
+JVM_FILE = re.compile(r"Tests?\.(java|kt)$")
+JVM_MARK = re.compile(r"^\s*@(?:Test|ParameterizedTest|RepeatedTest|TestFactory)\b")
+JVM_NAME = re.compile(r"(?:\bvoid\s+(\w+)|\bfun\s+(?:`([^`]+)`|(\w+)))\s*\(")
+NAME_REACH = 6
+BRACE_LINES = 80
 
 
 def is_test_file(relative: str) -> bool:
     parts = Path(relative).parts
     if SKIPPED & set(parts):
         return False
-    return bool(PYTHON_FILE.match(parts[-1]) or JS_FILE.search(parts[-1]))
+    name = parts[-1]
+    return any(pattern.search(name) for pattern in (PYTHON_FILE, JS_FILE, GO_FILE, RUST_FILE, JVM_FILE))
 
 
 def test_files(repo: Path) -> list[Path]:
@@ -66,8 +77,58 @@ def js_tests(source: str, relative: str, limit: int) -> dict[str, str]:
     return found
 
 
+def braced(lines: list[str], start: int, header: int) -> str:
+    """Lines from `start` through the brace that closes the body opened at or after `header`."""
+    depth, opened = 0, False
+    end = min(len(lines), header + BRACE_LINES)
+    for number in range(header, end):
+        depth += lines[number].count("{") - lines[number].count("}")
+        opened = opened or "{" in lines[number]
+        if opened and depth <= 0:
+            end = number + 1
+            break
+    return "\n".join(lines[start:end])
+
+
+def go_tests(source: str, relative: str, limit: int) -> dict[str, str]:
+    lines = source.splitlines()
+    found = {}
+    for number, line in enumerate(lines):
+        if match := GO_TEST.match(line):
+            found[f"{relative}::{match.group(1)}"] = braced(lines, number, number)[:limit]
+    return found
+
+
+def marked_tests(mark: re.Pattern, name: re.Pattern):
+    """Rust's `#[test]` and JUnit's `@Test`: a marker line, then the function it marks within a few lines."""
+
+    def reader(source: str, relative: str, limit: int) -> dict[str, str]:
+        lines = source.splitlines()
+        found = {}
+        for number, line in enumerate(lines):
+            if not mark.match(line):
+                continue
+            for header in range(number, min(len(lines), number + NAME_REACH)):
+                if match := name.search(lines[header]):
+                    test = next(group for group in match.groups() if group)
+                    found[f"{relative}::{test}"] = braced(lines, number, header)[:limit]
+                    break
+        return found
+
+    return reader
+
+
+READERS = {
+    ".py": python_tests,
+    ".go": go_tests,
+    ".rs": marked_tests(RUST_MARK, RUST_NAME),
+    ".java": marked_tests(JVM_MARK, JVM_NAME),
+    ".kt": marked_tests(JVM_MARK, JVM_NAME),
+}
+
+
 def tests_in(relative: str, source: str, limit: int = SOURCE_CHARS) -> dict[str, str]:
-    reader = python_tests if relative.endswith(".py") else js_tests
+    reader = READERS.get(Path(relative).suffix, js_tests)
     return reader(source, relative, limit)
 
 

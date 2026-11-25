@@ -64,9 +64,12 @@ command can: judge whether it ran what changed, and prove the fact the change is
    cause is plain; otherwise hand it to `compost:diagnose`. A warning the gate prints is a finding too: fix it, or say why it stays.
    When a subagent did the work, read `git diff` yourself rather than trusting its report.
 
-3. **Hold the coverage gate.** The gate is 100% line coverage, for example
-   `uv run pytest --cov --cov-report=term-missing --cov-fail-under=100`. Ask Jev first: write the
-   report as JSON (`--cov-report=json`) and run `test-value` on it ([jev](references/jev.md)).
+3. **Hold the coverage gate.** The gate is 100% line coverage, measured with the stack's own tool
+   as `docs/agents/testing.md` records it: for example
+   `uv run pytest --cov --cov-report=term-missing --cov-fail-under=100`, `go test -coverprofile`,
+   `vitest --coverage`, or `cargo llvm-cov`. Ask Jev first: hand `test-value` the missing lines
+   ([jev](references/jev.md)), as a coverage.py JSON report (`--cov-report=json`) for Python or as
+   `{file, lines}` read from the other tool's report.
    Blocks in `exclude` are the proposed exclusions for the third case below; the rest need a
    test. Exit 3 means Jev is unavailable: sort them yourself. For each missing line:
    - It is behavior: go back to `compost:build` and fit a test in.
@@ -107,7 +110,9 @@ command can: judge whether it ran what changed, and prove the fact the change is
    run proves nothing. A passing test can still miss its criterion, so ask Jev whether each
    test asserts its Then: run `ac-exercised` with the table ([jev](references/jev.md)) and read
    every criterion in `to_read` against its test. One whose test never checks the Then is unmet.
-   Exit 3: read each test's assertions against its Then yourself.
+   Exit 3, or a suite in a language Jev's test tools do not read (any but Python, JS/TS, Go,
+   Rust, Java, and Kotlin): say so in one line and read each test's assertions against its Then
+   yourself.
 
    A green command proves only what it checks. When no line of its output covers an AC-N, extend
    the repo before claiming anything: a test first (load `compost:build` to fit it in), and a new
@@ -149,11 +154,13 @@ command can: judge whether it ran what changed, and prove the fact the change is
 7. **Make silent checks prove they ran.** A check that prints nothing when it fails looks the
    same as one that never ran. Before counting it as a pass, show it did work: the number of
    tests collected, the number of files linted, or one run where it caught a planted defect.
-   Common cases, such as pytest collecting nothing or coverage measuring the wrong package, are
+   Common cases, such as a runner collecting nothing (pytest's `collected 0 items`, Go's
+   `[no test files]`) or coverage measuring the wrong package, are
    in [the proof ladder](references/proof-ladder.md).
 
 8. **Check the comments in the diff.** For Python, run [jev-lint](references/jev-lint.md) over
-   the branch first. If it exits 3 (no key), say so and do the manual pass. Either way, read every
+   the branch first; it reads only Python, so for other languages say so in one line and go
+   straight to the manual pass. If it exits 3 (no key), say so and do the manual pass. Either way, read every
    comment the diff adds. Keep only:
    - legal or license headers
    - behavior forced by an external dependency, platform, or protocol we cannot reshape

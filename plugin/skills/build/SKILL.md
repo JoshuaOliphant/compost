@@ -51,9 +51,13 @@ no test counts until you have seen it fail for the right reason.
    each failing test, fix one in its own `fix:` commit only if it blocks a gate, and post a ruling
    on this issue saying which failures you are carrying.
 
-3. **Survey the suite before writing any test.** Find what exists to build on:
-   - fixtures, factories, and builders (`conftest.py`, `tests/factories*`, `tests/helpers*`)
-   - parametrized tables (`grep -rn "mark.parametrize" tests/`)
+3. **Survey the suite before writing any test.** Find what exists to build on, in the stack's own
+   idiom (`docs/agents/testing.md` names the runner):
+   - fixtures, factories, and builders: `conftest.py` and `tests/factories*` in Python, shared
+     `testutil`/`helpers_test.go` packages in Go, `beforeEach` and `test-utils` in JS/TS, a
+     `tests/common` module in Rust
+   - case tables: `mark.parametrize` in Python, `[]struct{...}` tables with `t.Run` in Go,
+     `test.each`/`it.each` in JS/TS, `#[rstest]` cases in Rust, `@ParameterizedTest` in JUnit
    - the tests that already exercise the code you will change: grep for its symbols
    - how tests are named, grouped, and split across files
 
@@ -75,8 +79,11 @@ no test counts until you have seen it fail for the right reason.
 
    `extend` names the test that already covers the criterion; `add-beside` names the one to write
    next to ([jev](references/jev.md) has the full output). Read the named test before you act on
-   it. Exit 3 means Jev is unavailable, and exit 2 with `no tests found` means it cannot read this
-   suite: in both cases place it from your survey, and say so in your report.
+   it. Jev's test tools read tests in Python, JS/TS, Go, Rust, Java, and Kotlin. When the suite is
+   in another language, skip find-test, duplicate-test, and ac-exercised for this issue, say so in
+   one line ("Jev test tools skipped: <language> suite"), and place each criterion from your
+   survey. Exit 3 means Jev is unavailable, and exit 2 with `no tests found` means it cannot read
+   this suite: in both cases place it from your survey, and say so in your report.
    Either way, take the first of these that fits:
    1. Change the expectation in a test that already covers the behavior.
    2. Add a case to an existing parametrized table.
@@ -164,11 +171,12 @@ no test counts until you have seen it fail for the right reason.
     `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/jev.py duplicate-test --input <file>` on
     `{"repo": ".", "base": "<the SHA the branch started from>"}` ([jev](references/jev.md)), and
     fold every `fold into <test>` into that test as step 4 says. Jev collects test functions, not
-    doctests, and on a suite it cannot read it returns `"tests": []` with exit 0. On exit 3, or when
-    a new test is missing from its `tests`: compare each new test against its neighbours in the
-    file yourself, and say so in your report. When
+    doctests, and on a suite it cannot read it returns `"tests": []` with exit 0. On exit 3, when
+    a new test is missing from its `tests`, or when step 4 skipped the Jev test tools for this
+    suite's language: compare each new test against its neighbours in the file yourself, and say
+    so in your report. When
     `docs/agents/testing.md` records mutation testing for Python, also make each new test earn its place by
-    mutation: collect per-test coverage and run `thin.py matrix --tests <new node ids>`, then
+    mutation (`thin.py` is Python-only; other stacks skip this and rely on step 10): collect per-test coverage and run `thin.py matrix --tests <new node ids>`, then
     `thin.py verdict`, as `compost:thin` does. A new test the verdict calls redundant or
     kills-nothing gets step 5 of that skill, a break by hand, and folds into its subsumer when
     the break confirms it. Run the full

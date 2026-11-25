@@ -222,8 +222,15 @@ def gather_mapped(payload: dict) -> dict:
 
 
 def mapped(criterion: dict, tests: dict[str, str]) -> dict:
+    """A case rides on the node id as pytest's `test[case]` or Go's `TestX/case` subtest. A test whose own name
+    holds a slash (a JS `it("a/b")`) matches whole before any slash is read as a subtest."""
     function, _, case = criterion["test"].partition("[")
-    return {**criterion, "case": case.removesuffix("]") or None, "source": tests.get(function)}
+    case = case.removesuffix("]")
+    path, separator, name = function.rpartition("::")
+    if not case and function not in tests and "/" in name:
+        name, _, case = name.partition("/")
+        function = f"{path}{separator}{name}"
+    return {**criterion, "case": case or None, "source": tests.get(function)}
 
 
 ASSERTS_THEN = Noul(

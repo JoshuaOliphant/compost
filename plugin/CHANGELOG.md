@@ -2,6 +2,13 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.51.0] - 2026-11-25
+
+### Changed
+
+- Jev's test tools (find-test, duplicate-test, ac-exercised) read Go, Rust, Java, and Kotlin suites, not only Python and JS/TS (OLI-132). Go takes `Test*`, `Example*`, and `Fuzz*` functions in `*_test.go`; Rust takes functions under `#[test]`, `#[tokio::test]`, and `#[rstest]`; Java and Kotlin take methods under `@Test` and its JUnit relatives. Each test's source runs to its closing brace. ac-exercised reads a Go subtest id, `TestX/case`, as a case of `TestX`. `target/` and `vendor/` are skipped.
+- build, verify, and diagnose no longer assume Python. build's survey names each stack's fixtures and case tables; build, verify, and diagnose say to skip Jev's test tools with a one-line note when the suite is in a language they do not read, instead of calling them and getting `no tests found`. verify's coverage gate names the other stacks' tools, and its `test-value` reference says how to turn a Go, Rust, JS, or JaCoCo report into `uncovered` lines. jev-lint and thin.py stay Python-only and the skills now say so where they are called.
+
 ## [0.48.0] - 2026-11-21
 
 ### Changed

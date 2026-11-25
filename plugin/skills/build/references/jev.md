@@ -19,7 +19,19 @@ the raw probabilities sit beside each decision so you can overrule it out loud.
 ## find-test (step 4, and diagnose step 7)
 
 Input: the repo root (node ids come back relative to it) and one criterion per AC-N, with its
-Given/When/Then. Python and JS/TS tests are found by name, so no test runner is needed.
+Given/When/Then. Tests are found by reading the source, so no test runner is needed:
+
+| Stack | Test files | Tests | Node id |
+|---|---|---|---|
+| Python | `test_*.py`, `*_test.py` | `test_*` functions, methods of `Test*` and `TestCase` classes | `tests/test_x.py::TestX::test_y` |
+| JS/TS | `*.test.*`, `*.spec.*` | `test(...)` and `it(...)` calls | `web/x.test.ts::sorts by title` |
+| Go | `*_test.go` | `Test*`, `Example*`, `Fuzz*` functions and suite methods | `cart/cart_test.go::TestTotal` |
+| Rust | any `.rs` outside `target/` | functions under `#[test]`, `#[tokio::test]`, `#[rstest]` | `src/cart.rs::empty_totals_zero` |
+| Java, Kotlin | `*Test.java`, `*Tests.kt`, ... | methods under `@Test`, `@ParameterizedTest`, `@RepeatedTest`, `@TestFactory` | `src/test/java/CartTest.java::positive` |
+
+Any other stack (Ruby, Elixir, C#, shell) gives `no tests found`: skip the Jev test tools for it
+and say so in one line, as build step 4 says. A Go subtest (`t.Run("case", ...)`) or a table row
+is not its own node; pass the enclosing function and name the case in your placement map.
 
 ```json
 {"repo": ".",
