@@ -76,7 +76,8 @@ the work so each step can be checked before the next builds on it
    fetches and merges a moved `origin/<default>` into the feature branch before any lane starts. Open a draft PR only when the tracker closes work
    through PRs (its reference in `docs/agents/issue-tracker.md` says an issue closes when its PR
    merges) or the user asks, once the first issue lands (step 5): the forge rejects a PR with no
-   commits.
+   commits. Committing, pushing this branch, and the draft PR need no one's OK; merging the PR
+   does.
 
 4. **Work the frontier.**
    - **One issue, or one lane, outside a lane-routing run:** do it yourself in this session. Load
@@ -84,8 +85,8 @@ the work so each step can be checked before the next builds on it
    - **Several independent issues or lanes:** a lane earns a subagent when its work outweighs the
      handoff: a brief, a worktree, a merge, and a report to read. Lanes that are each a short edit
      (a doc fix, a config value) don't; work them yourself, in order. Spawn the rest, one subagent per lane in a single message, so the lanes run in
-     parallel, each with `isolation: "worktree"` and in the background, without asking. A lane of
-     one issue is just that issue; a worker with a longer lane works its issues in order. In a
+     parallel, each with `isolation: "worktree"` and in the background, without asking. A worker
+     works its lane's issues in order. In a
      lane-routing run every lane spawns, whatever its size. With agent teams enabled
      (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), spawn named teammates; one can't take
      `isolation`, so its brief makes the worktree.
@@ -127,8 +128,8 @@ the work so each step can be checked before the next builds on it
    `/compost:review-changes` workflow through subagents; you never wait to be asked. Scope it to
    the one issue: for an issue landed by a merge, pass `base` as `<merge>^1`, `head` as
    `<merge>^2`, and `issue` as its number; for one built in this session, pass `base` as the parent of
-   its first commit and `head` as its last. No issue skips review for being small: the workflow
-   gives a small diff its light path (one reviewer on both axes), the cheap option.
+   its first commit and `head` as its last. No issue skips review for being small; a small
+   diff gets the workflow's light path.
    Take its findings through the reception protocol there: check each against the code, fix what
    holds, and rule on what doesn't.
    - Fix findings where the work was done: resume the worker that built the issue with the findings

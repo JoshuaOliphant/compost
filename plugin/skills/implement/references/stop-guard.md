@@ -14,7 +14,7 @@ hook sends a stop back once and lets the next one through, so it is a nudge, not
 to the list is still on you.
 
 The hook learns the contract's extra stops from the block step 1 prints
-([run contract](run-contract.md)), not from the tracker: it reads the latest `Run contract stops:`
-block in your own messages since implement last loaded, and allows those stops beside step 9's.
+([run contract](run-contract.md)), not from the tracker: it reads the first `Run contract stops:`
+block in your own messages since implement last loaded (a later one can't add stops), and allows those stops beside step 9's.
 A block it can't read, or none at all, leaves it with step 9's list alone, so print the block
 plain, at the start of a line, every time implement loads.

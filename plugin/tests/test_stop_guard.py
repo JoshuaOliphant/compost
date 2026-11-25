@@ -367,8 +367,11 @@ CONTRACT = "Run contract stops:\n- merging to the repository's default branch\n-
             ],
         ),
         (
-            [LOADS_IMPLEMENT, said("m1", CONTRACT), said("m2", "Run contract stops:\n- deleting data\n\nGoing on.")],
-            ["deleting data"],
+            [LOADS_IMPLEMENT, said("m1", CONTRACT), said("m2", "Run contract stops:\n- picking the logo\n\nGoing on.")],
+            [
+                "merging to the repository's default branch",
+                "picking the payment provider",
+            ],
         ),
         ([LOADS_IMPLEMENT, said("m1", "Run contract stops:\n\nNone added.")], []),
         ([said("m1", CONTRACT), SLASH_IMPLEMENT, said("m2", "Reading the contract again.")], []),
@@ -380,7 +383,7 @@ CONTRACT = "Run contract stops:\n- merging to the repository's default branch\n-
     ids=[
         "block between other text",
         "block at the end with no blank line",
-        "latest block wins",
+        "a later block can't widen the first",
         "block with no items",
         "block before the latest implement load",
         "subagent's block",
@@ -389,7 +392,7 @@ CONTRACT = "Run contract stops:\n- merging to the repository's default branch\n-
         "no implement load",
     ],
 )
-def test_contract_stops_are_the_latest_block_implement_printed_since_it_loaded(entries, stops):
+def test_contract_stops_are_the_first_block_implement_printed_since_it_loaded(entries, stops):
     assert stop_guard.contract_stops(entries) == stops
 
 

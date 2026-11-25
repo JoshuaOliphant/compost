@@ -196,7 +196,7 @@ def test_branching_skills_fast_forward_the_default_branch_and_rule_when_it_canno
                 "or the rest of the run is unguarded",
                 "keeping to the list is still on you",
                 "plus any stop the parent's Run contract adds",
-                "the latest `Run contract stops:` block in your own messages since implement last loaded",
+                "the first `Run contract stops:` block in your own messages since implement last loaded",
             ],
         ),
         (
@@ -491,8 +491,18 @@ def test_verify_frontend_reference_says_how(phrases):
         ("Orient.", "before anything that can stop the run, print the contract's Stops block"),
         ("Close out.", "load `compost:finish` now"),
         ("Close out.", "posts the PR body (on the issue file for a local tracker)"),
+        (
+            "Set up the feature branch.",
+            "Committing, pushing this branch, and the draft PR need no one's OK; merging the PR does",
+        ),
     ],
-    ids=["reads-the-contract", "prints-before-stopping", "loads-finish", "finish-posts-the-body"],
+    ids=[
+        "reads-the-contract",
+        "prints-before-stopping",
+        "loads-finish",
+        "finish-posts-the-body",
+        "commit-and-push-need-no-ok",
+    ],
 )
 def test_implement_reads_the_contract_first_and_ends_by_loading_finish(step, phrase):
     text = " ".join((PLUGIN_ROOT / "skills" / "implement" / "SKILL.md").read_text().split())

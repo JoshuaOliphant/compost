@@ -126,16 +126,17 @@ def unattended_run(transcript: list[dict]) -> bool:
 
 
 def contract_stops(transcript: list[dict]) -> list[str]:
-    """The stops in the latest Run contract block a main-thread assistant entry printed since implement loaded."""
-    stops = []
+    """The stops in the first Run contract block a main-thread assistant entry printed since implement loaded.
+
+    Only the first counts, so a run can't widen its own stops by printing another block later.
+    """
     for entry in since_implement(transcript) or []:
         if entry.get("type") != "assistant" or entry.get("isSidechain"):
             continue
         for block in blocks(entry):
-            if block.get("type") == "text":
-                for match in CONTRACT_STOPS.finditer(block.get("text", "")):
-                    stops = [line.removeprefix("- ").strip() for line in match.group(1).splitlines()]
-    return stops
+            if block.get("type") == "text" and (match := CONTRACT_STOPS.search(block.get("text", ""))):
+                return [line.removeprefix("- ").strip() for line in match.group(1).splitlines()]
+    return []
 
 
 def final_message(transcript: list[dict]) -> str:

@@ -15,7 +15,8 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 ### Changed
 
 - `compost:implement` keeps to the parent's run contract (OLI-123): it reads its run-contract reference first and, before anything that can stop the run, prints the contract's Stops as a `Run contract stops:` block; it runs the readiness check itself on a parent with no readiness record (gaps become rulings marked `(assumed)`) and checks each prerequisite before any worker branches. A missing or unconfirmed prerequisite is the eighth allowed stop.
-- The stop-guard Stop hook reads the latest `Run contract stops:` block since implement loaded and allows the contract's added stops beside the fixed list, with no tracker call.
+- The stop-guard Stop hook reads the first `Run contract stops:` block since implement last loaded (a later block can't widen it) and allows the contract's added stops beside the fixed list, with no tracker call.
+- `compost:implement` says again that committing, pushing the feature branch, and opening the draft PR need no one's OK; only the merge does.
 - `compost:implement`'s close-out loads `compost:finish`, which posts the PR body (on the issue file with a local tracker), instead of ending on the feature branch's name.
 - `compost:verify`'s steps after the new frontend step move from 6-9 to 7-10, so the verify stamp is written in step 10; references that cite them, including finish and the verify gate's message, follow.
 
