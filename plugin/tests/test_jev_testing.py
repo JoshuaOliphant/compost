@@ -1,4 +1,4 @@
-# ABOUTME: Tests the suite gatherer (Python and JS/TS test discovery, now and at a git revision) and the testing
+# ABOUTME: Tests the suite gatherer (Python, JS/TS, Go, Rust and JVM test discovery, now and at a git revision) and the testing
 # ABOUTME: family's decisions: find-test, duplicate-test, ac-exercised, test-value, and claim-backed.
 import asyncio
 import json
@@ -39,23 +39,186 @@ def repo(tmp_path):
     (tmp_path / "tests" / "broken_test.py").write_text("def test_(:\n")
     (tmp_path / "web").mkdir()
     (tmp_path / "web" / "list.test.ts").write_text(
-        "describe('list', () => {\n  it('sorts by title', () => {\n  })\n})\n"
+        "describe('list', () => {\n  it('sorts by title', () => {\n  })\n  it('sorts by title/author', () => {\n  })\n})\n"
     )
     (tmp_path / "node_modules" / "dep").mkdir(parents=True)
     (tmp_path / "node_modules" / "dep" / "x.test.js").write_text("test('ignored', () => {})\n")
+    (tmp_path / "cart").mkdir()
+    (tmp_path / "cart" / "cart_test.go").write_text("package cart\n\nfunc TestTotal(t *testing.T) {\n}\n")
+    (tmp_path / "cart" / "cart.go").write_text("package cart\n\nfunc TestNotATestFile() {}\n")
+    (tmp_path / "src" / "test" / "java").mkdir(parents=True)
+    (tmp_path / "src" / "lib.rs").write_text("#[test]\nfn adds() {}\n")
+    for name in ("CartTest.java", "TestCart.java", "CartIT.java", "CartSpec.kt", "Cart.java"):
+        (tmp_path / "src" / "test" / "java" / name).write_text(f"@Test\nvoid in{name.split('.')[0]}() {{}}\n")
+    (tmp_path / ".worktrees" / "12-x" / "cart").mkdir(parents=True)
+    (tmp_path / ".worktrees" / "12-x" / "cart" / "cart_test.go").write_text("func TestInAWorktree(t *testing.T) {}\n")
+    (tmp_path / "target" / "debug").mkdir(parents=True)
+    (tmp_path / "target" / "debug" / "gen.rs").write_text("#[test]\nfn built_copy() {}\n")
     return tmp_path
 
 
-def test_collect_finds_python_functions_class_methods_and_js_tests(repo):
+def test_collect_finds_tests_in_every_language_it_reads_and_skips_build_output(repo):
     assert sorted(suite.collect(repo)) == [
+        "cart/cart_test.go::TestTotal",
+        "src/lib.rs::adds",
+        "src/test/java/CartIT.java::inCartIT",
+        "src/test/java/CartTest.java::inCartTest",
+        "src/test/java/TestCart.java::inTestCart",
         "tests/test_export.py::AsyncGreeting::test_greets_later",
         "tests/test_export.py::GreetTest::test_greet",
         "tests/test_export.py::TestEscaping::test_commas_are_quoted",
         "tests/test_export.py::ViewTests::test_renders",
         "tests/test_export.py::test_csv_has_header",
         "web/list.test.ts::sorts by title",
+        "web/list.test.ts::sorts by title/author",
     ]
     assert suite.collect(repo)["tests/test_export.py::test_csv_has_header"].startswith("def test_csv_has_header")
+
+
+GO = """package cart
+
+func helper() {}
+
+func TestTotal(t *testing.T) {
+\tif total(nil) != 0 {
+\t\tt.Fatal("empty {") /* } */
+\t}
+}
+
+func (s *CartSuite) TestEmpty() {
+}
+
+func (s *OrderSuite) TestEmpty() {
+}
+
+func ExampleTotal() {
+\tfmt.Println(total(nil))
+\t// Output: 0
+}
+
+func FuzzTotal(f *testing.F) {}
+
+func TestMain(m *testing.M) {}
+
+func Testable() {}
+"""
+
+RUST = """pub fn total(prices: &[u32]) -> u32 {
+    prices.iter().sum()
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn empty_totals_zero() {
+        assert_eq!(total(&[]), 0);
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn sums_later() {
+    }
+
+    #[rstest]
+    #[case(1)]
+    #[case(2)]
+    #[case(3)]
+    #[case(4)]
+    #[case(5)]
+    #[case(6)]
+    #[case(7)]
+    pub fn positive(#[case] n: u32) { assert!(n > 0) }
+
+    #[test]
+}
+
+mod more {
+    #[test]
+    fn empty_totals_zero() {}
+}
+"""
+
+JAVA = """class CartTest {
+    @Test
+    void emptyTotalsZero() {
+        assertEquals(0, total(List.of()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2})
+    public void positive(int n) {
+    }
+
+    @TestFactory
+    Stream<DynamicTest> dynamic() {
+        return Stream.of();
+    }
+}
+"""
+
+KOTLIN = """class CartTests {
+    @Test
+    fun `empty cart totals zero`() {
+        assertEquals(0, total(emptyList()))
+    }
+
+    @Test fun plain() {}
+
+    @Test
+    fun expression() = assertEquals(1, one())
+
+    @Test
+    fun after() {}
+}
+"""
+
+
+@pytest.mark.parametrize(
+    ("relative", "source", "wanted", "first"),
+    [
+        (
+            "cart/cart_test.go",
+            GO,
+            ["TestTotal", "TestEmpty", "TestEmpty#2", "ExampleTotal", "FuzzTotal"],
+            'func TestTotal(t *testing.T) {\n\tif total(nil) != 0 {\n\t\tt.Fatal("empty {") /* } */\n\t}\n}',
+        ),
+        (
+            "src/cart.rs",
+            RUST,
+            ["tests::empty_totals_zero", "tests::sums_later", "tests::positive", "more::empty_totals_zero"],
+            "    #[test]\n    fn empty_totals_zero() {\n        assert_eq!(total(&[]), 0);\n    }",
+        ),
+        (
+            "src/test/java/CartTest.java",
+            JAVA,
+            ["emptyTotalsZero", "positive", "dynamic"],
+            "    @Test\n    void emptyTotalsZero() {\n        assertEquals(0, total(List.of()));\n    }",
+        ),
+        (
+            "src/test/kotlin/CartTests.kt",
+            KOTLIN,
+            ["empty cart totals zero", "plain", "expression", "after"],
+            "    @Test\n    fun `empty cart totals zero`() {\n        assertEquals(0, total(emptyList()))\n    }",
+        ),
+    ],
+    ids=["go", "rust", "java", "kotlin"],
+)
+def test_brace_language_tests_are_found_by_their_marker_with_their_whole_body(relative, source, wanted, first):
+    tests = suite.tests_in(relative, source)
+    assert list(tests) == [f"{relative}::{name}" for name in wanted]
+    assert tests[f"{relative}::{wanted[0]}"] == first
+
+
+def test_a_kotlin_expression_body_ends_at_the_blank_line_after_it():
+    tests = suite.tests_in("CartTests.kt", KOTLIN)
+    assert tests["CartTests.kt::expression"] == "    @Test\n    fun expression() = assertEquals(1, one())"
+
+
+def test_a_test_body_that_never_closes_stops_at_the_line_cap():
+    source = "func TestOpen(t *testing.T) {\n" + "\tstep()\n" * 200
+    assert suite.tests_in("x_test.go", source, limit=100_000)["x_test.go::TestOpen"].count("\n") == (
+        suite.BRACE_LINES - 1
+    )
 
 
 def test_a_test_source_keeps_its_decorators_and_drops_its_class_indent():
@@ -255,12 +418,16 @@ def test_gather_mapped_reads_each_mapped_test_and_its_parametrized_case(repo):
             "criteria": [
                 {"id": "AC-1", "text": "t", "test": "tests/test_export.py::test_csv_has_header[with-bom]"},
                 {"id": "AC-2", "text": "t", "test": "tests/test_export.py::test_gone"},
+                {"id": "AC-3", "text": "t", "test": "cart/cart_test.go::TestTotal/empty_cart"},
+                {"id": "AC-4", "text": "t", "test": "web/list.test.ts::sorts by title/author"},
             ],
         }
     )
-    header, gone = gathered["criteria"]
+    header, gone, subtest, slashed = gathered["criteria"]
     assert (header["case"], header["source"].startswith("def test_csv_has_header")) == ("with-bom", True)
     assert (gone["case"], gone["source"]) == (None, None)
+    assert (subtest["case"], subtest["source"].startswith("func TestTotal")) == ("empty_cart", True)
+    assert (slashed["case"], slashed["source"].startswith("  it('sorts by title/author'")) == (None, True)
 
 
 def test_ac_exercised_sends_low_and_unmapped_criteria_to_be_read():

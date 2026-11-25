@@ -19,7 +19,23 @@ the raw probabilities sit beside each decision so you can overrule it out loud.
 ## find-test (step 4, and diagnose step 7)
 
 Input: the repo root (node ids come back relative to it) and one criterion per AC-N, with its
-Given/When/Then. Python and JS/TS tests are found by name, so no test runner is needed.
+Given/When/Then. Tests are found by reading the source, so no test runner is needed:
+
+| Stack | Test files | Tests | Node id |
+|---|---|---|---|
+| Python | `test_*.py`, `*_test.py` | `test_*` functions, methods of `Test*` and `TestCase` classes | `tests/test_x.py::TestX::test_y` |
+| JS/TS | `*.test.*`, `*.spec.*` in `js`, `mjs`, `cjs`, `ts`, `mts`, `cts`, `tsx`, `jsx` | `test(...)` and `it(...)` calls | `web/x.test.ts::sorts by title` |
+| Go | `*_test.go` | `Test*`, `Example*`, `Fuzz*` functions and suite methods, as `go test` names them (not `TestMain`, not `Testable`) | `cart/cart_test.go::TestTotal` |
+| Rust | any `.rs` outside `target/` | functions under `#[test]`, `#[tokio::test]`, `#[rstest]`, with their `mod` path | `src/cart.rs::tests::empty_totals_zero` |
+| Java, Kotlin (JUnit) | `Test*`, `*Test`, `*Tests`, `*TestCase`, `*IT` (`.java` or `.kt`) | methods under `@Test`, `@ParameterizedTest`, `@RepeatedTest`, `@TestFactory` | `src/test/java/CartTest.java::positive` |
+
+Kotest and Spek specs (DSL, no `@Test`) are not read. A testify suite method comes back as
+`file::TestX`, which matches but is not a `go test -run` id (that is `TestSuite/TestX`). Any other
+stack (Ruby, Elixir, C#, shell) gives `no tests found`: skip the Jev test tools for it
+and say so in one line, as build step 4 says. A Go subtest (`t.Run("case", ...)`) or a table row
+is not its own node; pass the enclosing function and name the case in your placement map. Two
+tests that read as one id in a file (same-named methods on two Go suites or `@Nested` classes)
+come back as `name` and `name#2`.
 
 ```json
 {"repo": ".",
