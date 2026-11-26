@@ -105,6 +105,9 @@ pin = "b7b93c36be9bcc36a74db438e0fd385d660bc559"
 "pstack/skills/arena" = ["fan-out"]
 "pstack/skills/swarm" = ["fan-out"]
 "pstack/skills/correct" = ["review", "canon"]
+"pstack/skills/ketchup" = ["ketchup"]
+"pstack/skills/reframe" = ["reframe"]
+"pstack/skills/automate-me" = ["automate-me"]
 
 [[source]]
 name = "blueprint"

@@ -24,14 +24,17 @@ with review done by subagents every time, and records its rulings on the issue.
 | `finish` | Integrate: re-run on the merge target, PR recap, clean up |
 | `diagnose` | Any bug or failing test, before a fix |
 | `deeper-ask` | A request made deeper, not bigger: what an expert would do, the rawest material, the tools, the independent check (spec runs it; you can too) |
+| `reframe` | You can't name what you're building: the expert terms, checked sources, borrowed fields, and your description rewritten (you invoke it) |
 | `deepen` | Module and interface design, refactoring for testability |
 | `prune` | Docs that drifted from the code: move what's worth keeping into the code, keep only the core docs |
 | `thin` | Tests no mutant needs: find them with a kill matrix, confirm each by hand, fold or delete |
 | `pause` | Stop at a safe point and pick the work back up later |
 | `wait-what` | You lost the thread: Claude re-pitches it with the missing context, in glossary terms (you invoke it) |
+| `ketchup` | You were away: Claude catches you up since your last message and lists every call waiting on you, each decidable from the reply (you invoke it) |
 | `fan-out` | Competing designs or hypotheses, tried in parallel and judged |
 | `turn` | Check the upstream sources for changes worth working in |
 | `retro` | After a run: file the environment changes that would have made the session go better |
+| `automate-me` | Turn how you work, mined from this project's sessions and confirmed with you, into a personal `<handle>-mode` skill (you invoke it) |
 | `skill-drift` | Daily: turn repeated skill drift, judged by the `skill-drift` mod, into proposed skill fixes |
 
 compost targets Opus. Skill descriptions are tuned and measured on Opus 5.5, where `spec` picks up

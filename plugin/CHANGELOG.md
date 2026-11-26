@@ -2,6 +2,19 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.54.0] - 2026-11-26
+
+### Added
+
+- `compost:ketchup` (OLI-138), adapted from pstack's ketchup: on `/compost:ketchup`, Claude catches the user up on everything since their last message and lists every call waiting on them, each with its pick, evidence, and risk, so it can be decided from the reply alone. It is read-only, reads the run's state from the tracker and git (parent checklist, status comment, rulings, run-contract stops, live PR and CI state) as well as the conversation, names things by the glossary's terms, and draws only Mermaid diagrams and the screenshots `compost:verify` took.
+- `compost:reframe` (OLI-139), adapted from pstack's reframe: on `/compost:reframe`, Claude gives the expert terms for a problem the user can't name yet, ranked by how much each changes what gets built, each tied to their description and a source it opened and confirmed, plus terms from neighboring fields, then rewrites the description. It uses the glossary's word where one exists and leaves `CONTEXT.md` to `compost:spec`.
+- `compost:automate-me` (OLI-141), adapted from pstack's automate-me: on `/compost:automate-me`, Claude mines this project's Claude Code transcripts (never other projects') in parallel slices, keeps conventions seen in two or more, confirms them with structured questions, and writes or updates a personal `<handle>-mode` skill, offering the user-level CLAUDE.md for rules that must apply every turn.
+
+### Changed
+
+- `compost:spec`'s glossary format bolds another glossary term when a definition mentions it, and the sentence says how the two relate (OLI-140, from mattpocock/skills).
+- Upstream pins move to the heads the 2026-11-26 turn read: mattpocock 6f7f783, pstack b7b93c3, code-guardian 9a01d29, swyx-skills 0d3e9b4 (OLI-137).
+
 ## [0.53.0] - 2026-11-25
 
 ### Added
