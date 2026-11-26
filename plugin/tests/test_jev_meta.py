@@ -145,10 +145,17 @@ def test_an_unchanged_path_is_ignored_without_asking_jev():
 
 
 def test_gather_route_takes_one_prompt_or_many_and_needs_skills(plugin, tmp_path):
-    assert meta.gather_route({"prompt": "spec this out", "plugin": str(plugin)})["prompts"] == ["spec this out"]
+    (plugin / "skills" / "ketchup").mkdir()
+    (plugin / "skills" / "ketchup" / "SKILL.md").write_text(
+        "---\nname: ketchup\ndescription: Catches the user up.\ndisable-model-invocation: true\n---\n"
+    )
+    one = meta.gather_route({"prompt": "spec this out", "plugin": str(plugin)})
+    assert one["prompts"] == ["spec this out"]
+    assert sorted(one["skills"]) == ["spec"], "a skill only the user can invoke is never a route"
     gathered = meta.gather_route({"prompts": ["a", "b"]})
     assert gathered["prompts"] == ["a", "b"]
-    assert gathered["skills"] == meta.skill_descriptions(PLUGIN_ROOT)
+    assert gathered["skills"] == meta.skill_descriptions(PLUGIN_ROOT, model_invoked=True)
+    assert "ketchup" in meta.skill_descriptions(PLUGIN_ROOT) and "ketchup" not in gathered["skills"]
     with pytest.raises(BadInput, match="needs `prompt` or `prompts`"):
         meta.gather_route({"prompts": []})
     with pytest.raises(BadInput, match="no skills"):

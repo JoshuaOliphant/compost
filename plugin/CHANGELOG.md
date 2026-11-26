@@ -13,6 +13,7 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 ### Changed
 
 - `compost:spec`'s glossary format bolds another glossary term when a definition mentions it, and the sentence says how the two relate (OLI-140, from mattpocock/skills).
+- The routing eval (`jev.py route`) routes only over skills Claude may load on its own: a skill with `disable-model-invocation: true` (wait-what, ketchup, reframe, automate-me) can't be picked by the model, so counting it as a route measured nothing real. ketchup had taken a "what's the status" prompt and dropped the eval to 26/30; it is 28/30 now.
 - Upstream pins move to the heads the 2026-11-26 turn read: mattpocock 6f7f783, pstack b7b93c3, code-guardian 9a01d29, swyx-skills 0d3e9b4 (OLI-137).
 
 ## [0.53.0] - 2026-11-25
