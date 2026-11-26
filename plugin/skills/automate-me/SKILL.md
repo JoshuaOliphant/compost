@@ -28,10 +28,10 @@ a task-specific skill needs no mining: write it with `skill-creator` when instal
 2. **Mine this project's sessions.** Claude Code keeps transcripts as JSONL under
    `~/.claude/projects/`, one directory per project, named for its absolute path with every
    character other than a letter, digit, or `-` turned into `-` (`/home/me/my.app` is
-   `-home-me-my-app`). List the directory rather than building the name: pick the entry equal
-   to the sanitized cwd; otherwise one whose name, minus any trailing suffix, is a prefix of it
-   (a very long path is cut short and given a suffix), preferring the longest match. Ask the user
-   when none fits or several fit equally.
+   `-home-me-my-app`). A name over 200 characters keeps its first 200 and gains `-` and a hash.
+   List the directory rather than building the name: pick the entry equal to the sanitized cwd,
+   or, when that is over 200 characters, the entry that is its first 200 followed by `-` and a
+   hash. A shorter prefix is a parent project, not this one. Ask the user when none fits.
    Read only this project's directory: another project's transcripts are other work, often
    private, and the user did not offer them. Split the last two to four weeks into three slices and
    spawn one subagent per slice in a single message, each told its slice's file list and the
