@@ -1,6 +1,6 @@
 ---
 name: automate-me
-description: Turns how the user works into a personal mode skill agents follow, mined from this project's past sessions and confirmed with the user, or refreshes the one they have. Use when the user types /compost:automate-me, or says "automate me", "update my mode skill", or "capture how I work".
+description: Turns how the user works into a personal mode skill agents follow, mined from this project's past sessions and confirmed with the user, or refreshes the one they have. Use when the user types /compost:automate-me; only they know when their working style is worth capturing.
 disable-model-invocation: true
 ---
 
@@ -26,7 +26,9 @@ a task-specific skill needs no mining: write it with `skill-creator` when instal
    section the new evidence does not contradict.
 
 2. **Mine this project's sessions.** Claude Code keeps transcripts as JSONL under
-   `~/.claude/projects/`, one directory per project, named for its path with `/` turned into `-`.
+   `~/.claude/projects/`, one directory per project, named for its absolute path with every character other than a
+   letter, digit, or `-` turned into `-` (`/home/me/my.app` is `-home-me-my-app`). List the
+   directory and match the name against the cwd rather than building it by hand.
    Read only this project's directory: another project's transcripts are other work, often
    private, and the user did not offer them. Split the last two to four weeks into three slices and
    spawn one subagent per slice in a single message, each told its slice's file list and the
@@ -61,9 +63,11 @@ a task-specific skill needs no mining: write it with `skill-creator` when instal
    - Name the skills they rely on (`compost:verify`, `compost:review`) instead of pasting their
      text, and point to principle docs they keep elsewhere instead of copying them.
    - Keep it operational: no metaphors, no restating what a named skill already says.
-   - Frontmatter: `name: <handle>-mode`, a `description` that triggers on the user's name,
-     `/<handle>-mode`, and "work in their style", never on generic phrases like "write code", and
-     `disable-model-invocation: true` so it never competes with other skills for routing.
+   - Frontmatter: `name: <handle>-mode`, `disable-model-invocation: true`, and a `description`
+     that says in one line what the skill is for: with the flag on, the user starts it with
+     `/<handle>-mode`, and the description only labels it in the menu. A mode skill the model
+     loaded on its own phrases would compete with every other skill for routing; rules the user
+     wants on every turn go to the user-level CLAUDE.md instead (step 6).
 
 5. **Iterate with the user.** Show the whole draft and take their edits. Expect more than one
    round, and cut on every pass: a mode skill is a short list of rules, not a manual. Judge it by

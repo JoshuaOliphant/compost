@@ -163,6 +163,24 @@ def test_gather_route_takes_one_prompt_or_many_and_needs_skills(plugin, tmp_path
 
 
 @pytest.mark.parametrize(
+    ("frontmatter", "body", "routed"),
+    [
+        ('disable-model-invocation: "true"  ', "", False),
+        ("disable-model-invocation: True", "", False),
+        ("disable-model-invocation: false", "", True),
+        ("", "```yaml\ndisable-model-invocation: true\n```\n", True),
+    ],
+    ids=["quoted, trailing space", "capitalised", "false", "only in a body code block"],
+)
+def test_route_reads_the_user_only_flag_from_frontmatter_alone(plugin, frontmatter, body, routed):
+    (plugin / "skills" / "mode").mkdir()
+    (plugin / "skills" / "mode" / "SKILL.md").write_text(
+        f"---\nname: mode\ndescription: Works in the user's style.\n{frontmatter}\n---\n\n# mode\n{body}"
+    )
+    assert ("mode" in meta.gather_route({"prompt": "x", "plugin": str(plugin)})["skills"]) is routed
+
+
+@pytest.mark.parametrize(
     ("close_margin", "close"), [(0.5, False), (0.5000001, True)], ids=["at margin", "under margin"]
 )
 def test_route_picks_the_top_skill_and_marks_close_calls(monkeypatch, close_margin, close):

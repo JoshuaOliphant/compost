@@ -59,12 +59,21 @@ RULINGS = [
 ]
 
 
+USER_ONLY = re.compile(r"""^disable-model-invocation:\s*["']?true["']?\s*$""", re.MULTILINE | re.IGNORECASE)
+
+
+def frontmatter(text: str) -> str:
+    """The YAML block between a file's opening `---` and the next one, or "" without one."""
+    match = re.match(r"---\n(.*?)\n---\s*$", text, re.DOTALL | re.MULTILINE)
+    return match.group(1) if match else ""
+
+
 def skill_descriptions(root: Path = PLUGIN_ROOT, *, model_invoked: bool = False) -> dict[str, str]:
     """Each skill's description; with `model_invoked`, only skills Claude may load on its own."""
     descriptions = {}
     for path in sorted((root / "skills").glob("*/SKILL.md")):
         text = path.read_text()
-        if model_invoked and re.search(r"^disable-model-invocation: true$", text, re.MULTILINE):
+        if model_invoked and USER_ONLY.search(frontmatter(text)):
             continue
         if match := re.search(r"^description: (.*)$", text, re.MULTILINE):
             descriptions[path.parent.name] = match.group(1).strip()
