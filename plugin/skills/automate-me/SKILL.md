@@ -9,7 +9,7 @@ disable-model-invocation: true
 The user corrects agents the same way session after session: shorter replies, a live repro before
 "done", no em dashes, one PR per issue. Each correction costs a turn and dies with the session.
 Automate-me collects the ones that recur and writes them into one skill, `<handle>-mode`, that
-agents load to work the way the user does.
+the user turns on with `/<handle>-mode` so agents work the way they do.
 
 `compost:retro` reads one session for environment fixes; this reads many for the user's own
 conventions. A single workflow ("how I write commit messages") is a regular skill, not a mode, and
@@ -26,16 +26,19 @@ a task-specific skill needs no mining: write it with `skill-creator` when instal
    section the new evidence does not contradict.
 
 2. **Mine this project's sessions.** Claude Code keeps transcripts as JSONL under
-   `~/.claude/projects/`, one directory per project, named for its absolute path with every character other than a
-   letter, digit, or `-` turned into `-` (`/home/me/my.app` is `-home-me-my-app`). List the
-   directory and match the name against the cwd rather than building it by hand.
+   `~/.claude/projects/`, one directory per project, named for its absolute path with every
+   character other than a letter, digit, or `-` turned into `-` (`/home/me/my.app` is
+   `-home-me-my-app`). List the directory rather than building the name: pick the entry the
+   sanitized cwd equals or starts with (a very long path may be cut short with a suffix added),
+   and ask the user when none fits.
    Read only this project's directory: another project's transcripts are other work, often
    private, and the user did not offer them. Split the last two to four weeks into three slices and
    spawn one subagent per slice in a single message, each told its slice's file list and the
    signals below, and to read only what the user typed: a `type: user` entry whose `origin.kind` is
    `human` when it has an `origin`, skipping entries flagged `isMeta`, `isSidechain`,
    `isCompactSummary`, or `isVisibleInTranscriptOnly` (skill bodies, compaction summaries, subagent
-   turns), tool results, and injected tags. A loaded skill's text shows up in every slice and would
+   turns), tool results, and injected tags. A wrapper around the user's own message (a `<wake>` in
+   Claude Projects) holds what they typed: read inside it. A loaded skill's text shows up in every slice and would
    pass for a convention. Each returns the patterns it saw, each with a pointer (file and timestamp)
    to where it shows; the skill holds rules, not transcript excerpts.
    - how replies should read: length, tone, format, corrections like "shorter" or "plainer"

@@ -59,11 +59,12 @@ RULINGS = [
 ]
 
 
-USER_ONLY = re.compile(r"""^disable-model-invocation:\s*["']?true["']?\s*$""", re.MULTILINE | re.IGNORECASE)
+USER_ONLY = re.compile(r"""^disable-model-invocation:\s*["']?true["']?\s*(#.*)?$""", re.MULTILINE | re.IGNORECASE)
 
 
 def frontmatter(text: str) -> str:
     """The YAML block between a file's opening `---` and the next one, or "" without one."""
+    text = text.removeprefix("\ufeff").replace("\r\n", "\n")
     match = re.match(r"---\n(.*?)\n---\s*$", text, re.DOTALL | re.MULTILINE)
     return match.group(1) if match else ""
 

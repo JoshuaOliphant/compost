@@ -168,9 +168,10 @@ def test_gather_route_takes_one_prompt_or_many_and_needs_skills(plugin, tmp_path
         ('disable-model-invocation: "true"  ', "", False),
         ("disable-model-invocation: True", "", False),
         ("disable-model-invocation: false", "", True),
+        ("disable-model-invocation: true  # user only", "", False),
         ("", "```yaml\ndisable-model-invocation: true\n```\n", True),
     ],
-    ids=["quoted, trailing space", "capitalised", "false", "only in a body code block"],
+    ids=["quoted, trailing space", "capitalised", "false", "trailing comment", "only in a body code block"],
 )
 def test_route_reads_the_user_only_flag_from_frontmatter_alone(plugin, frontmatter, body, routed):
     (plugin / "skills" / "mode").mkdir()
@@ -178,6 +179,13 @@ def test_route_reads_the_user_only_flag_from_frontmatter_alone(plugin, frontmatt
         f"---\nname: mode\ndescription: Works in the user's style.\n{frontmatter}\n---\n\n# mode\n{body}"
     )
     assert ("mode" in meta.gather_route({"prompt": "x", "plugin": str(plugin)})["skills"]) is routed
+
+
+def test_frontmatter_reads_through_a_bom_and_crlf_line_endings():
+    assert meta.frontmatter("\ufeff---\r\nname: mode\r\ndisable-model-invocation: true\r\n---\r\n# mode\r\n") == (
+        "name: mode\ndisable-model-invocation: true"
+    )
+    assert meta.frontmatter("# no frontmatter\n") == ""
 
 
 @pytest.mark.parametrize(
