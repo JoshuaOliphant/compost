@@ -50,7 +50,7 @@ A customer's request to buy one or more products, placed in a single checkout.
 _Avoid_: purchase, transaction
 
 **Cancellation**:
-Ending an order before any of it ships, with a full refund.
+Ending an **Order** before any of it ships, with a full refund.
 _Avoid_: void, abort
 
 ## Semantic invariants
@@ -61,6 +61,8 @@ _Avoid_: void, abort
 
 - Be opinionated: when several words name one concept, pick one and list the rest under `_Avoid_`.
 - One or two sentences per term, saying what it is, not what it does.
+- Bold another glossary term when a definition mentions it (`**Order**`), and let the sentence say
+  how the two relate.
 - Only terms specific to this project. General programming concepts (timeout, retry, cache) stay
   out even if the code uses them everywhere.
 - Group terms under subheadings when clusters appear; a flat list is fine otherwise.
