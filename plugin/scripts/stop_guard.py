@@ -101,9 +101,14 @@ def sent_by_user(entry: dict, texts: list[str]) -> bool:
     return any(COMMAND.search(text) or INJECTED.sub("", text).strip() for text in texts)
 
 
+def implement_loads(transcript: list[dict]) -> list[int]:
+    """The indexes of the entries that load implement, in order."""
+    return [index for index, entry in enumerate(transcript) if loads(entry, IMPLEMENT)]
+
+
 def since_implement(transcript: list[dict]) -> list[dict] | None:
     """The entries after the latest implement load, or None when implement never loaded."""
-    starts = [index for index, entry in enumerate(transcript) if loads(entry, IMPLEMENT)]
+    starts = implement_loads(transcript)
     return transcript[starts[-1] + 1 :] if starts else None
 
 
@@ -139,10 +144,11 @@ def first_contract_block(entries: list[dict]) -> list[str] | None:
 def contract_stops(transcript: list[dict]) -> list[str]:
     """The stops in the first Run contract block printed since implement last loaded, narrowed by the first block.
 
-    The first block printed after any implement load is the ceiling: a run can't widen its own stops by printing
-    another block later, even after loading implement again. A later load's block can only narrow them.
+    The first block in the transcript, printed after the first implement load, is the ceiling: a run can't widen its
+    own stops by printing another block later, even after loading implement again. A later load's block can only
+    narrow them.
     """
-    starts = [index for index, entry in enumerate(transcript) if loads(entry, IMPLEMENT)]
+    starts = implement_loads(transcript)
     if not starts:
         return []
     latest = first_contract_block(transcript[starts[-1] + 1 :]) or []

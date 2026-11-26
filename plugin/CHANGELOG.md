@@ -6,7 +6,7 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 
 ### Fixed
 
-- The stop-guard Stop hook no longer lets a reload of implement widen the run contract's stops (OLI-135). The first `Run contract stops:` block printed after any implement load is the ceiling; the block since the latest load counts only for the stops the ceiling also lists, so a reload can narrow the stops, never widen them.
+- The stop-guard Stop hook no longer lets a reload of implement widen the run contract's stops (OLI-135). The first `Run contract stops:` block in the transcript, printed after the first implement load, is the ceiling for the whole session; the block since the latest load counts only for the stops the ceiling also lists, so a reload can narrow the stops, never widen them.
 
 ## [0.53.0] - 2026-11-25
 

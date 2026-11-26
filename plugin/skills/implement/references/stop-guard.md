@@ -15,8 +15,9 @@ to the list is still on you.
 
 The hook learns the contract's extra stops from the block step 1 prints
 ([run contract](run-contract.md)), not from the tracker: it reads the first `Run contract stops:`
-block in your own messages since implement last loaded, keeps only the stops the run's first block (the first
-printed after any implement load) also lists, so a reload can narrow the stops, never widen them, and allows those
-stops beside step 9's.
+block in your own messages since implement last loaded, keeps only the stops that the first block in the whole
+transcript (printed after the first implement load) also lists, so a reload can narrow the stops, never widen them,
+and allows those stops beside step 9's. That ceiling holds for the whole session: a second parent implemented in the
+same session keeps only the stops its contract shares with the first, so start a fresh session for it.
 A block it can't read, or none at all, leaves it with step 9's list alone, so print the block
 plain, at the start of a line, every time implement loads.
