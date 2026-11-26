@@ -112,7 +112,7 @@ as it does on any outage.
 | `ac-quality` | Score ×3 | spec | 24/24 (24) |
 | `adr-worthy` | Noul ×3 | spec, deepen, implement | 24/24 (24 rulings) |
 | `classify-change` | Choice | turn | every adopt/adapt read 4/4, no ignore recorded wrongly, 15/26 ignores skipped (30) |
-| `route` | Choice | turn, description changes | 27/30 (30 real prompts) |
+| `route` | Choice | turn, description changes | 28/30 (30 real prompts, over the skills Claude may load on its own) |
 | `rulings-lint` | Noul ×8 | turn, compost's own text | 10/13 violations, 2–4 false flags (36 passages) |
 | `stop-guard` | Noul ×2 | Stop hook in implement runs | 23/23 (23 final messages) |
 | `skill-drift` mod | Noul, one per skill step +2 | every skill-using turn | compost:build, 23 labeled turns, over six runs: deviated (by step) 0-1 false hits on 8 clean turns, 11-12/15 drifting flagged; missing guidance 4-5/5 flagged, 0-1 false hits on 18; corrected unmeasured |

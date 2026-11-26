@@ -83,7 +83,7 @@ PR, issue, or worker by a name the user knows, with its identifier when they wil
 
 ## Pictures
 
-A picture is a screenshot, a recording, or a Mermaid diagram. A Markdown table is not one.
+A picture is a screenshot or a Mermaid diagram. A Markdown table is not one.
 
 Draw when a picture says it faster than sentences: how a design or flow works, a chain of PRs or
 issues with each one's state, a before and after, options side by side. Never draw a status list,

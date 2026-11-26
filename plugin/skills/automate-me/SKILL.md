@@ -30,8 +30,12 @@ a task-specific skill needs no mining: write it with `skill-creator` when instal
    Read only this project's directory: another project's transcripts are other work, often
    private, and the user did not offer them. Split the last two to four weeks into three slices and
    spawn one subagent per slice in a single message, each told its slice's file list and the
-   signals below, and to return each pattern it saw with a pointer (file and timestamp) to where it
-   shows; the skill holds rules, not transcript excerpts.
+   signals below, and to read only what the user typed: a `type: user` entry whose `origin.kind` is
+   `human` when it has an `origin`, skipping entries flagged `isMeta`, `isSidechain`,
+   `isCompactSummary`, or `isVisibleInTranscriptOnly` (skill bodies, compaction summaries, subagent
+   turns), tool results, and injected tags. A loaded skill's text shows up in every slice and would
+   pass for a convention. Each returns the patterns it saw, each with a pointer (file and timestamp)
+   to where it shows; the skill holds rules, not transcript excerpts.
    - how replies should read: length, tone, format, corrections like "shorter" or "plainer"
    - how much to do without asking, and what always needs asking
    - what "done" means: tests, a live run, a reviewer, evidence in the reply
