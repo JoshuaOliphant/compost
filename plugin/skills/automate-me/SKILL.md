@@ -9,7 +9,7 @@ disable-model-invocation: true
 The user corrects agents the same way session after session: shorter replies, a live repro before
 "done", no em dashes, one PR per issue. Each correction costs a turn and dies with the session.
 Automate-me collects the ones that recur and writes them into one skill, `<handle>-mode`, that
-the user turns on with `/<handle>-mode` so agents work the way they do.
+the user turns on with `/<handle>-mode` so agents work the way the user does.
 
 `compost:retro` reads one session for environment fixes; this reads many for the user's own
 conventions. A single workflow ("how I write commit messages") is a regular skill, not a mode, and
@@ -28,9 +28,10 @@ a task-specific skill needs no mining: write it with `skill-creator` when instal
 2. **Mine this project's sessions.** Claude Code keeps transcripts as JSONL under
    `~/.claude/projects/`, one directory per project, named for its absolute path with every
    character other than a letter, digit, or `-` turned into `-` (`/home/me/my.app` is
-   `-home-me-my-app`). List the directory rather than building the name: pick the entry the
-   sanitized cwd equals or starts with (a very long path may be cut short with a suffix added),
-   and ask the user when none fits.
+   `-home-me-my-app`). List the directory rather than building the name: pick the entry equal
+   to the sanitized cwd; otherwise one whose name, minus any trailing suffix, is a prefix of it
+   (a very long path is cut short and given a suffix), preferring the longest match. Ask the user
+   when none fits or several fit equally.
    Read only this project's directory: another project's transcripts are other work, often
    private, and the user did not offer them. Split the last two to four weeks into three slices and
    spawn one subagent per slice in a single message, each told its slice's file list and the

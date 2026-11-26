@@ -59,7 +59,7 @@ RULINGS = [
 ]
 
 
-USER_ONLY = re.compile(r"""^disable-model-invocation:\s*["']?true["']?\s*(#.*)?$""", re.MULTILINE | re.IGNORECASE)
+USER_ONLY = re.compile(r"""^disable-model-invocation:\s*["']?true["']?(\s+#.*)?\s*$""", re.MULTILINE | re.IGNORECASE)
 
 
 def frontmatter(text: str) -> str:
