@@ -379,6 +379,32 @@ CONTRACT = "Run contract stops:\n- merging to the repository's default branch\n-
         ([LOADS_IMPLEMENT, user(CONTRACT), said("m1", "Run contract stops:\n- deleting data  \n")], ["deleting data"]),
         ([LOADS_IMPLEMENT, said("m1", f"**{CONTRACT}**")], []),
         ([said("m1", CONTRACT)], []),
+        (
+            [
+                LOADS_IMPLEMENT,
+                said("m1", CONTRACT),
+                SLASH_IMPLEMENT,
+                said("m2", "Run contract stops:\n- picking the payment provider\n- picking the logo\n"),
+            ],
+            ["picking the payment provider"],
+        ),
+        (
+            [
+                LOADS_IMPLEMENT,
+                said("m1", "Run contract stops:\n\nNone added."),
+                SLASH_IMPLEMENT,
+                said("m2", CONTRACT),
+            ],
+            [],
+        ),
+        ([LOADS_IMPLEMENT, said("m1", CONTRACT), SLASH_IMPLEMENT, said("m2", "Going on.")], []),
+        (
+            [LOADS_IMPLEMENT, said("m1", "Starting."), SLASH_IMPLEMENT, said("m2", CONTRACT)],
+            [
+                "merging to the repository's default branch",
+                "picking the payment provider",
+            ],
+        ),
     ],
     ids=[
         "block between other text",
@@ -390,9 +416,13 @@ CONTRACT = "Run contract stops:\n- merging to the repository's default branch\n-
         "block in a user entry, then one with trailing spaces",
         "bold header",
         "no implement load",
+        "a reload's block narrows the first block",
+        "a reload can't widen an empty first block",
+        "a reload that prints no block",
+        "the first block comes after a reload",
     ],
 )
-def test_contract_stops_are_the_first_block_implement_printed_since_it_loaded(entries, stops):
+def test_contract_stops_are_the_latest_loads_first_block_narrowed_by_the_transcripts_first(entries, stops):
     assert stop_guard.contract_stops(entries) == stops
 
 

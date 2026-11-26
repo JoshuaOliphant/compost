@@ -125,18 +125,29 @@ def unattended_run(transcript: list[dict]) -> bool:
     return not (prompts and sent_by_user(*prompts[-1]))
 
 
-def contract_stops(transcript: list[dict]) -> list[str]:
-    """The stops in the first Run contract block a main-thread assistant entry printed since implement loaded.
-
-    Only the first counts, so a run can't widen its own stops by printing another block later.
-    """
-    for entry in since_implement(transcript) or []:
+def first_contract_block(entries: list[dict]) -> list[str] | None:
+    """The stops in the first Run contract block a main-thread assistant entry printed, or None when none did."""
+    for entry in entries:
         if entry.get("type") != "assistant" or entry.get("isSidechain"):
             continue
         for block in blocks(entry):
             if block.get("type") == "text" and (match := CONTRACT_STOPS.search(block.get("text", ""))):
                 return [line.removeprefix("- ").strip() for line in match.group(1).splitlines()]
-    return []
+    return None
+
+
+def contract_stops(transcript: list[dict]) -> list[str]:
+    """The stops in the first Run contract block printed since implement last loaded, narrowed by the first block.
+
+    The first block printed after any implement load is the ceiling: a run can't widen its own stops by printing
+    another block later, even after loading implement again. A later load's block can only narrow them.
+    """
+    starts = [index for index, entry in enumerate(transcript) if loads(entry, IMPLEMENT)]
+    if not starts:
+        return []
+    latest = first_contract_block(transcript[starts[-1] + 1 :]) or []
+    ceiling = first_contract_block(transcript[starts[0] + 1 :]) or []
+    return [stop for stop in latest if stop in ceiling]
 
 
 def final_message(transcript: list[dict]) -> str:

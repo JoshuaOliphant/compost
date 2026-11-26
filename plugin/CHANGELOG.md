@@ -2,6 +2,12 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.53.1] - 2026-11-26
+
+### Fixed
+
+- The stop-guard Stop hook no longer lets a reload of implement widen the run contract's stops (OLI-135). The first `Run contract stops:` block printed after any implement load is the ceiling; the block since the latest load counts only for the stops the ceiling also lists, so a reload can narrow the stops, never widen them.
+
 ## [0.53.0] - 2026-11-25
 
 ### Added
