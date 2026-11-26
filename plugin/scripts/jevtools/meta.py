@@ -11,7 +11,7 @@ from jevtools.registry import BadInput, require, tool
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 
-ALLOWED_STOPS = [
+IRREVERSIBLE_STOPS = [
     "merging to the repository's default branch",
     "a force-push or a history rewrite on a shared branch",
     "a deploy or release, including one flagged for the user's approval",
@@ -20,9 +20,21 @@ ALLOWED_STOPS = [
         "a message that reaches people beyond the run's own issues: an email, a chat post, or a comment, mention, "
         "or review request on someone else's issue or pull request"
     ),
+]
+PREREQUISITE_STOP = "a prerequisite only a person can supply that is missing or unconfirmed"
+ALLOWED_STOPS = [
+    *IRREVERSIBLE_STOPS,
     "approval of an architectural spec",
     "starting a Claude Code workflow the agent wrote itself, since one can spawn dozens of agents",
+    PREREQUISITE_STOP,
 ]
+
+
+def allowed_stops(contract_stops: list[str]) -> list[str]:
+    """ALLOWED_STOPS, then each stop a parent's Run contract adds."""
+    return [*ALLOWED_STOPS, *(stop for stop in dict.fromkeys(contract_stops) if stop not in ALLOWED_STOPS)]
+
+
 RULINGS = [
     (
         "Decide, record the ruling (what, why, cost if wrong) as an issue comment, and proceed. Stop for the user "
@@ -376,7 +388,8 @@ MESSAGE_ALLOWED = Noul(
         "waits on nothing, or on anything else: a design or library choice (including how the code it builds "
         "should deploy or send messages), a policy, "
         "which option or approach to take, permission to commit, push a feature branch, file an issue or comment "
-        "on the run's own issues or pull request, or keep going."
+        "on the run's own issues or pull request, or keep going. An item of `allowed_stops` counts as allowed even "
+        "when it is one of those kinds: a run's contract can add stops."
     )
 )
 
@@ -386,14 +399,17 @@ def gather_stop(payload: dict) -> dict:
     message = str(payload["message"]).strip()
     if not message:
         raise BadInput("`message` is empty")
-    return {"message": message[-MESSAGE_CHARS:]}
+    contract_stops = payload.get("contract_stops", [])
+    if not isinstance(contract_stops, list) or not all(isinstance(stop, str) for stop in contract_stops):
+        raise BadInput("`contract_stops` must be a list of strings")
+    return {"message": message[-MESSAGE_CHARS:], "contract_stops": contract_stops}
 
 
 @tool(
     "stop-guard", "Whether an implement run's final message stops for something outside the allowed stops.", gather_stop
 )
 async def stop_guard(jev, gathered: dict) -> dict:
-    state = {"run": RUN, "allowed_stops": ALLOWED_STOPS, "message": gathered["message"]}
+    state = {"run": RUN, "allowed_stops": allowed_stops(gathered["contract_stops"]), "message": gathered["message"]}
     answers = await jev.ask("stop-guard", state, {"waits": MESSAGE_WAITS, "allowed": MESSAGE_ALLOWED})
     waits, allowed = answers.noul("waits"), answers.noul("allowed")
     score = waits * (1 - allowed)

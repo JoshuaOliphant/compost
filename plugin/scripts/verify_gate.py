@@ -222,7 +222,7 @@ def decide(hook: dict) -> dict | None:
     record(entry | {"action": "blocked"})
     return deny(
         f"compost verify-gate: commit {sha[:12]} ({revision}) in {repo} has no verify stamp, so nothing shows compost:verify ran "
-        "on it. Run compost:verify on this commit; its step 9 writes the stamp when every gate is green and every "
+        "on it. Run compost:verify on this commit; its step 10 writes the stamp when every gate is green and every "
         f"AC is met. This is block {blocks + 1} of {BLOCKS_BEFORE_BYPASS} in this session; after "
         f"that, attempts in this session go through and are logged as bypasses. {MODE_VAR}=observe or off turns blocking off."
     )

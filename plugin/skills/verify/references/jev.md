@@ -74,7 +74,7 @@ back to `compost:build`.
 Measured on 22 labeled pairs: 20 right. The misses were a test whose constant hid the environment
 variable the criterion named, and a mock-based test of a nearby expiry instead of the exact one.
 
-## claim-backed (step 9)
+## claim-backed (step 10)
 
 Input: each claim the report will make, with the output of the command that backs it, inline or
 as a file you saved with `| tee`. Long output is clipped to its first 2,000 and last 8,000

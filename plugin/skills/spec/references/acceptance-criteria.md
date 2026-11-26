@@ -24,6 +24,9 @@ complaints without asking them to log in
 - **Every Then is observable.** "Handles the error gracefully" can't be tested; "shows 'Unable to
   cancel: this order has shipped' and changes nothing" can.
 - **Every criterion has its Given.** The state before the action is half the scenario.
+- **A user-visible Then names its e2e test.** When the parent has a Frontend section, a Then the
+  user sees on the page (a button, a message, a download) is proved by an e2e test that drives
+  that flow in the running app, and the criterion names it as its proof.
 
 ## Order of work
 

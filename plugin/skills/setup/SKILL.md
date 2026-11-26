@@ -99,8 +99,9 @@ edits the user made by hand.
    boots it, drives one real flow, and exits non-zero on failure, and a feature map of its
    user-facing features, how to reach each, and the expected result. Find or write the smoke
    command with the ladder in the same reference, run it once, and record it as passing or
-   broken with its first error. A repo with nothing to run records `none` and why. Write
-   `docs/agents/testing.md` from the template in the same reference.
+   broken with its first error. A repo with nothing to run records `none` and why. Record the
+   E2E entry by "Finding the e2e tool" in the same reference, and write `docs/agents/testing.md`
+   from its template.
 
 7. **Observability.** Find the telemetry the repo's running code emits with the detection ladder
    in [observability](references/observability.md): the observability harness, another stack

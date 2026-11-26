@@ -134,6 +134,8 @@ a quick lookup can answer.
      semantic invariant already decides is an assumption citing it, not a question, and gets a
      criterion for its failure side. The scenarios say what done means. Format and
      anti-patterns are in [acceptance criteria](references/acceptance-criteria.md).
+   - When the request changes a rendered page or component, add the Frontend section, and give each
+     user-visible Then its e2e test.
    - When the work spans several repositories, name the repo each AC-N lives in, in a heading
      over its group of criteria (`## In agent-plugins`) or on its line before its id. Each repo's review judges only its own criteria and lists the
      rest as not verifiable there, and only a criterion the spec places in another repo counts.
@@ -172,19 +174,28 @@ a quick lookup can answer.
    [questions](references/questions.md). Answers go back into the spec and the refined prompt. No
    open questions is a fine result; say so.
 
-10. **Post the parent issue** with the tracker from `docs/agents/issue-tracker.md` (for GitHub,
-    its REST create command with the `spec` label; a local tracker writes `.scratch/<slug>/spec.md`).
-    Commit `CONTEXT.md` and ADR changes, with any Gherkin feature files from step 8, as their own
-    `docs:` commit. Bounded work proceeds from here. Architectural work stops: link the issue, ask
-    for approval, and record the approval as an issue comment. An explicit instruction in the
-    request to build it counts as that approval, unless the approach you chose changes what the
-    user asked for. Requested changes go into the issue, then repeat step 9.
+10. **Check readiness and write the run contract.** The spec is ready when a run can finish it
+    without the user. Write the parent's Run contract and run the check for its class, both in
+    [readiness](references/readiness.md). A contract can add stops but never drop the irreversible
+    ones. Run each prerequisite's check now: when one fails and the user is here, ask it as an
+    open question before posting; with nobody to answer, mark it unconfirmed. Fix what fails, and
+    keep the result for the readiness record step 11 posts.
+
+11. **Post the parent issue** with the tracker from `docs/agents/issue-tracker.md` (for GitHub,
+    its REST create command with the `spec` label; a local tracker writes `.scratch/<slug>/spec.md`),
+    then its readiness record. Commit `CONTEXT.md` and ADR changes, with any Gherkin feature files
+    from step 8, as their own `docs:` commit. Bounded work hands off with no approval: name slice or
+    build as the next skill. Architectural work stops: link the issue, ask for approval once,
+    naming the spec and its run contract, and record the approval as one issue comment; the run
+    looks for no other. An explicit instruction in the request to build it counts as that
+    approval, unless the approach you chose changes what the user asked for. Requested changes go
+    into the issue, then repeat steps 9 and 10.
 
 ## Next moves
 
 - `compost:deeper-ask` on its own when you want a request made deeper, not bigger, before any spec.
-- `compost:slice` when the parent issue is posted (and approved, for architectural work) and the
-  work spans more than one tracer bullet.
+- `compost:slice` when the parent issue and its readiness record are posted (and approved, for
+  architectural work) and the work spans more than one tracer bullet.
 - `compost:build` when bounded work fits in one issue: the parent issue carries its own criteria.
 - `compost:deepen` when the open decision is really about a module's shape or interface.
 - `compost:fan-out` when two approaches are close enough that building both is cheaper than

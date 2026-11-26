@@ -154,7 +154,8 @@ def test_lane_routing_table_names_only_models_and_efforts_the_agent_tool_takes()
 
 def test_implements_stop_list_opens_each_item_with_the_stop_hooks_allowed_stop_in_order():
     text = (PLUGIN_ROOT / "skills" / "implement" / "SKILL.md").read_text()
-    block = text.split("Stop only for:\n", 1)[1].split("\n\n", 1)[0]
+    lead = r"Stop only for the run\s+contract's Stops \(step 1\), which always hold:\n"
+    block = re.split(lead, text, maxsplit=1)[1].split("\n\n", 1)[0]
     items = [" ".join(item.split()) for item in re.split(r"^\s*- ", block, flags=re.MULTILINE) if item.strip()]
     assert len(items) == len(meta.ALLOWED_STOPS)
     for item, stop in zip(items, meta.ALLOWED_STOPS, strict=True):
@@ -181,6 +182,108 @@ def test_branching_skills_fast_forward_the_default_branch_and_rule_when_it_canno
         rules,
     ):
         assert phrase in rule, f"{skill}'s {step!r} step lacks {phrase!r}"
+
+
+@pytest.mark.parametrize(
+    ("reference", "step", "phrases"),
+    [
+        (
+            "stop-guard.md",
+            "Decide, log, proceed.",
+            [
+                "stop only for the list",
+                "resuming loads implement again, which starts a new run",
+                "or the rest of the run is unguarded",
+                "keeping to the list is still on you",
+                "plus any stop the parent's Run contract adds",
+                "the first `Run contract stops:` block in your own messages since implement last loaded",
+            ],
+        ),
+        (
+            "run-contract.md",
+            "Orient.",
+            [
+                "Step 1 keeps to it before any worker branches",
+                "On a parent without one, run the [readiness check](../../spec/references/readiness.md)",
+                "whose **Ruling:** line ends `(assumed)`, then post the readiness record",
+                "Stop before the first build only when a gap is on the Stops list",
+                "a line `Run contract stops:`, then one `- <stop>` line per Stops item, word for word, then a blank line",
+                "Print it again every time implement loads",
+                "1. **Print the Stops.** Before anything that can stop the run",
+                "Run each prerequisite's check before any worker branches",
+                "marked unconfirmed, or one whose check fails now, stops the run there",
+                "name the prerequisite and the check you ran",
+                "stop only for an item on the contract's Stops, and post every other decision as a ruling comment",
+            ],
+        ),
+    ],
+    ids=["stop guard", "run contract"],
+)
+def test_implements_references_keep_the_rules_their_step_points_to(reference, step, phrases):
+    text = " ".join((PLUGIN_ROOT / "skills" / "implement" / "references" / reference).read_text().split())
+    for phrase in phrases:
+        assert phrase in text, f"{reference} lost {phrase!r}"
+    skill = " ".join((PLUGIN_ROOT / "skills" / "implement" / "SKILL.md").read_text().split())
+    body = re.split(r" \d+\. \*\*", skill.split(f"**{step}**", 1)[1], maxsplit=1)[0]
+    assert f"(references/{reference})" in body, f"implement's {step!r} step doesn't link {reference}"
+
+
+def test_a_run_contract_keeps_every_irreversible_stop_and_the_prerequisite_stop_is_allowed():
+    assert set(meta.IRREVERSIBLE_STOPS) < set(meta.ALLOWED_STOPS)
+    assert meta.PREREQUISITE_STOP in meta.ALLOWED_STOPS
+    template = (PLUGIN_ROOT / "skills" / "spec" / "references" / "parent-issue.md").read_text()
+    contract = " ".join(template.split("## Run contract", 1)[1].split("\n## ", 1)[0].split())
+    for heading in ("### Stops", "### Prerequisites", "### Departures"):
+        assert heading in contract, f"the Run contract template lacks {heading!r}"
+    stop_lines = template.split("### Stops", 1)[1].split("###", 1)[0].splitlines()
+    for stop in meta.IRREVERSIBLE_STOPS:
+        assert f"- {stop}" in stop_lines, f"the Run contract template doesn't give {stop!r} its own bullet"
+
+
+@pytest.mark.parametrize(
+    ("step", "phrases"),
+    [
+        (
+            "Check readiness and write the run contract.",
+            [
+                "(references/readiness.md)",
+                "can add stops but never drop",
+                "ask it as an open question before posting",
+                "mark it unconfirmed",
+                "readiness record",
+            ],
+        ),
+        (
+            "Post the parent issue",
+            [
+                "Bounded work hands off with no approval",
+                "ask for approval once, naming the spec and its run contract",
+            ],
+        ),
+    ],
+)
+def test_spec_ends_with_a_readiness_check_and_one_approval_for_architectural_work(step, phrases):
+    text = " ".join((PLUGIN_ROOT / "skills" / "spec" / "SKILL.md").read_text().split())
+    body = re.split(r" \d+\. \*\*| ## ", text.split(f"**{step}", 1)[1], maxsplit=1)[0]
+    for phrase in phrases:
+        assert phrase in body, f"spec's {step!r} step lacks {phrase!r}"
+
+
+def test_the_readiness_check_is_short_for_bounded_work_and_full_for_architectural_work():
+    text = " ".join((PLUGIN_ROOT / "skills" / "spec" / "references" / "readiness.md").read_text().split())
+    short, full = text.split("The short check, for bounded work:", 1)[1].split("The full check, for architectural work")
+    for item in (
+        "names the kind of test and the seam",
+        "whose Then is user-visible names an e2e test",
+        "every prerequisite's check has run",
+        "no open question",
+    ):
+        assert item in short, f"the short check lacks {item!r}"
+    for item in ("rabbit holes", "no-gos", "pre-mortem"):
+        assert item in full and item not in short, f"{item!r} belongs to the full check only"
+    without_record = full.split("A parent without a record", 1)[1]
+    for item in ("`compost:implement` runs the same check", "ruling marked `(assumed)`", "only when a gap is on"):
+        assert item in without_record, f"readiness.md doesn't say implement {item!r}"
 
 
 def step_text(skill, step):
@@ -256,17 +359,166 @@ def test_setup_records_a_smoke_command_and_feature_map_under_run():
         assert status in run, f"the ## Run template has no {status!r} status"
 
 
-def test_stop_guard_reference_keeps_the_rules_step_9_points_to():
-    text = " ".join((PLUGIN_ROOT / "skills" / "implement" / "references" / "stop-guard.md").read_text().split())
+def test_spec_declares_frontend_work_and_names_an_e2e_test_for_each_user_visible_then():
+    spec = " ".join((PLUGIN_ROOT / "skills" / "spec" / "SKILL.md").read_text().split())
+    step7 = spec.split("**Write the spec**", 1)[1].split("**Add Gherkin feature files")[0]
+    assert "rendered page or component" in step7 and "Frontend section" in step7, "spec's step 7 skips frontend work"
+    template = (PLUGIN_ROOT / "skills" / "spec" / "references" / "parent-issue.md").read_text()
+    assert "\n## Frontend\n" in template, "the parent template lacks a Frontend section"
+    frontend = " ".join(template.split("\n## Frontend\n", 1)[1].split("\n## ", 1)[0].split())
+    for phrase in ("only for frontend work", "one bullet per user-facing flow"):
+        assert phrase in frontend, f"the Frontend section lacks {phrase!r}"
+    record = template.split("## Readiness\n", 1)[1].split("```", 1)[0]
+    assert "user-visible AC-N names an e2e test" in record, "the readiness record lacks the e2e item"
+    criteria = " ".join((PLUGIN_ROOT / "skills" / "spec" / "references" / "acceptance-criteria.md").read_text().split())
+    assert "A user-visible Then names its e2e test." in criteria
+
+
+def test_setup_records_an_e2e_entry_naming_playwright_in_the_stacks_flavour():
+    reference = (PLUGIN_ROOT / "skills" / "setup" / "references" / "testing.md").read_text()
+    assert "\n## E2E\n" in reference, "testing.md's template lacks an E2E section"
+    e2e = reference.split("\n## E2E\n", 1)[1].split("\n## ", 1)[0].split("````", 1)[0]
+    entry = [line.split(":", 1)[0] for line in e2e.splitlines() if line.startswith("- ")]
+    assert entry == ["- Tool", "- Tests", "- Start app", "- Baselines"]
+    detection = " ".join(reference.split("## Template for docs/agents/testing.md", 1)[0].split())
+    for flavour in ("`pytest-playwright`", "`@playwright/test`"):
+        assert flavour in detection, f"setup's e2e detection doesn't recommend {flavour}"
+    step6 = " ".join((PLUGIN_ROOT / "skills" / "setup" / "SKILL.md").read_text().split())
+    assert "E2E entry" in step6.split("**Test convention, gates, and the run.**", 1)[1].split("**Observability.**")[0]
+
+
+def test_the_first_frontend_slice_installs_a_missing_e2e_tool_and_gates_its_run():
+    text = " ".join((PLUGIN_ROOT / "skills" / "slice" / "SKILL.md").read_text().split())
+    step3 = text.split("**Cut tracer bullets.**", 1)[1].split("**Write each issue**")[0]
     for phrase in (
-        "stop only for the list",
-        "resuming loads implement again, which starts a new run",
-        "or the rest of the run is unguarded",
-        "keeping to the list is still on you",
+        "`## Frontend` section",
+        "has no E2E entry",
+        "not in the project's dependencies",
+        "the first frontend issue adds it",
+        "fills the E2E entry",
+        "its run as a gate in `docs/agents/testing.md`",
     ):
-        assert phrase in text, f"stop-guard.md lost {phrase!r}"
-    step9 = " ".join((PLUGIN_ROOT / "skills" / "implement" / "SKILL.md").read_text().split())
-    assert "(references/stop-guard.md)" in step9.split("**Decide, log, proceed.**", 1)[1].split("**Close out.**")[0]
+        assert phrase in step3, f"slice's step 3 lacks {phrase!r}"
+
+
+def verify_step(title):
+    text = " ".join((PLUGIN_ROOT / "skills" / "verify" / "SKILL.md").read_text().split())
+    assert f"**{title}**" in text, f"verify has no {title!r} step"
+    return re.split(r" \d+\. \*\*| ## ", text.split(f"**{title}**", 1)[1], maxsplit=1)[0]
+
+
+def verify_frontend_reference():
+    reference = PLUGIN_ROOT / "skills" / "verify" / "references" / "frontend.md"
+    assert reference.exists(), "verify has no frontend reference"
+    return " ".join(reference.read_text().split())
+
+
+@pytest.mark.parametrize(
+    ("step", "phrases"),
+    [
+        pytest.param(
+            "Map every acceptance criterion to a passing test.",
+            ["a user-visible AC-N needs a passing e2e test that drives the running app", "naming the AC-N"],
+            id="ac-12-user-visible-ac-needs-an-e2e-test",
+        ),
+        pytest.param(
+            "Prove frontend work in the running app.",
+            ["(references/frontend.md)", "screenshot each changed screen", "what it shows against its AC-N"],
+            id="ac-13-changed-screens-are-screenshotted-and-read",
+        ),
+        pytest.param(
+            "Prove frontend work in the running app.",
+            ["pixel comparison only against baselines that already exist", "never creating one"],
+            id="ac-15-ac-16-pixel-comparison-only-against-existing-baselines",
+        ),
+        pytest.param(
+            "Prove frontend work in the running app.",
+            ["undeclared frontend change", "apply this step and step 5's e2e rule", "as a ruling when unattended"],
+            id="ac-17-undeclared-ui-changes-are-flagged",
+        ),
+        pytest.param(
+            "Prove frontend work in the running app.",
+            ["rerun a failing e2e test once", "list it under Risk and file an issue", "fails verify, naming the test"],
+            id="ac-20-ac-21-one-rerun-sorts-flaky-from-failing",
+        ),
+        pytest.param(
+            "Run the verify command, and any gate it leaves out, fresh.",
+            ["An e2e test is the exception: it gets one rerun"],
+            id="first-failure-stop-spares-the-e2e-rerun",
+        ),
+        pytest.param(
+            "Find the gates.",
+            ["E2E entry", "`## Frontend` section"],
+            id="reads-the-e2e-entry-and-the-frontend-section",
+        ),
+        pytest.param(
+            "Report the evidence.",
+            ["the Screenshots list (AC-N, raw URL on the screenshots branch", "the Flaky list"],
+            id="report-lists-screenshots-and-flaky-tests",
+        ),
+    ],
+)
+def test_verify_proves_frontend_work_with_e2e_tests_and_screenshots(step, phrases):
+    body = verify_step(step)
+    for phrase in phrases:
+        assert phrase in body, f"verify's {step!r} step lacks {phrase!r}"
+
+
+@pytest.mark.parametrize(
+    "phrases",
+    [
+        pytest.param(["`Tool: none`", "every user-visible AC-N is unmet"], id="ac-12-no-e2e-tool-fails-the-ac"),
+        pytest.param(
+            ["`screenshots/<feature branch>`", "`<issue id>/<AC-N>-<screen>.png`", "never merged"],
+            id="ac-13-screenshots-branch",
+        ),
+        pytest.param(["--update-snapshots=none", "git status --porcelain"], id="ac-16-no-baseline-reaches-the-branch"),
+        pytest.param(["What counts as UI files", ".tsx", "templates"], id="ac-17-ui-files-are-listed"),
+        pytest.param(["--last-failed", "--lf", "Flaky e2e test:"], id="ac-20-ac-21-rerun-only-the-failures"),
+        pytest.param(["--retries=0", "retries=0", "the one rerun above is the only one"], id="ac-21-no-tool-retries"),
+    ],
+)
+def test_verify_frontend_reference_says_how(phrases):
+    text = verify_frontend_reference()
+    for phrase in phrases:
+        assert phrase in text, f"verify's frontend reference lacks {phrase!r}"
+
+
+@pytest.mark.parametrize(
+    ("step", "phrase"),
+    [
+        ("Orient.", "Read [references/run-contract.md](references/run-contract.md) now"),
+        ("Orient.", "before anything that can stop the run, print the contract's Stops block"),
+        ("Close out.", "load `compost:finish` now"),
+        ("Close out.", "posts the PR body (on the issue file for a local tracker)"),
+        (
+            "Set up the feature branch.",
+            "Committing, pushing this branch, and the draft PR need no one's OK; merging the PR does",
+        ),
+    ],
+    ids=[
+        "reads-the-contract",
+        "prints-before-stopping",
+        "loads-finish",
+        "finish-posts-the-body",
+        "commit-and-push-need-no-ok",
+    ],
+)
+def test_implement_reads_the_contract_first_and_ends_by_loading_finish(step, phrase):
+    text = " ".join((PLUGIN_ROOT / "skills" / "implement" / "SKILL.md").read_text().split())
+    body = re.split(r" \d+\. \*\*|For a run that outlives", text.split(f"**{step}**", 1)[1], maxsplit=1)[0]
+    assert phrase in body, f"implement's {step!r} step lacks {phrase!r}"
+
+
+def test_finish_puts_verifys_screenshots_under_validation_and_flaky_tests_under_risk():
+    body = (PLUGIN_ROOT / "skills" / "finish" / "references" / "pr-body.md").read_text()
+    validation = " ".join(body.split("## Validation", 1)[1].split("## Risk", 1)[0].split())
+    risk = " ".join(body.split("## Risk", 1)[1].split("```", 1)[0].split())
+    assert "Screenshots:" in validation and "raw URL" in validation and "AC-N" in validation
+    assert "Flaky:" in risk and "filed issue" in risk
+    step5 = " ".join((PLUGIN_ROOT / "skills" / "finish" / "SKILL.md").read_text().split())
+    step5 = step5.split("**Open or update the pull request.**", 1)[1].split("Local green proves the branch")[0]
+    assert "Screenshots list" in step5 and "Flaky list" in step5, "finish step 5 doesn't carry verify's lists"
 
 
 def test_every_skill_and_agent_reading_the_tracker_doc_falls_back_to_setups_fork_check():

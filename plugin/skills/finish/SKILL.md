@@ -20,7 +20,7 @@ yours to do without asking.
    incomplete on an axis. Every `compost:review`
    finding is fixed or answered on the issue with a `file:line` reason. `compost:verify` ran on
    the current HEAD: read its stamp rather than your memory of the run, with
-   `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/stamp.py show HEAD`. It prints the summary verify's step 9
+   `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/stamp.py show HEAD`. It prints the summary verify's step 10
    wrote on this SHA, or `none`. `none` means verify never said done on this commit, or commits
    landed after it did: run `compost:verify` again first.
 
@@ -78,10 +78,11 @@ yours to do without asking.
 
    Open a draft PR against the target, or update the open one. The body has five sections: Goal, Decisions, Changes, Validation,
    Risk. Decisions summarizes the rulings posted as issue comments. Validation carries
-   `compost:verify`'s evidence and the merge-result run. Risk calls the change a one-way or
-   two-way door with its blast radius, names whatever is unproven, deferred, or excluded
-   from coverage, and lists every gate change `compost:verify` found (an edit the branch makes
-   to its own checks) with its ruling. End the body with a `Closes` line for the issue, or for
+   `compost:verify`'s evidence, verify's Screenshots list as images, and the merge-result run.
+   Risk calls the change a one-way or two-way door with its blast radius, names whatever is
+   unproven, deferred, or excluded from coverage, carries verify's Flaky list, and lists every
+   gate change `compost:verify` found (an edit the branch makes to its own checks) with its
+   ruling. End the body with a `Closes` line for the issue, or for
    the parent and every sub-issue (`Closes #12, closes #13, closes #14`), keeping any the PR
    already has; leave out `ready-for-human` sub-issues and any another session holds
    (`compost:implement` step 2's taken), and the parent while any of those is open. Use the
@@ -137,7 +138,7 @@ yours to do without asking.
      If the merge stops on conflicts, the target moved after step 4: `git merge --abort`,
      `git switch "$branch"`, and go back to step 4. Otherwise run the suite on the result. If it
      is red, `git switch "$branch"` and stop with the branch and worktree in place and nothing
-     pushed. If it is green, stamp the merge commit with that run, as verify's step 9 does
+     pushed. If it is green, stamp the merge commit with that run, as verify's step 10 does
      (`stamp.py write --json '{"gates": "<green>/<run>", "merge_of": "<branch head>"}'`), so the
      verify gate passes it, then `git push origin HEAD:<target>` and push the notes as in step 5. A rejected push also means the
      target moved: `git switch "$branch"` and go back to step 4. Then close the issue, or the

@@ -1,6 +1,6 @@
 # Benchmarks
 
-Depth for performance claims in `compost:diagnose` step 6 and `compost:verify` step 6. A benchmark
+Depth for performance claims in `compost:diagnose` step 6 and `compost:verify` step 7. A benchmark
 produces a number; this checklist decides whether the number means what you think.
 
 ## Before you run anything

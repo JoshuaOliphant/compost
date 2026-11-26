@@ -75,6 +75,23 @@ when it works. Keep it to the features a change is likely to touch, ten rows at 
 
 Run the smoke command once. Record it as passing, or as broken with its first error.
 
+## Finding the e2e tool
+
+The e2e tool drives the running app the way a user does. Take the first rung that matches:
+
+1. **Adopt the tool in use:** `@playwright/test` in `package.json` or a `playwright.config.*`,
+   `pytest-playwright` in the Python dependencies, Cypress with a `cypress.config.*`. Record where
+   its tests live and the directory its screenshot comparisons keep baselines in, if any.
+2. **None installed, and the repo renders pages or components** (a web framework, server templates,
+   a frontend package): record Playwright in the stack's flavour, `pytest-playwright` for a Python
+   repo and `@playwright/test` for a JavaScript or TypeScript one, with the test location its
+   convention uses (`tests/e2e/`, `e2e/`) and `Baselines: none`. Don't install it: the first
+   frontend issue `compost:slice` cuts adds it.
+3. **Nothing rendered:** `Tool: none`.
+
+For the start command, take the one the repo already uses to serve the app: a package script
+(`npm run dev`), a Procfile or task-runner target, or the README's.
+
 ## Template for docs/agents/testing.md
 
 ````markdown
@@ -135,9 +152,17 @@ unprotected behavior, equivalent, or excluded. The exclusions above apply to mut
 Run: the <tool> steps in compost's mutation reference, from `<directory>`, through
 `<uv run | npx | cargo>`, with config `<path>`. Covers `<paths>`; other code gets
 only `compost:build`'s walk by hand.
+
+## E2E
+
+- Tool: <@playwright/test | pytest-playwright | cypress | ... | none>
+- Tests: <path or glob>
+- Start app: <command>
+- Baselines: <path | none>
 ````
 
 Delete rows for gates the repo doesn't have. With nothing to run, keep `## Run` with its `none`
 line and no feature map, so the next run of setup knows it was decided. Keep the Exclusions list, empty at first, so later
 agreements have a place to go. With no mutation tool, keep the section with `Tool: none` so
-`compost:verify` and `compost:build` know to walk the mutations by hand.
+`compost:verify` and `compost:build` know to walk the mutations by hand. With no e2e tool, keep the
+E2E entry with `Tool: none`.

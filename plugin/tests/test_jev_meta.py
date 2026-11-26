@@ -260,11 +260,23 @@ def test_rulings_lint_lists_flags_strongest_first_with_a_short_excerpt(monkeypat
 
 def test_gather_stop_needs_a_message_and_keeps_its_end(monkeypatch):
     monkeypatch.setattr(meta, "MESSAGE_CHARS", 8)
-    assert meta.gather_stop({"message": "  report... Which one?  "}) == {"message": "ich one?"}
+    assert meta.gather_stop({"message": "  report... Which one?  "}) == {"message": "ich one?", "contract_stops": []}
+    assert meta.gather_stop({"message": "Which one?", "contract_stops": ["picking the payment provider"]}) == {
+        "message": "ich one?",
+        "contract_stops": ["picking the payment provider"],
+    }
     with pytest.raises(BadInput, match="missing message"):
         meta.gather_stop({})
     with pytest.raises(BadInput, match="`message` is empty"):
         meta.gather_stop({"message": "   "})
+
+
+@pytest.mark.parametrize(
+    "contract_stops", ["picking the payment provider", ["picking the payment provider", 3]], ids=["string", "not text"]
+)
+def test_gather_stop_takes_contract_stops_only_as_a_list_of_text(contract_stops):
+    with pytest.raises(BadInput, match="`contract_stops` must be a list of strings"):
+        meta.gather_stop({"message": "Which one?", "contract_stops": contract_stops})
 
 
 @pytest.mark.parametrize(
@@ -274,11 +286,13 @@ def test_gather_stop_needs_a_message_and_keeps_its_end(monkeypatch):
 )
 def test_stop_guard_blocks_a_wait_outside_the_allowed_stops(waits, allowed, block):
     jev = StubJev(lambda tool, state, questions: {"waits": noul(waits), "allowed": noul(allowed)})
-    result = asyncio.run(meta.stop_guard(jev, {"message": "Which library do you prefer?"}))
+    contract_stops = [meta.IRREVERSIBLE_STOPS[0], "picking the payment provider", "picking the payment provider"]
+    gathered = {"message": "Which library do you prefer?", "contract_stops": contract_stops}
+    result = asyncio.run(meta.stop_guard(jev, gathered))
     assert result == {"block": block, "score": round(waits * (1 - allowed), 3), "waits": waits, "allowed": allowed}
     tool, state, _ = jev.calls[0]
     assert (tool, state["allowed_stops"], state["message"]) == (
         "stop-guard",
-        meta.ALLOWED_STOPS,
+        [*meta.ALLOWED_STOPS, "picking the payment provider"],
         "Which library do you prefer?",
     )

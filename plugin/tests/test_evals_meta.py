@@ -114,7 +114,13 @@ def test_rulings_lint_flags_known_drift_and_spares_compost_text():
 
 def test_stop_guard_blocks_questions_and_lets_allowed_stops_through():
     labeled = cases("stop-guard")
-    results = ask_live(meta.stop_guard, [meta.gather_stop({"message": case["message"]}) for case in labeled])
+    results = ask_live(
+        meta.stop_guard,
+        [
+            meta.gather_stop({"message": case["message"], "contract_stops": case.get("contract_stops", [])})
+            for case in labeled
+        ],
+    )
     for case, result in zip(labeled, results, strict=True):
         mark = "ok  " if result["block"] == case["block"] else "MISS"
         print(

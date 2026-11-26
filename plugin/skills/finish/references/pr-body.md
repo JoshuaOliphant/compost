@@ -34,6 +34,8 @@ seeing. Pick the smallest view that makes the key point clear.>
   |---|---|---|
   | AC-1 | `tests/test_x.py::test_name[case-id]` | pass |
 
+- Screenshots: <frontend work only, from verify's Screenshots list: per changed screen, the AC-N,
+  its raw URL on the `screenshots/<branch>` branch as an image, and what it shows; else "None.">
 - Safety fact: <the one fact the change is safe because of>. Reached <rung>: <proof summary,
   or the script to re-run>.
 
@@ -42,6 +44,7 @@ seeing. Pick the smallest view that makes the key point clear.>
 - Door: <one-way or two-way>; blast radius: <what this change can break, and for whom>.
 - <Anything unproven, with the rung it reached.>
 - <Anything deferred, with the issue that tracks it.>
+- Flaky: <each e2e test from verify's Flaky list that passed only on its rerun, with its filed issue.>
 - <Coverage exclusions proposed and why the lines earn no test.>
 - Gate drift: <each `gate_drift.py` gate change as kind, path, detail, with its ruling, and any base gate
   that failed on this branch>, or "None: the branch edits none of its own checks."

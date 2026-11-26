@@ -1,0 +1,14 @@
+{
+  "turn_ends": 1,
+  "waits_on_user": 1,
+  "waits_naming_a_stop": 0,
+  "permission_denials": 0,
+  "contract_stops": [],
+  "waits": [
+    {
+      "message": "Setup is done and committed as `chore: configure agent skills` (607f281). Nothing was pushed, and no remote or GitHub repo was created.\n\n**What it recorded**\n- **Issue tracker:** local markdown under `.scratch/`, with a note in `docs/agents/issue-tracker.md` that the repo stays local.\n- **Domain docs:** single context. `CONTEXT.md` and `docs/adr/` don't exist yet; `compost:spec` creates them when a term or decision settles.\n- **Core docs:** the defaults, plus `.scratch/**`. `doc_refs.py scan` found only `README.md`, so `compost:prune` has nothing to do yet.\n- **Tests and gates:** Playwright Test in `tests/`. `npm test` passed, and it is the only gate. There is no linter, type checker, CI or coverage tool, so no coverage gate exists yet.\n- **Mutation:** none, so mutations get walked by hand. StrykerJS is the default if you want it added.\n- **Observability:** none, because the app is static with no server or telemetry.\n- **Instructions file:** I created `AGENTS.md` with the `## Agent skills` block. There was no `CLAUDE.md` at the repo root or in any parent directory. I picked `AGENTS.md` without asking, since it was the recommended choice and the file is new. After the next session starts, look for the `AGENTS.md loaded` line.\n- **Review guide:** there is no `REVIEW.md`, so review uses compost's defaults. I didn't write one because I couldn't ask. Say so if you want it.\n\n**Jev:** it reports ready (`jev-latest`), so the Jev tools will answer.\n\n**Not changed, needs your yes (step 10)**\n- Skills to switch off in `~/.claude/settings.json`: `wait-what` and `read-the-damn-docs`.\n- Plugins whose marketplace no longer lists them, which `--apply` would uninstall. This can't be undone:\n  - `agent-skills`\n  - `autoloop`\n  - `autonomous-sdlc`\n  - `jev-lint`\n  - `review-diff`\n  - `shopify`\n  - `stick-shift`\n- Those two are separate yeses. I can also run `--apply --keep-orphans`, which turns off the skills but keeps the orphaned plugins.\n\nIn manual permission mode, `/compost:review-changes` will ask for permission on every run. Pick \"Yes, and don't ask again\", or add `Workflow(compost:review-changes)` to your allow rules.\n\nNext moves: `compost:spec` for a feature, or add a coverage gate if you want one.",
+      "waits": 0.79,
+      "allowed": 0.13
+    }
+  ]
+}

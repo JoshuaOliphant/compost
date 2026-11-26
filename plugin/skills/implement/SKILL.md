@@ -31,6 +31,8 @@ the work so each step can be checked before the next builds on it
    comment on them: an architectural parent (`**Class:** architectural`) with no approval comment
    stops for approval, unless the ask that started this run said to build it; earlier rulings
    bind you, and a `compost:pause` status comment means you are resuming from its next action.
+   Read [references/run-contract.md](references/run-contract.md) now: before anything that can stop
+   the run, print the contract's Stops block and check its prerequisites.
    Read `CONTEXT.md` and the ADRs in `docs/adr/` for the issues' areas; `git log` and
    `git worktree list` show what already landed.
 
@@ -83,8 +85,8 @@ the work so each step can be checked before the next builds on it
    - **Several independent issues or lanes:** a lane earns a subagent when its work outweighs the
      handoff: a brief, a worktree, a merge, and a report to read. Lanes that are each a short edit
      (a doc fix, a config value) don't; work them yourself, in order. Spawn the rest, one subagent per lane in a single message, so the lanes run in
-     parallel, each with `isolation: "worktree"` and in the background, without asking. A lane of
-     one issue is just that issue; a worker with a longer lane works its issues in order. In a
+     parallel, each with `isolation: "worktree"` and in the background, without asking. A worker
+     works its lane's issues in order. In a
      lane-routing run every lane spawns, whatever its size. With agent teams enabled
      (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), spawn named teammates; one can't take
      `isolation`, so its brief makes the worktree.
@@ -126,8 +128,8 @@ the work so each step can be checked before the next builds on it
    `/compost:review-changes` workflow through subagents; you never wait to be asked. Scope it to
    the one issue: for an issue landed by a merge, pass `base` as `<merge>^1`, `head` as
    `<merge>^2`, and `issue` as its number; for one built in this session, pass `base` as the parent of
-   its first commit and `head` as its last. No issue skips review for being small: the workflow
-   gives a small diff its light path (one reviewer on both axes), the cheap option.
+   its first commit and `head` as its last. No issue skips review for being small; a small
+   diff gets the workflow's light path.
    Take its findings through the reception protocol there: check each against the code, fix what
    holds, and rule on what doesn't.
    - Fix findings where the work was done: resume the worker that built the issue with the findings
@@ -167,7 +169,8 @@ the work so each step can be checked before the next builds on it
    write one in `docs/adr/` only on `offer_adr` ([jev](../spec/references/jev.md)). Exit 3 means Jev
    is unavailable: apply the three tests in [domain docs](../spec/references/domain-docs.md) yourself.
 
-   A wrong ruling costs a review comment; a stalled run costs the user's day. Stop only for:
+   A wrong ruling costs a review comment; a stalled run costs the user's day. Stop only for the run
+   contract's Stops (step 1), which always hold:
    - merging to the repository's default branch;
    - a force-push or a history rewrite on a shared branch;
    - a deploy or release, including one flagged for the user's approval;
@@ -179,13 +182,12 @@ the work so each step can be checked before the next builds on it
    - starting a Claude Code workflow the agent wrote itself, since one can spawn dozens of agents
      (the plugin's own `/compost:review-changes` needs no ask). When a job fits
      [codify the orchestration](../../canon/codify-the-orchestration.md), propose it in a ruling
-     comment and carry on without it.
+     comment and carry on without it;
+   - a prerequisite only a person can supply that is missing or unconfirmed.
 
-   Keeping to this list is on you: compost's Stop hook only nudges.
-   [references/stop-guard.md](references/stop-guard.md) says when it is on and how the run ends.
+   compost's Stop hook only nudges; [references/stop-guard.md](references/stop-guard.md) says how.
 
-   When the run repeats a mistake (a command that needs a flag, a fixture that lies, a service that
-   must be up), record it with `compound-knowledge:compound-capture` if installed, else on the
+   When the run repeats a mistake, record it with `compound-knowledge:compound-capture` if installed, else on the
    parent issue. A note is the lowest level of fix: when a check could catch the mistake, file an
    issue for that check ([make mistakes impossible](../../canon/make-mistakes-impossible.md)).
 
@@ -193,13 +195,13 @@ the work so each step can be checked before the next builds on it
     `ready-for-human`, review the whole feature branch with `compost:review` (base the merge-base
     with the default branch, head the feature head): step 6 read each issue alone. Fix what holds
     in one pass, with no re-review, and post the rest as rulings. Then run `compost:verify` on
-    the whole feature branch, push, and hand off through `compost:finish`, whose recap is Goal,
+    the whole feature branch, push, and load `compost:finish` now, whose recap is Goal,
     Decisions, Changes, Validation, Risk. The Decisions section lists every ruling comment, each with
-    its cost if wrong. A lane-routing run lists its per-lane records in Validation. Without a
-    PR, report the feature branch by name, since no PR link points to it, and leave the parent
-    open: `compost:finish` closes it once the branch merges. Clean up worker worktrees whose
-    branches are merged into the feature branch, and delete the issue branches step 4 pushed from the remote
-    (`git push origin --delete <issue>-<slug>`).
+    its cost if wrong. A lane-routing run lists its per-lane records in Validation. Leave the
+    parent open: `compost:finish` posts the PR body (on the issue file for a local tracker) and
+    closes it once the branch merges. Clean up worker worktrees whose
+    branches are merged into the feature branch, and delete from the remote the issue branches
+    step 4 pushed.
 
 For a run that outlives the session, `compost:pause` writes the checkpoint and resuming starts at
 step 1.

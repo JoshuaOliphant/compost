@@ -23,7 +23,7 @@ The tracker is the only plan. No markdown plan files, no second task list.
    terms in every title and body. If there is no spec, or it still has open questions, go back to
    `compost:spec` first. If the parent says `**Class:** architectural` and carries no approval comment,
    and the request that started this work didn't say to build it, stop and ask for approval
-   (`compost:spec` step 10); an unapproved architectural spec is not ready to slice. If the compound-knowledge plugin is installed, use
+   (`compost:spec` step 11); an unapproved architectural spec is not ready to slice. If the compound-knowledge plugin is installed, use
    `compound-knowledge:compound-retrieve` on the area the spec touches before cutting slices, so
    known gotchas shape each issue's Files and its blocking edges. Without the plugin, skip this step
    and say nothing about it.
@@ -39,7 +39,11 @@ The tracker is the only plan. No markdown plan files, no second task list.
    needs (schema, logic, interface, tests) and is demoable or verifiable alone. Give every AC-N
    from the spec to exactly one issue; a criterion split across two issues is verified by neither.
    Order issues so each lands green on its own
-   ([sequence verifiable units](../../canon/sequence-verifiable-units.md)).
+   ([sequence verifiable units](../../canon/sequence-verifiable-units.md)). When the parent has a
+   `## Frontend` section and `docs/agents/testing.md` has no E2E entry, records `none`, or records a
+   tool not in the project's dependencies, the first frontend issue adds it (the recorded tool, else
+   the one [setup's e2e rungs](../setup/references/testing.md) pick), fills the E2E entry, and adds
+   its run as a gate in `docs/agents/testing.md`.
 
    A wide refactor is the exception: one mechanical change whose blast radius spans the codebase
    (renaming a column, retyping a shared symbol) can't land as a vertical slice. Sequence it as
