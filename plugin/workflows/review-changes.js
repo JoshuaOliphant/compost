@@ -733,7 +733,6 @@ async function settleAxis(review, axis) {
   const skipOutNote = skippedOut.length ? `, ${skippedOut.length} in skipped files dropped` : ''
   const routed = routePreExisting(review.findings.filter(finding => !skippedOut.includes(finding)))
   const { preExisting } = routed
-  const preExistingNote = preExisting.length ? `, ${preExisting.length} pre-existing` : ''
   // On a re-review, a finding at a line nobody touched since the last round was that round's to raise; a Spec
   // finding that names an AC-N stays, since Spec maps every AC-N across the whole branch every round.
   const namesAc = finding => axis.name === 'Spec' && specAcs.some(ac => ac.named.test(String(finding.claim)))
@@ -753,6 +752,10 @@ async function settleAxis(review, axis) {
   const withVerdict = verdict => judged.filter(j => j.verdict === verdict)
   const unjudged = withVerdict('unjudged')
   if (unjudged.length > 0) log(`${axis.name}: ${unjudged.length} findings have no skeptic verdict`)
+  // Counted after the skeptics, so a bug one routes to preExisting shows in the status beside the reviewer's own.
+  const bySkeptic = withVerdict('preExisting')
+  const allPreExisting = preExisting.length + bySkeptic.length
+  const preExistingNote = allPreExisting ? `, ${allPreExisting} pre-existing${bySkeptic.length ? ` (${bySkeptic.length} by skeptic)` : ''}` : ''
   return {
     axis: axis.name,
     status: unchecked
@@ -767,7 +770,7 @@ async function settleAxis(review, axis) {
     ],
     refuted: withVerdict('refuted').map(j => ({ ...j.finding, refutedBecause: j.reasons, failedVotes: j.failed })),
     unjudged: unjudged.map(j => ({ ...j.finding, reasons: j.reasons, failedVotes: j.failed })),
-    preExisting: [...preExisting, ...withVerdict('preExisting').map(j => ({ ...j.finding, preExistingBecause: j.reasons }))],
+    preExisting: [...preExisting, ...bySkeptic.map(j => ({ ...j.finding, preExistingBecause: j.reasons }))],
     listed: kept.map(listingKey),
   }
 }
@@ -805,12 +808,17 @@ const results = light ? await reviewLight() : await pipeline(AXES, reviewOne, se
 const [standards, spec] = results.map((result, i) => result || failedAxis(AXES[i].name, 'the review stage threw'))
 
 // A real defect the spec doesn't ask for is a Standards finding, not a Spec one: it moves over and keeps its verdict.
+// One that Standards already holds at the same file:line is the same defect twice, so only the Standards copy stays.
 const outsideSpec = spec.survivors.filter(finding => finding.outsideSpec)
 if (outsideSpec.length) {
+  const atLine = finding => `${finding.file}:${finding.line}`
+  const held = new Set(standards.survivors.map(atLine))
+  const moved = outsideSpec.filter(finding => !held.has(atLine(finding)))
   spec.survivors = spec.survivors.filter(finding => !finding.outsideSpec)
-  standards.survivors = [...standards.survivors, ...outsideSpec.map(finding => ({ ...finding, movedFrom: 'Spec' }))]
-  standards.listed = [...(standards.listed || []), ...outsideSpec.map(listingKey)]
-  spec.status += `, ${outsideSpec.length} outside the spec moved to Standards`
+  standards.survivors = [...standards.survivors, ...moved.map(finding => ({ ...finding, movedFrom: 'Spec' }))]
+  standards.listed = [...(standards.listed || []), ...moved.map(listingKey)]
+  const folded = outsideSpec.length - moved.length
+  spec.status += `, ${outsideSpec.length} outside the spec moved to Standards${folded ? ` (${folded} already there)` : ''}`
 }
 
 // The guide's minor cap holds for the whole review: Standards' minors first, each axis in the order its reviewer

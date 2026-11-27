@@ -574,6 +574,7 @@ test('a defect the skeptic says this diff did not introduce is pre-existing only
   const { result } = await run({}, reviewers({ scope: { ...SCOPE, changed }, standards: { findings: [BLOCKER, outside], checked: STANDARDS_CHECKED }, skeptic: old }))
   assert.deepEqual(result.standards.preExisting.map(f => [f.line, f.preExistingBecause]), [[40, ['there since 1a2b3c4']]])
   assert.deepEqual(result.standards.survivors.map(f => f.line), [12], 'at a changed line it stays the diff\'s')
+  assert.match(result.standards.status, /, 1 pre-existing \(1 by skeptic\)/)
 })
 
 test('a real Spec defect the spec does not ask for moves to the Standards axis', async () => {
@@ -583,6 +584,9 @@ test('a real Spec defect the spec does not ask for moves to the Standards axis',
   assert.deepEqual(result.spec.survivors, [])
   assert.deepEqual(result.standards.survivors.map(f => [f.claim, f.movedFrom]), [['export is not atomic', 'Spec']])
   assert.match(result.spec.status, /1 outside the spec moved to Standards/)
+  const twice = await run({ issue: 7 }, reviewers({ standards: { findings: [{ ...specFinding, claim: 'write is not atomic' }], checked: STANDARDS_CHECKED }, spec: { findings: [specFinding], checked: SPEC_CHECKED }, skeptic }))
+  assert.deepEqual(twice.result.standards.survivors.map(f => f.claim), ['write is not atomic'], 'one already at that file:line folds in')
+  assert.match(twice.result.spec.status, /1 outside the spec moved to Standards \(1 already there\)/)
   const standardsOnly = await run({}, reviewers({ skeptic: { ...UPHELD, outsideSpec: true } }))
   assert.equal(standardsOnly.result.standards.survivors[0].outsideSpec, undefined, 'only a Spec finding can be outside the spec')
 })
