@@ -38,7 +38,7 @@ name = "mattpocock"
 repo = "mattpocock/skills"
 role = "input"
 license = "MIT"
-pin = "abeeaf95660ba9e8b7c753eb38f441ca707a8823"
+pin = "6f7f7831a625f040a8e06a0e7954826b87ce775a"
 
 [source.feeds]
 "skills/engineering/to-spec" = ["spec"]
@@ -85,7 +85,7 @@ name = "pstack"
 repo = "cursor/plugins"
 role = "input"
 license = "MIT"
-pin = "792440e8a560a4a3f63748cdee70491ecd412982"
+pin = "b7b93c36be9bcc36a74db438e0fd385d660bc559"
 
 [source.feeds]
 "pstack/skills/blast-radius" = ["verify"]
@@ -105,6 +105,9 @@ pin = "792440e8a560a4a3f63748cdee70491ecd412982"
 "pstack/skills/arena" = ["fan-out"]
 "pstack/skills/swarm" = ["fan-out"]
 "pstack/skills/correct" = ["review", "canon"]
+"pstack/skills/ketchup" = ["ketchup"]
+"pstack/skills/reframe" = ["reframe"]
+"pstack/skills/automate-me" = ["automate-me"]
 
 [[source]]
 name = "blueprint"
@@ -141,7 +144,7 @@ name = "code-guardian"
 repo = "imbue-ai/code-guardian"
 role = "reference"
 license = "none published"
-pin = "2c8df4794928e59fe1766eeea188b11d7573a025"
+pin = "9a01d29befb9af5278c75bf0590e55cb385ac3bb"
 note = "No license, so compost takes only ideas, written independently: verify-architecture's (judge approach fit from the problem alone) in skills/review/references/approach-fit.md, and its cheap-check-first Stop hook in scripts/stop_guard.py (OLI-78)."
 
 [[source]]
@@ -164,7 +167,7 @@ name = "swyx-skills"
 repo = "swyxio/skills"
 role = "input"
 license = "MIT"
-pin = "cbf8d25809b73c723dd0c0d22df50997b13de1fa"
+pin = "0d3e9b4a08e8898c979ab12a800b26cc84cbf1bb"
 note = "make-evals fed diagnose's agent-eval rung and skill-drift's eval case (OLI-15). skill-cutter's acceptance-force classes are an adapt candidate against skill-drift, not yet filed. The rest are covered by review, thin, spec, and retro, or specific to swyx's tooling."
 
 [source.feeds]
