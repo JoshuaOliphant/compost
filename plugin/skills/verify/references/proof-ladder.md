@@ -47,7 +47,7 @@ says the code is wrong, and these say the check never reached it. Neither goes b
   delete it, or say what reaches it. Unattended, post it as a ruling and list it under Risk. If every
   check for what the issue asked for passed, the change is verified.
 - **`could_not_boot`**: the app, or a service the check needs, won't start: a missing credential,
-  env var, or database. No code change repairs a credential. Record the evidence (the command and
+  env var, or database. A check that ran out of ideas twice lands here too (below). No code change repairs a credential. Record the evidence (the command and
   its error), mark the check unverified, and report it as such; it counts below rung 4, so the fact
   it was proving is unproven.
 
@@ -57,8 +57,8 @@ start is `could_not_boot`.
 
 A check that only ran out of ideas (the state exists but you found no way in) is never
 `unreachable`. Give it one more attempt with a sharper brief: what you tried, and where the state is
-written. If that fails too, report it as unproven with both attempts, the same way as
-`could_not_boot`; never a third try. `unreachable` needs
+written. If that fails too, record it as `could_not_boot`, with both attempts as its evidence;
+never a third try. `unreachable` needs
 evidence that nothing creates the state: the callers or writers you searched, each at a `file:line`.
 
 ## Where grep stops
