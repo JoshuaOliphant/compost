@@ -317,7 +317,10 @@ def test_the_readiness_check_is_short_for_bounded_work_and_full_for_architectura
                 "Neither goes back to `compost:build`, and neither gets a fix loop",
                 "delete it, or say what reaches it",
                 "mark the check unverified",
-                "is `could_not_boot`, never `unreachable`",
+                "is never `unreachable`",
+                "one more attempt with a sharper brief",
+                "never a third try",
+                "stays unmet",
             ],
         ),
     ],
@@ -333,7 +336,13 @@ def test_spec_and_verify_link_the_early_critique_and_the_outcomes_of_a_check_tha
     assert "rework ladder" in ask and "(references/early-critique.md)" in ask
     mapping = step_text("verify", "Map every acceptance criterion to a passing test.")
     assert "`unreachable` or `could_not_boot`" in mapping and "(references/proof-ladder.md)" in mapping
-    assert "never sent to build" in mapping
+    assert "never sent to build" in mapping and "a skip written into the test stays unmet" in mapping
+    report = step_text("verify", "Report the evidence.")
+    assert "`unreachable` or `could_not_boot`" in report and "(references/stamp.md)" in report
+    next_moves = " ".join((PLUGIN_ROOT / "skills" / "verify" / "SKILL.md").read_text().split()).split("## Next moves")[1]
+    assert "`compost:build` when an AC is unmet (an `unreachable` or `could_not_boot` one goes to the user)" in next_moves
+    stamp = " ".join((PLUGIN_ROOT / "skills" / "verify" / "references" / "stamp.md").read_text().split())
+    assert '"6/7, 1 unreachable"' in stamp and "never go back to `compost:build`" in stamp
 
 
 def step_text(skill, step):

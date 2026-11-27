@@ -51,8 +51,14 @@ says the code is wrong, and these say the check never reached it. Neither goes b
   its error), mark the check unverified, and report it as such; it counts below rung 4, so the fact
   it was proving is unproven.
 
-A check that only ran out of ideas (the state exists but you found no way in) is
-`could_not_boot`, never `unreachable`: write it a sharper brief and try again. `unreachable` needs
+A test skipped by a `skip`, `skipif` or `xfail` written into it is not either of these: it stays
+unmet, as step 5 says. A test that ran and failed because the app or a service it needs would not
+start is `could_not_boot`.
+
+A check that only ran out of ideas (the state exists but you found no way in) is never
+`unreachable`. Give it one more attempt with a sharper brief: what you tried, and where the state is
+written. If that fails too, report it as unproven with both attempts, the same way as
+`could_not_boot`; never a third try. `unreachable` needs
 evidence that nothing creates the state: the callers or writers you searched, each at a `file:line`.
 
 ## Where grep stops

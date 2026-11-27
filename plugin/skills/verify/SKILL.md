@@ -105,7 +105,7 @@ command can: judge whether it ran what changed, and prove the fact the change is
    post a second. A criterion with no test is unmet, with no judgment call. So is one
    whose test was skipped, deselected, or marked xfail in this run, because a test that did not
    run proves nothing; one that can't run is `unreachable` or `could_not_boot`
-   ([proof ladder](references/proof-ladder.md)), never sent to build. A passing test can still miss its criterion, so ask Jev whether each
+   ([proof ladder](references/proof-ladder.md)), never sent to build; a skip written into the test stays unmet. A passing test can still miss its criterion, so ask Jev whether each
    test asserts its Then: run `ac-exercised` with the table ([jev](references/jev.md)) and read
    every criterion in `to_read` against its test. One whose test never checks the Then is unmet.
    Exit 3, or a suite in a language Jev's test tools do not read (any but Python, JS/TS, Go,
@@ -196,22 +196,19 @@ command can: judge whether it ran what changed, and prove the fact the change is
     Jev whether the output you captured backs each claim: run `claim-backed` with every claim
     and its command's output ([jev](references/jev.md)), and fix or drop each one in `unbacked`.
     Exit 3: reread each output against its claim yourself. Say "done" only
-    when every row is met and every gate is green. Otherwise state the actual status.
+    when every gate is green and every row is met, or is `unreachable` or `could_not_boot` and
+    put to the user ([stamp](references/stamp.md)). Otherwise state the actual status.
     When you say "done", and never otherwise, stamp the commit you verified for `compost:finish`
-    and the verify gate:
+    and the verify gate (fields, and how they record those two outcomes: [stamp](references/stamp.md)):
 
     ```bash
     uv run ${CLAUDE_PLUGIN_ROOT}/scripts/stamp.py write --json \
       '{"gates": "4/4", "ac": "7/7", "mutants": "41/45", "rung": "e2e"}'
     ```
 
-    Fields: gates green/run, AC met/total, mutants killed/run (or `null`),
-    step 7's rung. It stamps HEAD (or `--rev`) as a note under `refs/notes/compost-verify`;
-    `stamp.py show <rev>` and `log <range>` read stamps.
-
 ## Next moves
 
-- `compost:review` when every gate is green and every AC is met.
-- `compost:build` when an AC is unmet, or a coverage gap or a surviving mutant is real behavior.
+- `compost:review` when verify said "done".
+- `compost:build` when an AC is unmet (an `unreachable` or `could_not_boot` one goes to the user), or a coverage gap or a surviving mutant is real behavior.
 - `compost:diagnose` when a gate fails and the cause is not plain.
 - `compost:finish` when review findings are addressed and this run is on the final commit.
