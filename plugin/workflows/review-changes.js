@@ -212,9 +212,16 @@ function lightFindingsSchema(axisNames) {
 
 const VERDICT_SCHEMA = {
   type: 'object',
-  required: ['refuted', 'reason'],
+  required: ['verdict', 'introduced', 'severity', 'reason'],
   properties: {
-    refuted: { type: 'boolean' },
+    verdict: {
+      enum: ['uphold', 'refute', 'unsure'],
+      description: 'refute only when you showed at a file:line that the code does not behave as claimed, or the finding is a linter nit, an ask nobody needs, or one this prompt says is refuted; unsure when you could not tell whether the defect is real',
+    },
+    introduced: { type: 'boolean', description: 'false when the defect was already there before this diff' },
+    severity: { enum: ['blocker', 'major', 'minor'], description: 'The severity the defect deserves; never above the reviewer\'s' },
+    correction: { type: 'string', description: 'When the cited rule or AC-N is missing or misquoted: what the citation should be, or that none applies' },
+    outsideSpec: { type: 'boolean', description: 'Spec findings only: true when the defect is real but the spec does not ask for it' },
     reason: { type: 'string', description: 'What you checked, with file:line, and what it showed' },
   },
 }
@@ -498,7 +505,7 @@ Finding (${finding.severity}) at ${location}:
 Claim: ${finding.claim}
 Evidence: ${finding.evidence}
 
-Read the code it cites and what that depends on, and check that the rule (as the base has it) or AC-N exists and says what is claimed and that nothing elsewhere (a test, a caller, a later hunk) already answers it; a nit a configured linter owns, or an ask for something nobody uses, is refuted. Set refuted to true unless you confirmed the finding yourself against the code. When you are uncertain, it is refuted.`
+Read the code it cites and what that depends on, and check that the rule (as the base has it) or AC-N exists and says what is claimed and that nothing elsewhere (a test, a caller, a later hunk) already answers it; a nit a configured linter owns, or an ask for something nobody uses, is refuted. Otherwise refute only when you show at a file:line that the code does not behave as claimed. A missing or misquoted rule, an overstated severity, a spec that does not mention the defect, or doubt that a defect in code that ships will bite are not grounds to refute: uphold it and give the correction, the severity it deserves, or outsideSpec. Say whether this diff introduced the defect. When you can't tell whether it is real, say unsure.`
 }
 
 async function judge(axis, finding, index, elsewhere) {
@@ -513,15 +520,36 @@ async function judge(axis, finding, index, elsewhere) {
     ),
   )
   const cast = votes.filter(Boolean)
-  const upheld = cast.filter(v => !v.refuted).length
-  let verdict = 'refuted'
-  if (cast.length === 0) verdict = 'unjudged'
-  else if (upheld * 2 > cast.length) verdict = 'survived'
+  const failed = votes.length - cast.length
+  const reasons = cast.map(v => v.reason)
+  if (cast.length === 0) return { finding, verdict: 'unjudged', failed, reasons }
+  const upholders = cast.filter(v => v.verdict !== 'refute')
+  if (upholders.length * 2 <= cast.length) return { finding, verdict: 'refuted', failed, reasons }
+  const most = test => upholders.filter(test).length * 2 > upholders.length
+  // As with a reviewer's pre-existing grade, the claim is believed only where the diff provably left the line alone.
+  if (most(v => v.introduced === false) && placedOutsideDiff(finding)) return { finding, verdict: 'preExisting', failed, reasons }
+  return { finding: settleFinding(axis, finding, upholders, most), verdict: 'survived', failed, reasons }
+}
+
+const SEVERITIES = ['blocker', 'major', 'minor']
+
+// A skeptic can lower a finding's severity or correct its citation, never raise it: the most severe deserved
+// severity among the upholding votes wins, capped at the reviewer's. When most upholders can't tell, it drops to minor.
+function settleFinding(axis, finding, upholders, most) {
+  const reviewerRank = Math.max(0, SEVERITIES.indexOf(finding.severity))
+  const ranks = upholders.map(v => SEVERITIES.indexOf(v.severity)).filter(rank => rank >= 0)
+  let rank = Math.max(reviewerRank, ranks.length ? Math.min(...ranks) : reviewerRank)
+  const unsure = most(v => v.verdict === 'unsure')
+  if (unsure) rank = SEVERITIES.length - 1
+  const severity = SEVERITIES[rank]
+  const correction = upholders.map(v => v.correction).find(Boolean)
   return {
-    finding,
-    verdict,
-    failed: votes.length - cast.length,
-    reasons: cast.map(v => v.reason),
+    ...finding,
+    severity,
+    ...(severity !== finding.severity ? { reviewerSeverity: finding.severity } : {}),
+    ...(unsure ? { unsure: true } : {}),
+    ...(correction ? { correction } : {}),
+    ...(axis.name === 'Spec' && most(v => v.outsideSpec === true) ? { outsideSpec: true } : {}),
   }
 }
 
@@ -738,7 +766,7 @@ async function settleAxis(review, axis) {
     ],
     refuted: withVerdict('refuted').map(j => ({ ...j.finding, refutedBecause: j.reasons, failedVotes: j.failed })),
     unjudged: unjudged.map(j => ({ ...j.finding, reasons: j.reasons, failedVotes: j.failed })),
-    preExisting,
+    preExisting: [...preExisting, ...withVerdict('preExisting').map(j => ({ ...j.finding, preExistingBecause: j.reasons }))],
     listed: kept.map(listingKey),
   }
 }
@@ -775,14 +803,24 @@ const results = light ? await reviewLight() : await pipeline(AXES, reviewOne, se
 
 const [standards, spec] = results.map((result, i) => result || failedAxis(AXES[i].name, 'the review stage threw'))
 
+// A real defect the spec doesn't ask for is a Standards finding, not a Spec one: it moves over and keeps its verdict.
+const outsideSpec = spec.survivors.filter(finding => finding.outsideSpec)
+if (outsideSpec.length) {
+  spec.survivors = spec.survivors.filter(finding => !finding.outsideSpec)
+  standards.survivors = [...standards.survivors, ...outsideSpec.map(finding => ({ ...finding, movedFrom: 'Spec' }))]
+  standards.listed = [...(standards.listed || []), ...outsideSpec.map(listingKey)]
+  spec.status += `, ${outsideSpec.length} outside the spec moved to Standards`
+}
+
 // The guide's minor cap holds for the whole review: Standards' minors first, each axis in the order its reviewer
-// listed them. Unjudged minors count too, since the caller treats them as survivors.
+// listed them. Unjudged minors count too, since the caller treats them as survivors. A finding a skeptic lowered to
+// minor is exempt: the reviewer graded it higher, and the cap is for the reviewer's own small findings.
 let minorBudget = minorCap
 let minorsCut = 0
 for (const axisResult of [standards, spec]) {
   const listed = axisResult.listed || []
   const minors = [...axisResult.survivors, ...axisResult.unjudged]
-    .filter(finding => finding.severity === 'minor')
+    .filter(finding => finding.severity === 'minor' && !finding.reviewerSeverity)
     .sort((a, b) => listed.indexOf(listingKey(a)) - listed.indexOf(listingKey(b)))
   const cut = minors.slice(minorBudget)
   minorBudget = Math.max(0, minorBudget - minors.length)
