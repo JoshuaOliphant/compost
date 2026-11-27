@@ -35,7 +35,9 @@ fact is unproven. Say so in the report and in the PR's Risk section.
 
 ## When a check can't run
 
-Some checks never get a verdict on the code. Two outcomes say why, and neither is `failed`: *failed*
+Some checks never get a verdict on the code, wherever verify runs them: an AC-N's test (step 5),
+the app an e2e test needs (step 6), or a rung of this ladder (step 7). Two outcomes say why, and
+neither is `failed`: *failed*
 says the code is wrong, and these say the check never reached it. Neither goes back to
 `compost:build`, and neither gets a fix loop.
 

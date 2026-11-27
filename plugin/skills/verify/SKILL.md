@@ -32,7 +32,7 @@ command can: judge whether it ran what changed, and prove the fact the change is
    target that runs every gate in order, fails when a gate measures nothing, and checks every
    issue's AC table against this run.
 
-   Record it in `testing.md` as the gate and commit both, so the next session finds it.
+   Record it in `testing.md` as the gate and commit both.
 
    A branch must not judge itself with checks it rewrote: read the gates at the base too
    (`git show <base>:docs/agents/testing.md`, likewise the threshold, verify command and CI
@@ -48,8 +48,7 @@ command can: judge whether it ran what changed, and prove the fact the change is
    (implement, a worker), post them as one ruling comment and continue; `compost:finish` lists
    them under Risk.
 
-2. **Run the verify command, and any gate it leaves out, fresh.** Run them in this worktree now,
-   not earlier and not somewhere else. After a gate change, run the base's gates on this tree too;
+2. **Run the verify command, and any gate it leaves out, fresh.** Run them in this worktree now. After a gate change, run the base's gates on this tree too;
    one failing fails the run, and only the user can accept that. Read each exit code and the whole output. Stop at the first
    failure and read its log before touching anything else: the first failing log carries the
    information, and later failures are often its echoes. An e2e test is the exception: it gets one
@@ -105,7 +104,8 @@ command can: judge whether it ran what changed, and prove the fact the change is
    `compost:build` posted on the issue (AC-N to node id); it is the only one, so edit it, never
    post a second. A criterion with no test is unmet, with no judgment call. So is one
    whose test was skipped, deselected, or marked xfail in this run, because a test that did not
-   run proves nothing. A passing test can still miss its criterion, so ask Jev whether each
+   run proves nothing; one that can't run is `unreachable` or `could_not_boot`
+   ([proof ladder](references/proof-ladder.md)), never sent to build. A passing test can still miss its criterion, so ask Jev whether each
    test asserts its Then: run `ac-exercised` with the table ([jev](references/jev.md)) and read
    every criterion in `to_read` against its test. One whose test never checks the Then is unmet.
    Exit 3, or a suite in a language Jev's test tools do not read (any but Python, JS/TS, Go,
@@ -146,8 +146,8 @@ command can: judge whether it ran what changed, and prove the fact the change is
    4. Ran: a script or test calls the real code and fails loudly if the fact is false.
    5. Reproduced live: the running app shows it. Run the `## Run` smoke command from
       `docs/agents/testing.md` (at the changed path, if it takes one); use the bundled `/run`
-      only when `## Run` is missing or `none`. The bundled `/verify` does the same but only the
-      user can run it; suggest it when they want to see it themselves.
+      only when `## Run` is missing or `none`. The bundled `/verify` is the user's to run;
+      suggest it when they want to see it themselves.
 
    Report the `## Run` feature-map rows the change touches, each with its result.
 
@@ -159,8 +159,7 @@ command can: judge whether it ran what changed, and prove the fact the change is
 
    Look where grep stops: the library's own source, JSON a service returns, a database column, a
    feature flag, another program reading the same bytes. Report the rung you reached. Below
-   "ran", call the fact unproven. See [the proof ladder](references/proof-ladder.md) for examples,
-   and a check that can't run: `unreachable` or `could_not_boot`.
+   "ran", call the fact unproven. See [the proof ladder](references/proof-ladder.md) for examples.
    When the fact is a performance claim, run
    [the benchmark checklist](../diagnose/references/benchmarks.md) and report its verdict.
 

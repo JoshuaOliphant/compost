@@ -331,8 +331,9 @@ def test_early_critique_defaults_to_veto_and_checks_that_cannot_run_say_how(path
 def test_spec_and_verify_link_the_early_critique_and_the_outcomes_of_a_check_that_cannot_run():
     ask = step_text("spec", "Ask in rounds until no open decisions remain.")
     assert "rework ladder" in ask and "(references/early-critique.md)" in ask
-    proof = step_text("verify", "Prove the one fact the change is safe because of.")
-    assert "`unreachable` or `could_not_boot`" in proof and "(references/proof-ladder.md)" in proof
+    mapping = step_text("verify", "Map every acceptance criterion to a passing test.")
+    assert "`unreachable` or `could_not_boot`" in mapping and "(references/proof-ladder.md)" in mapping
+    assert "never sent to build" in mapping
 
 
 def step_text(skill, step):
