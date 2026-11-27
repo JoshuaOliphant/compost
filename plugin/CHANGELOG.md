@@ -2,6 +2,12 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.57.0] - 2026-11-27
+
+### Changed
+
+- A review skeptic refutes a finding only when it shows at a `file:line` that the code doesn't behave as claimed (or the finding is a linter nit, an ask nobody needs, or an unreachable state). A real defect with a misquoted rule, an overstated severity, or a spec that doesn't mention it is upheld instead: the skeptic's verdict is `uphold`, `refute` or `unsure`, with the severity the defect deserves, a citation `correction`, whether this diff `introduced` it, and for Spec findings `outsideSpec`. The workflow keeps a lower severity (never a higher one; `reviewerSeverity` records the original), keeps the correction, sends a defect the diff didn't introduce at an untouched line to `preExisting`, moves a real defect outside the spec to the Standards axis, and keeps an unsure finding as a minor. A finding a skeptic lowered to minor is exempt from the minor cap. "When you are uncertain, it is refuted" is gone. In the review-recall eval the old rule refuted 3 of 13 real bugs (OLI-133, OLI-153).
+
 ## [0.56.0] - 2026-11-27
 
 ### Changed

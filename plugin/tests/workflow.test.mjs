@@ -21,6 +21,8 @@ const BLOCKER = { file: 'app/export.py', line: 12, severity: 'blocker', claim: '
 const MINOR = { file: 'app/export.py', line: 3, severity: 'minor', claim: 'name drifts from CONTEXT.md', evidence: 'CONTEXT.md: Reading list' }
 const STANDARDS_CHECKED = [{ item: 'CLAUDE.md: escape every export', at: 'app/export.py:12' }]
 const SPEC_CHECKED = [{ item: 'AC-1 met by test_export_csv', at: 'tests/test_export.py:8' }]
+const UPHELD = { verdict: 'uphold', introduced: true, severity: 'blocker', reason: 'confirmed' }
+const REFUTED = { verdict: 'refute', introduced: true, severity: 'blocker', reason: 'app/export.py:12 escapes it' }
 
 async function run(args, answer) {
   const prompts = {}
@@ -47,7 +49,7 @@ async function run(args, answer) {
   return { result, prompts, schemas, agentTypes }
 }
 
-function reviewers({ standards = { findings: [BLOCKER, MINOR], checked: STANDARDS_CHECKED }, spec = { findings: [], checked: SPEC_CHECKED }, light = { findings: [], checked: { Standards: STANDARDS_CHECKED, Spec: SPEC_CHECKED } }, skeptic = { refuted: false, reason: 'confirmed' }, scope = SCOPE } = {}) {
+function reviewers({ standards = { findings: [BLOCKER, MINOR], checked: STANDARDS_CHECKED }, spec = { findings: [], checked: SPEC_CHECKED }, light = { findings: [], checked: { Standards: STANDARDS_CHECKED, Spec: SPEC_CHECKED } }, skeptic = UPHELD, scope = SCOPE } = {}) {
   return label => {
     if (label === 'scope') return scope
     if (label === 'Standards reviewer') return typeof standards === 'function' ? standards() : standards
@@ -519,12 +521,74 @@ test('a blocker whose every skeptic failed is unjudged, not refuted', async () =
 })
 
 test('with three skeptics, a failed vote does not count and a split among the rest refutes', async () => {
-  const votes = { '1': null, '2': { refuted: false, reason: 'holds' }, '3': { refuted: true, reason: 'tested elsewhere' } }
+  const votes = { '1': null, '2': { ...UPHELD, reason: 'holds' }, '3': { ...REFUTED, reason: 'tested elsewhere' } }
   const skeptic = label => votes[label.split('.').pop()]
   const { result } = await run({ skeptics: 3 }, reviewers({ skeptic }))
   assert.equal(result.standards.refuted.length, 1)
   assert.equal(result.standards.refuted[0].failedVotes, 1)
   assert.deepEqual(result.standards.refuted[0].refutedBecause, ['holds', 'tested elsewhere'])
+})
+
+test('a skeptic refutes a finding only by showing the code does not behave as claimed', async () => {
+  const { result, schemas, prompts } = await run({}, reviewers({ skeptic: REFUTED }))
+  assert.deepEqual(result.standards.refuted.map(f => [f.line, f.refutedBecause]), [[12, ['app/export.py:12 escapes it']]])
+  assert.deepEqual(schemas['Standards skeptic 1.1'].properties.verdict.enum, ['uphold', 'refute', 'unsure'])
+  assert.match(prompts['Standards skeptic 1.1'], /refute only when you show at a file:line that the code does not behave as claimed/)
+  assert.match(prompts['Standards skeptic 1.1'], /an ask for new handling of a state \(a null, an error, a race\) that neither the evidence nor your own search finds a caller or input to produce, is refuted/)
+  assert.match(prompts['Standards skeptic 1.1'], /A missing or misquoted rule, an overstated severity, a spec that does not mention the defect, or doubt that a defect in code that ships will bite are not grounds to refute/)
+  assert.doesNotMatch(prompts['Standards skeptic 1.1'], /When you are uncertain, it is refuted/)
+})
+
+test('an upheld finding takes the lower severity a skeptic gives, never a higher one', async () => {
+  const lowered = await run({}, reviewers({ skeptic: { ...UPHELD, severity: 'minor' } }))
+  assert.deepEqual(lowered.result.standards.survivors.map(f => [f.line, f.severity, f.reviewerSeverity]), [[12, 'minor', 'blocker'], [3, 'minor', undefined]])
+  const capped = await run({}, reviewers({ skeptic: { ...UPHELD, severity: 'minor' }, scope: { ...SCOPE, guide: { source: 'REVIEW.md', minorCap: 0 } } }))
+  assert.deepEqual(capped.result.standards.survivors.map(f => f.line), [12], 'a lowered finding is exempt from the minor cap')
+  const major = { ...BLOCKER, severity: 'major' }
+  const raised = await run({}, reviewers({ standards: { findings: [major], checked: STANDARDS_CHECKED }, skeptic: UPHELD }))
+  assert.deepEqual(raised.result.standards.survivors.map(f => [f.severity, f.reviewerSeverity]), [['major', undefined]])
+  const votes = { '1': { ...UPHELD, severity: 'minor' }, '2': { ...UPHELD, severity: 'major' }, '3': { ...UPHELD, severity: 'minor' } }
+  const split = await run({ skeptics: 3 }, reviewers({ skeptic: label => votes[label.split('.').pop()] }))
+  assert.equal(split.result.standards.survivors[0].severity, 'major', 'the most severe upholding vote wins')
+  const mixed = { '1': { ...UPHELD, severity: 'minor' }, '2': { ...UPHELD, verdict: 'unsure', severity: 'blocker' }, '3': { ...UPHELD, severity: 'minor' } }
+  const withUnsure = await run({ skeptics: 3 }, reviewers({ skeptic: label => mixed[label.split('.').pop()] }))
+  assert.equal(withUnsure.result.standards.survivors[0].severity, 'minor', 'an unsure vote cannot block a downgrade')
+})
+
+test('a finding whose skeptic cannot tell survives as a minor marked unsure', async () => {
+  const { result } = await run({}, reviewers({ skeptic: { ...UPHELD, verdict: 'unsure' } }))
+  assert.deepEqual(result.standards.refuted, [])
+  assert.deepEqual([result.standards.survivors[0].severity, result.standards.survivors[0].unsure], ['minor', true])
+})
+
+test('a real defect with a wrong citation survives with the skeptic\'s correction', async () => {
+  const { result } = await run({}, reviewers({ skeptic: { ...UPHELD, correction: 'REVIEW.md says nothing on escaping; canon: validate at the boundary' } }))
+  assert.equal(result.standards.survivors[0].correction, 'REVIEW.md says nothing on escaping; canon: validate at the boundary')
+  assert.equal(result.standards.survivors[0].severity, 'blocker')
+})
+
+test('a defect the skeptic says this diff did not introduce is pre-existing only at a line the diff left alone', async () => {
+  const changed = [{ file: 'app/export.py', lines: [[10, 14]] }]
+  const outside = { ...BLOCKER, line: 40 }
+  const old = { ...UPHELD, introduced: false, reason: 'there since 1a2b3c4' }
+  const { result } = await run({}, reviewers({ scope: { ...SCOPE, changed }, standards: { findings: [BLOCKER, outside], checked: STANDARDS_CHECKED }, skeptic: old }))
+  assert.deepEqual(result.standards.preExisting.map(f => [f.line, f.preExistingBecause]), [[40, ['there since 1a2b3c4']]])
+  assert.deepEqual(result.standards.survivors.map(f => f.line), [12], 'at a changed line it stays the diff\'s')
+  assert.match(result.standards.status, /, 1 pre-existing \(1 by skeptic\)/)
+})
+
+test('a real Spec defect the spec does not ask for moves to the Standards axis', async () => {
+  const specFinding = { ...BLOCKER, line: 30, claim: 'export is not atomic' }
+  const skeptic = label => (label.startsWith('Spec') ? { ...UPHELD, outsideSpec: true } : UPHELD)
+  const { result } = await run({ issue: 7 }, reviewers({ standards: { findings: [], checked: STANDARDS_CHECKED }, spec: { findings: [specFinding], checked: SPEC_CHECKED }, skeptic }))
+  assert.deepEqual(result.spec.survivors, [])
+  assert.deepEqual(result.standards.survivors.map(f => [f.claim, f.movedFrom]), [['export is not atomic', 'Spec']])
+  assert.match(result.spec.status, /1 outside the spec moved to Standards/)
+  const twice = await run({ issue: 7 }, reviewers({ standards: { findings: [{ ...specFinding, claim: 'write is not atomic' }], checked: STANDARDS_CHECKED }, spec: { findings: [specFinding], checked: SPEC_CHECKED }, skeptic }))
+  assert.deepEqual(twice.result.standards.survivors.map(f => f.claim), ['write is not atomic'], 'one already at that file:line folds in')
+  assert.match(twice.result.spec.status, /1 outside the spec moved to Standards \(1 already there\)/)
+  const standardsOnly = await run({}, reviewers({ skeptic: { ...UPHELD, outsideSpec: true } }))
+  assert.equal(standardsOnly.result.standards.survivors[0].outsideSpec, undefined, 'only a Spec finding can be outside the spec')
 })
 
 test('a reviewer that returns nothing or throws marks its axis and the review incomplete', async () => {
