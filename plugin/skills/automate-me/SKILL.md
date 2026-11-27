@@ -31,7 +31,7 @@ a task-specific skill needs no mining: write it with `skill-creator` when instal
    `-home-me-my-app`). A name over 200 characters keeps its first 200 and gains `-` and a hash.
    List the directory rather than building the name: pick the entry equal to the sanitized cwd,
    or, when that is over 200 characters, the entry that is its first 200 followed by `-` and a
-   hash. A shorter prefix is a parent project, not this one. Ask the user when none fits.
+   hash. A shorter prefix is a parent project, not this one. Ask the user when none or more than one fits.
    Read only this project's directory: another project's transcripts are other work, often
    private, and the user did not offer them. Split the last two to four weeks into three slices and
    spawn one subagent per slice in a single message, each told its slice's file list and the
