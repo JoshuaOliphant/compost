@@ -505,7 +505,7 @@ Finding (${finding.severity}) at ${location}:
 Claim: ${finding.claim}
 Evidence: ${finding.evidence}
 
-Read the code it cites and what that depends on, and check that the rule (as the base has it) or AC-N exists and says what is claimed and that nothing elsewhere (a test, a caller, a later hunk) already answers it; a nit a configured linter owns, or an ask for something nobody uses, is refuted. Otherwise refute only when you show at a file:line that the code does not behave as claimed. A missing or misquoted rule, an overstated severity, a spec that does not mention the defect, or doubt that a defect in code that ships will bite are not grounds to refute: uphold it and give the correction, the severity it deserves, or outsideSpec. Say whether this diff introduced the defect. When you can't tell whether it is real, say unsure.`
+Read the code it cites and what that depends on, and check that the rule (as the base has it) or AC-N exists and says what is claimed and that nothing elsewhere (a test, a caller, a later hunk) already answers it; a nit a configured linter owns, an ask for something nobody uses, or an ask for new handling of a state (a null, an error, a race) that neither the evidence nor your own search finds a caller or input to produce, is refuted. Otherwise refute only when you show at a file:line that the code does not behave as claimed. A missing or misquoted rule, an overstated severity, a spec that does not mention the defect, or doubt that a defect in code that ships will bite are not grounds to refute: uphold it and give the correction, the severity it deserves, or outsideSpec. Say whether this diff introduced the defect. When you can't tell whether it is real, say unsure.`
 }
 
 async function judge(axis, finding, index, elsewhere) {
@@ -537,7 +537,8 @@ const SEVERITIES = ['blocker', 'major', 'minor']
 // severity among the upholding votes wins, capped at the reviewer's. When most upholders can't tell, it drops to minor.
 function settleFinding(axis, finding, upholders, most) {
   const reviewerRank = Math.max(0, SEVERITIES.indexOf(finding.severity))
-  const ranks = upholders.map(v => SEVERITIES.indexOf(v.severity)).filter(rank => rank >= 0)
+  // Only a vote that upholds the defect says what it deserves; an unsure vote only counts toward the drop to minor.
+  const ranks = upholders.filter(v => v.verdict === 'uphold').map(v => SEVERITIES.indexOf(v.severity)).filter(rank => rank >= 0)
   let rank = Math.max(reviewerRank, ranks.length ? Math.min(...ranks) : reviewerRank)
   const unsure = most(v => v.verdict === 'unsure')
   if (unsure) rank = SEVERITIES.length - 1

@@ -534,6 +534,7 @@ test('a skeptic refutes a finding only by showing the code does not behave as cl
   assert.deepEqual(result.standards.refuted.map(f => [f.line, f.refutedBecause]), [[12, ['app/export.py:12 escapes it']]])
   assert.deepEqual(schemas['Standards skeptic 1.1'].properties.verdict.enum, ['uphold', 'refute', 'unsure'])
   assert.match(prompts['Standards skeptic 1.1'], /refute only when you show at a file:line that the code does not behave as claimed/)
+  assert.match(prompts['Standards skeptic 1.1'], /an ask for new handling of a state \(a null, an error, a race\) that neither the evidence nor your own search finds a caller or input to produce, is refuted/)
   assert.match(prompts['Standards skeptic 1.1'], /A missing or misquoted rule, an overstated severity, a spec that does not mention the defect, or doubt that a defect in code that ships will bite are not grounds to refute/)
   assert.doesNotMatch(prompts['Standards skeptic 1.1'], /When you are uncertain, it is refuted/)
 })
@@ -549,6 +550,9 @@ test('an upheld finding takes the lower severity a skeptic gives, never a higher
   const votes = { '1': { ...UPHELD, severity: 'minor' }, '2': { ...UPHELD, severity: 'major' }, '3': { ...UPHELD, severity: 'minor' } }
   const split = await run({ skeptics: 3 }, reviewers({ skeptic: label => votes[label.split('.').pop()] }))
   assert.equal(split.result.standards.survivors[0].severity, 'major', 'the most severe upholding vote wins')
+  const mixed = { '1': { ...UPHELD, severity: 'minor' }, '2': { ...UPHELD, verdict: 'unsure', severity: 'blocker' }, '3': { ...UPHELD, severity: 'minor' } }
+  const withUnsure = await run({ skeptics: 3 }, reviewers({ skeptic: label => mixed[label.split('.').pop()] }))
+  assert.equal(withUnsure.result.standards.survivors[0].severity, 'minor', 'an unsure vote cannot block a downgrade')
 })
 
 test('a finding whose skeptic cannot tell survives as a minor marked unsure', async () => {

@@ -65,6 +65,22 @@ def test_skill_frontmatter_names_its_directory_and_says_when_to_use_it(skill_dir
     assert len(fields["description"]) <= 1024
 
 
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "Otherwise refute only when you show at a file:line that the code does not behave as claimed.",
+        "the rule or AC-N it cites is missing or misquoted: give the `correction`",
+        "its severity is overstated: give the `severity` it deserves (never higher than the reviewer's)",
+        "the spec does not mention the defect: set `outsideSpec` (Spec findings)",
+        "the verdict is `unsure`; the finding survives as a minor",
+    ],
+)
+def test_skeptic_upholds_a_real_defect_instead_of_refuting_it(phrase):
+    body = " ".join((PLUGIN_ROOT / "agents" / "skeptic.md").read_text().split())
+    assert phrase in body
+    assert "When you are uncertain, it is refuted" not in body
+
+
 @pytest.mark.parametrize("agent", ["scope", "skeptic"])
 def test_workflow_helper_agents_are_lean(agent):
     fields = file_frontmatter(PLUGIN_ROOT / "agents" / f"{agent}.md")
