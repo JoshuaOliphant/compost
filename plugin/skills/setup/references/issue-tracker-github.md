@@ -65,7 +65,8 @@ Used by `compost:finish`. `{owner}/{repo}` fills in as above; `<n>` is the pull 
 - **Rerun failed jobs:** `gh api -X POST repos/{owner}/{repo}/actions/runs/<run id>/rerun-failed-jobs`,
   the run id from `gh api repos/{owner}/{repo}/actions/jobs/<check run id> --jq .run_id`.
 - **Review threads:** `gh api --paginate repos/{owner}/{repo}/pulls/<n>/comments --jq '.[] | {id, in_reply_to_id, user: .user.login, path, line, body}'`
-  and `gh api --paginate repos/{owner}/{repo}/pulls/<n>/reviews --jq '.[] | {user: .user.login, state, body}'`.
+  and `gh api --paginate repos/{owner}/{repo}/pulls/<n>/reviews --jq '.[] | {user: .user.login, state, body}'`,
+  plus the PR's conversation, `gh api --paginate repos/{owner}/{repo}/issues/<n>/comments --jq '.[] | {user: .user.login, created_at, body}'`.
   REST can't see whether a thread is resolved, so a thread is open until it has a reply that
   settles it.
 - **Reply to a thread:** `gh api repos/{owner}/{repo}/pulls/<n>/comments/<id>/replies -f body=...`.

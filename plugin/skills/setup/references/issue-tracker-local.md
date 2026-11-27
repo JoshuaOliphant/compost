@@ -28,7 +28,7 @@ Specs, slices, and maps for this repo live as markdown files under `.scratch/`.
 | Ready for human | `ready-for-human` | A slice that needs a person (credentials, a manual step) |
 
 Specs, maps, and decisions are told apart by their file names and locations below, so they need no
-label.
+label. Any other label, such as `review-rule`, goes on a `Labels:` line under the status.
 
 ## Records
 

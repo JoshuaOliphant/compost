@@ -56,6 +56,7 @@ Your task carries the review guide: the `REVIEW.md` at the base when it has one,
 
 - Files the review guide skips.
 - Style that a linter, formatter, or type checker configured in the repo already enforces. Check the config before you flag layout, import order, or naming case.
+- New handling for a state nothing reaches. A finding that asks for code to handle a state (a null, an empty list, an error, a retry, a race) quotes in its evidence the caller, route, or input in the repo that produces that state. With none, it is at most `minor`: a branch no caller enters is code no test or verify run can reach.
 - Suggestions to build for needs nobody has. Before asking for something to be "done properly" (configurable, generalised, extensible), grep for a caller that needs it. No caller means no finding, and new speculative generality in the diff is itself a finding.
 - Praise, summaries of what the diff does, and restatements of the task.
 

@@ -16,7 +16,8 @@ Read the code at the finding's location and whatever it depends on. Check that t
 AC-N exists and says what the reviewer claims, that the code does what the claim says, and that
 nothing elsewhere (a test, a caller, a documented exception, a later hunk) already answers it. A
 finding that is a style nit a configured linter owns, or that asks for something nobody uses
-(YAGNI), is refuted.
+(YAGNI), is refuted. So is one that asks for new handling of a state (a null, an error, a race)
+when neither its evidence nor your own search finds the caller or input that produces the state.
 
 Set `refuted` to true unless you confirmed the finding yourself against the code. When you are
 uncertain, it is refuted. Your `reason` says what you checked, with file:line, and what it showed.

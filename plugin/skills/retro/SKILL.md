@@ -45,7 +45,9 @@ fixing files nothing and says so in one line.
    - **Automated checks:** the agent made a mistake a lint rule, type check, test, or hook could
      have caught. A repo whose lint, type check, and tests run in neither a pre-commit hook nor CI
      is a finding on its own.
-   - **Coding standards:** the reviewer missed a mistake, or a standard is unclear or obsolete.
+   - **Coding standards:** the reviewer missed a mistake, or a standard is unclear or obsolete. A
+     miss is a defect a review passed that something later caught: red CI on the diff's own logic,
+     the merge result, the user, a revert, a bug filed against merged work.
      Classify it first: a mechanical one gets a check
      ([make mistakes impossible](../../canon/make-mistakes-impossible.md)); only a judgement call
      becomes a written standard. A judgement a diff shows is at stake becomes a check for
@@ -87,7 +89,15 @@ fixing files nothing and says so in one line.
    the session evidence, what step 5 found (the data that backs the cause and what the run would
    have done without it, or, with no data, that the cause is unchecked and what would settle it),
    the category, and the fix with its placement, if step 5 left one. A proposed `REVIEW.md` check
-   goes in its issue as the exact bullet; the user adds it, and an unattended run never writes it. A candidate outside the
+   goes in its issue as the exact bullet. Count it by trigger first: list the tracker's open
+   issues labelled `review-rule` and read each one's trigger. When none has the same trigger, file
+   the candidate with that label; the user adds the check. When one does, this is that check's
+   second miss: comment the new Source on that issue instead of filing, and open the check as its
+   own change, a branch off the default branch that edits only `REVIEW.md` (both Sources on the
+   bullet), pushed as a draft pull request where there is a forge. Only the user merges it, so an
+   unattended run opens it too, and never writes `REVIEW.md` on any other branch. Never add it to
+   the change that had the miss: review reads `REVIEW.md` from the base, so it judges the next
+   change, not this one. One miss can be noise; two with one trigger make a check worth its cost. A candidate outside the
    repo (the user's global `CLAUDE.md`, a personal skill, an MCP server's config) is not filed:
    write the proposed change as exact text in the report. End with one line per candidate:
    severity, category, and the issue link or proposal.
