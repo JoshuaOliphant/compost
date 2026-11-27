@@ -82,6 +82,8 @@ def test_skill_frontmatter_names_its_directory_and_says_when_to_use_it(skill_dir
         "Set `introduced` to false only when the claimed harm happens the same way at the base",
         "or adds a check that misses it; then `introduced` is true.",
         "the verdict is `unsure`; the finding survives as a minor",
+        "is not in the repo, so finding no example of it there shows nothing.",
+        "only with the file:line of a check that rejects it, or the producer's documented format that rules it out.",
     ],
 )
 def test_skeptic_refutes_a_harm_that_does_not_happen_and_grades_one_that_does(phrase):

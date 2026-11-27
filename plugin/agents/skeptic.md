@@ -34,6 +34,11 @@ Refute it when:
   for new handling of a state (a null, an error, a race) when neither its evidence nor your own
   search finds the caller or input that produces the state.
 
+An input that a person or another program produces (a hook or tool payload, a transcript, a file a
+user writes, a network response, a command someone runs) is not in the repo, so finding no example
+of it there shows nothing. Refute on such an input's absence only with the file:line of a check that
+rejects it, or the producer's documented format that rules it out.
+
 Set `harm` to what you found: `reached` when the claimed harm happens on a path you cite, `rule`
 when the claimed rule exists at the base and the code breaks it outright, `none` otherwise. A
 finding you uphold with `harm` set to `none` is refuted.

@@ -544,6 +544,7 @@ test('a skeptic refutes a finding whose code or claimed harm the repo disproves,
   assert.match(prompt, /it did not only when the claimed harm happens the same way at the base/)
   assert.match(schemas['Standards skeptic 1.1'].properties.introduced.description, /adds a check that misses it/)
   assert.match(prompt, /an ask for new handling of a state \(a null, an error, a race\) that neither the evidence nor your own search finds a caller or input to produce/)
+  assert.match(prompt, /a command someone runs\) is not in the repo, so finding no example of it there shows nothing: refute on its absence only with the file:line of a check that rejects it, or the producer's documented format that rules it out/)
   assert.match(prompt, /When the claimed harm happens, uphold it, even with a missing or misquoted rule \(give the correction\) or a spec that does not mention it \(set outsideSpec\)/)
   assert.doesNotMatch(prompt, /When you are uncertain, it is refuted/)
   assert.doesNotMatch(prompt, /doubt that a defect in code that ships will bite/)
