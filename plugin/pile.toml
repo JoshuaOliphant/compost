@@ -121,6 +121,18 @@ pin = "fb06284691c2c948aeb24c3282492f6628f93c3a"
 "skills/blueprint-generate" = ["spec"]
 
 [[source]]
+name = "ray-amjad"
+repo = "ray-amjad/skills"
+role = "input"
+license = "MIT"
+pin = "9dbbccbb2784ddb48a41ae2002659a9ff161da56"
+note = "task-lifecycle's misses-become-rules fed retro's per-pattern count, and its rule that a finding asking for new code names the path to the state fed the reviewer and skeptic (OLI-146, OLI-147). idea-to-spec and verify-round are adapt candidates for spec and verify."
+
+[source.feeds]
+"skills/task-lifecycle/references/rule-candidates.md" = ["retro", "review"]
+"skills/task-lifecycle/references/review-round.md" = ["review"]
+
+[[source]]
 name = "oliphant-plugins"
 repo = "JoshuaOliphant/claude-plugins"
 role = "frozen"

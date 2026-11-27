@@ -111,7 +111,8 @@ yours to do without asking.
      its absence there means the diff broke code it didn't touch, which makes it the diff's
      failure. Only a
      failure the diff causes gets a commit, through `compost:diagnose` when the cause isn't
-     plain, and `compost:verify` first.
+     plain, and `compost:verify` first. Review passed that code, so it is also a review miss:
+     name it under Risk, where `compost:retro` finds it.
 
    A commit here starts this reading again on the new head.
 
@@ -120,7 +121,12 @@ yours to do without asking.
    discard. Wait for the answer. A merge into an integration branch that is not the default
    branch does not need to wait; go on to step 7.
 
-7. **Merge with a merge commit, then clean up.** When told to merge:
+7. **Merge with a merge commit, then clean up.** When told to merge, first read what arrived
+   since you reported in step 6: the PR's **Review threads** and the issue's comments, newest
+   first, down to that report. The answer was given on that report, so a comment it never showed
+   can void it. A new commit on the head, or a new review thread, goes back through step 5. A
+   person's new comment that changes intent stops the merge and goes to the user with the
+   comment quoted. Nothing new, or only bot notes already triaged: merge.
    - With an open PR, mark it ready (the forge refuses to merge a draft), then merge through the
      forge with a merge commit, using the tracker doc's **Ready for review** and **Merge** commands (in a cloud session, the
      cloud variant of ready).
