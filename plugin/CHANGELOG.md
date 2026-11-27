@@ -6,10 +6,10 @@ All notable changes to the compost plugin. Format follows [Keep a Changelog](htt
 
 ### Changed
 
-- `compost:retro` counts reviewer misses by pattern (OLI-146). Before filing a proposed `REVIEW.md` check it lists the open `review-rule` issues: a new pattern is filed with that label; a pattern already open is its second miss, so retro comments the new Source there and opens the check as its own draft pull request off the default branch, never inside the change that had the miss. A miss now names its later catchers (red CI on the diff's own logic, the merge result, the user, a revert, a bug against merged work), and `compost:finish` names a CI failure the diff caused after review passed under Risk, where retro finds it.
+- `compost:retro` counts reviewer misses by trigger (OLI-146). Before filing a proposed `REVIEW.md` check it lists the open `review-rule` issues: a new trigger is filed with that label; a trigger already open is its second miss, so retro comments the new Source there and opens the check as its own draft pull request off the default branch, never inside the change that had the miss. A miss now names its later catchers (red CI on the diff's own logic, the merge result, the user, a revert, a bug against merged work), and `compost:finish` names a CI failure the diff caused after review passed under Risk, where retro finds it.
 - A review finding that asks for new handling of a state (a null, an empty list, an error, a retry, a race) must quote the caller, route, or input that produces it, or it is at most minor; the skeptic refutes one whose state nothing reaches (OLI-147).
 - `compost:finish` re-reads the PR's review threads and conversation and the issue's comments before it merges, down to its merge-decision report: a new commit or thread goes back through step 5, and a person's comment that changes intent stops the merge (OLI-148). The GitHub **Review threads** command also reads the PR's conversation comments.
-- `pile.toml` tracks ray-amjad/skills as an input (OLI-149), for the ideas above from its task-lifecycle skill; NOTICE lists it.
+- `pile.toml` tracks ray-amjad/skills as an input (OLI-149), for the miss count and the reaching-path rule above, both from its task-lifecycle skill; NOTICE lists it. The re-read before merge comes from Anthropic's "Worse Together" study, not from ray-amjad/skills.
 
 ## [0.54.1] - 2026-11-27
 

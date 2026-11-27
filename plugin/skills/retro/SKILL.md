@@ -89,15 +89,15 @@ fixing files nothing and says so in one line.
    the session evidence, what step 5 found (the data that backs the cause and what the run would
    have done without it, or, with no data, that the cause is unchecked and what would settle it),
    the category, and the fix with its placement, if step 5 left one. A proposed `REVIEW.md` check
-   goes in its issue as the exact bullet. Count it by pattern first: list the tracker's open
-   issues labelled `review-rule` and read each one's trigger. When none is the same pattern, file
-   the candidate with that label; the user adds the check. When one is, this is the pattern's
+   goes in its issue as the exact bullet. Count it by trigger first: list the tracker's open
+   issues labelled `review-rule` and read each one's trigger. When none has the same trigger, file
+   the candidate with that label; the user adds the check. When one does, this is that check's
    second miss: comment the new Source on that issue instead of filing, and open the check as its
    own change, a branch off the default branch that edits only `REVIEW.md` (both Sources on the
    bullet), pushed as a draft pull request where there is a forge. Only the user merges it, so an
    unattended run opens it too, and never writes `REVIEW.md` on any other branch. Never add it to
    the change that had the miss: review reads `REVIEW.md` from the base, so it judges the next
-   change, not this one. One miss can be noise; two of a kind is a check worth its cost. A candidate outside the
+   change, not this one. One miss can be noise; two with one trigger make a check worth its cost. A candidate outside the
    repo (the user's global `CLAUDE.md`, a personal skill, an MCP server's config) is not filed:
    write the proposed change as exact text in the report. End with one line per candidate:
    severity, category, and the issue link or proposal.

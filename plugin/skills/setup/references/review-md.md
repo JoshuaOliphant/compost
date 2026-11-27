@@ -50,7 +50,7 @@ The review's scope agent reads each trigger against the diff and the result list
 at a `file:line`, or the Standards axis fails. Checks come from misses: `compost:diagnose` after a
 root cause, `compost:retro`, and `compost:review` on a survivor no lint rule could catch each
 propose one with its Source; a person adds it, and an unattended run only proposes it in a
-ruling. `compost:retro` keeps one `review-rule` issue per pattern, and a pattern's second miss
+ruling. `compost:retro` keeps one `review-rule` issue per trigger, and a trigger's second miss
 opens the check as its own draft pull request. A check that is now mechanical becomes a lint rule or test instead, and `compost:prune`
 removes checks whose trigger names code that is gone.
 
