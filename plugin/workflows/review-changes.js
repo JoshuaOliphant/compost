@@ -212,14 +212,19 @@ function lightFindingsSchema(axisNames) {
 
 const VERDICT_SCHEMA = {
   type: 'object',
-  required: ['verdict', 'introduced', 'severity', 'reason'],
+  required: ['verdict', 'harm', 'introduced', 'severity', 'reason'],
   properties: {
     verdict: {
       enum: ['uphold', 'refute', 'unsure'],
-      description: 'refute only when you showed at a file:line that the code does not behave as claimed, or the finding is a linter nit, an ask nobody needs, or one this prompt says is refuted; unsure when you could not tell whether the defect is real',
+      description: 'refute when the code does not behave as claimed, the harm the claim predicts does not happen, a claimed rule is not documented or not broken outright, or this prompt says it is refuted; unsure when you could not tell whether the claimed harm happens',
     },
-    introduced: { type: 'boolean', description: 'false when the defect was already there before this diff' },
-    severity: { enum: ['blocker', 'major', 'minor'], description: 'The severity the defect deserves; never above the reviewer\'s' },
+    harm: {
+      enum: ['reached', 'rule', 'none'],
+      description: 'reached: the harm the claim predicts happens on a path you cite; rule: the rule the claim names exists at the base and the code breaks it outright; none: neither, even if you found a smaller defect the claim does not make. An uphold with none counts as a refute',
+    },
+    introduced: { type: 'boolean', description: 'false only when the claimed harm happens the same way at the base; true when the diff adds the path, caller, or input that reaches an older line, or adds a check that misses it' },
+    severity: { enum: ['blocker', 'major', 'minor'], description: 'The severity the rubric gives the harm that happens, by its kind, not its likelihood; never above the reviewer\'s' },
+    limit: { type: 'string', description: 'To lower a finding more than one step: the file:line of the guard, caller, or flow that caps the harm' },
     correction: { type: 'string', description: 'When the cited rule or AC-N is missing or misquoted: what the citation should be, or that none applies' },
     outsideSpec: { type: 'boolean', description: 'Spec findings only: true when the defect is real but the spec does not ask for it' },
     reason: { type: 'string', description: 'What you checked, with file:line, and what it showed' },
@@ -490,6 +495,11 @@ ${diffContext}
 ${sections}`
 }
 
+// The reviewer's severity rubric (agents/reviewer.md, Severity), quoted to the skeptic so it grades by the same lines.
+const SEVERITY_RUBRIC = `- blocker: wrong behaviour, a missing or broken AC-N, a semantic invariant broken or failing on the wrong side, data loss, a security hole, a documented rule broken outright, or a test that passes without proving anything.
+- major: a real cost the code will pay later: a leaky interface, a domain term used wrongly, a decision that contradicts an ADR, an unhandled failure at a boundary, a doc the diff left wrong.
+- minor: a judgement call worth a sentence, such as a baseline smell.`
+
 function skepticPrompt(axis, finding, elsewhere) {
   const location = finding.line === null ? finding.file : `${finding.file}:${finding.line}`
   const placed = elsewhere.length
@@ -505,7 +515,11 @@ Finding (${finding.severity}) at ${location}:
 Claim: ${finding.claim}
 Evidence: ${finding.evidence}
 
-Read the code it cites and what that depends on, and check that the rule (as the base has it) or AC-N exists and says what is claimed and that nothing elsewhere (a test, a caller, a later hunk) already answers it; a nit a configured linter owns, an ask for something nobody uses, or an ask for new handling of a state (a null, an error, a race) that neither the evidence nor your own search finds a caller or input to produce, is refuted. Otherwise refute only when you show at a file:line that the code does not behave as claimed. A missing or misquoted rule, an overstated severity, a spec that does not mention the defect, or doubt that a defect in code that ships will bite are not grounds to refute: uphold it and give the correction, the severity it deserves, or outsideSpec. Say whether this diff introduced the defect. When you can't tell whether it is real, say unsure.`
+Judge the claim as made: what it says the code does, and the harm it says follows (or the rule it says the code breaks). Read the code it cites and what that depends on, and trace the claimed harm from a caller, a documented flow, a test, or an input in the repo to where it goes wrong. Refute it when the code does not behave as claimed; when the claimed harm does not happen (a guard stops it, it fails loudly where the claim says quietly, or your search finds no caller, flow, or input that reaches it), shown at the file:line where it stops, not by an argument that a model or parser will not misread untrusted text crossing a quoting or escaping boundary, and only when none of the paths the claim names, the headline one or not, reaches the harm, even if a different, smaller defect you found remains, which you name in the reason instead; when it names only a rule and that rule (as the base has it) or AC-N does not exist, or the code does not break it outright (a baseline smell or a habit of the codebase is not a documented rule); when something elsewhere (a test, a caller, a later hunk) already answers it; or when it is a nit a configured linter owns, an ask for something nobody uses, or an ask for new handling of a state (a null, an error, a race) that neither the evidence nor your own search finds a caller or input to produce. Set harm to what you found; an uphold with harm none is a refute.
+
+When the claimed harm happens, uphold it, even with a missing or misquoted rule (give the correction) or a spec that does not mention it (set outsideSpec). Then grade its severity by this rubric, as if you had found the defect yourself, never above the reviewer's:
+${SEVERITY_RUBRIC}${guide.failure ? `\nThe review guide's Failure section says what a blocker is in this repo: ${guide.failure}` : ''}
+Grade the kind of harm that happens, not its likelihood: data loss on a rare path is still data loss, and a short window or an unlikely input is no reason to grade lower. The claimed harm in a smaller form (one row lost, not all) is a lower grade, not a refute. To lower it more than one step, give in limit the file:line of the guard, caller, or flow that caps the harm; without one it drops one step. Say whether this diff introduced the defect: it did not only when the claimed harm happens the same way at the base (git show <base>:<path>); a diff that adds the path, caller, or input reaching an older line, or adds a check that misses it, introduced it, whatever line it sits on. When you can't tell whether the claimed harm happens, say unsure.`
 }
 
 async function judge(axis, finding, index, elsewhere) {
@@ -523,7 +537,8 @@ async function judge(axis, finding, index, elsewhere) {
   const failed = votes.length - cast.length
   const reasons = cast.map(v => v.reason)
   if (cast.length === 0) return { finding, verdict: 'unjudged', failed, reasons }
-  const upholders = cast.filter(v => v.verdict !== 'refute')
+  // An uphold that found neither the claimed harm nor a broken rule has nothing left to fix: it counts as a refute.
+  const upholders = cast.filter(v => v.verdict === 'unsure' || (v.verdict === 'uphold' && v.harm !== 'none'))
   if (upholders.length * 2 <= cast.length) return { finding, verdict: 'refuted', failed, reasons }
   const most = test => upholders.filter(test).length * 2 > upholders.length
   // As with a reviewer's pre-existing grade, the claim is believed only where the diff provably left the line alone.
@@ -532,13 +547,19 @@ async function judge(axis, finding, index, elsewhere) {
 }
 
 const SEVERITIES = ['blocker', 'major', 'minor']
+const CITES_LINE = /\S:\d+/
 
 // A skeptic can lower a finding's severity or correct its citation, never raise it: the most severe deserved
-// severity among the upholding votes wins, capped at the reviewer's. When most upholders can't tell, it drops to minor.
+// severity among the upholding votes wins, capped at the reviewer's. A vote lowers it more than one step only when it
+// cites the file:line that caps the harm. When most upholders can't tell, it drops to minor.
 function settleFinding(axis, finding, upholders, most) {
   const reviewerRank = Math.max(0, SEVERITIES.indexOf(finding.severity))
+  const deserved = vote => {
+    const rank = SEVERITIES.indexOf(vote.severity)
+    return rank > reviewerRank + 1 && !CITES_LINE.test(vote.limit || '') ? reviewerRank + 1 : rank
+  }
   // Only a vote that upholds the defect says what it deserves; an unsure vote only counts toward the drop to minor.
-  const ranks = upholders.filter(v => v.verdict === 'uphold').map(v => SEVERITIES.indexOf(v.severity)).filter(rank => rank >= 0)
+  const ranks = upholders.filter(v => v.verdict === 'uphold').map(deserved).filter(rank => rank >= 0)
   let rank = Math.max(reviewerRank, ranks.length ? Math.min(...ranks) : reviewerRank)
   const unsure = most(v => v.verdict === 'unsure')
   if (unsure) rank = SEVERITIES.length - 1
