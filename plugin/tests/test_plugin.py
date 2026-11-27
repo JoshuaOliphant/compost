@@ -197,6 +197,8 @@ def test_branching_skills_fast_forward_the_default_branch_and_rule_when_it_canno
                 "keeping to the list is still on you",
                 "plus any stop the parent's Run contract adds",
                 "the first `Run contract stops:` block in your own messages since implement last loaded",
+                "so a reload can narrow the stops, never widen them",
+                "a second parent implemented in the same session",
             ],
         ),
         (

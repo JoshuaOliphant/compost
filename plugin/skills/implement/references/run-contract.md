@@ -19,7 +19,8 @@ Step 1 keeps to it before any worker branches, in this order.
 
    Print it again every time implement loads, a resume or a reload after an early
    `compost:finish` included: the [stop guard](stop-guard.md) reads only the first block printed
-   since the latest load, so a later block can't add stops.
+   since the latest load and keeps only the stops the first block in the whole transcript also
+   lists, so a reload can narrow the stops, never widen them.
 2. **Readiness record.** Look for the parent comment headed `## Readiness`. On a parent without
    one, run the [readiness check](../../spec/references/readiness.md) for the parent's class
    yourself: the short check for bounded work, the full check for architectural work. Fill each gap
