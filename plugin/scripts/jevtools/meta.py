@@ -59,10 +59,24 @@ RULINGS = [
 ]
 
 
-def skill_descriptions(root: Path = PLUGIN_ROOT) -> dict[str, str]:
+USER_ONLY = re.compile(r"""^disable-model-invocation:\s*["']?true["']?(\s+#.*)?\s*$""", re.MULTILINE | re.IGNORECASE)
+
+
+def frontmatter(text: str) -> str:
+    """The YAML block between a file's opening `---` and the next one, or "" without one."""
+    text = text.removeprefix("\ufeff").replace("\r\n", "\n")
+    match = re.match(r"---\n(.*?)\n---\s*$", text, re.DOTALL | re.MULTILINE)
+    return match.group(1) if match else ""
+
+
+def skill_descriptions(root: Path = PLUGIN_ROOT, *, model_invoked: bool = False) -> dict[str, str]:
+    """Each skill's description; with `model_invoked`, only skills Claude may load on its own."""
     descriptions = {}
     for path in sorted((root / "skills").glob("*/SKILL.md")):
-        if match := re.search(r"^description: (.*)$", path.read_text(), re.MULTILINE):
+        text = path.read_text()
+        if model_invoked and USER_ONLY.search(frontmatter(text)):
+            continue
+        if match := re.search(r"^description: (.*)$", text, re.MULTILINE):
             descriptions[path.parent.name] = match.group(1).strip()
     return descriptions
 
@@ -188,7 +202,7 @@ def gather_route(payload: dict) -> dict:
     prompts = payload.get("prompts") or ([payload["prompt"]] if "prompt" in payload else [])
     if not prompts:
         raise BadInput("input needs `prompt` or `prompts`")
-    skills = skill_descriptions(Path(payload.get("plugin", PLUGIN_ROOT)))
+    skills = skill_descriptions(Path(payload.get("plugin", PLUGIN_ROOT)), model_invoked=True)
     if not skills:
         raise BadInput("no skills with a description found")
     return {"prompts": prompts, "skills": skills}

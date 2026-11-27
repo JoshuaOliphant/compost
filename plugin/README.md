@@ -24,14 +24,17 @@ with review done by subagents every time, and records its rulings on the issue.
 | `finish` | Integrate: re-run on the merge target, PR recap, clean up |
 | `diagnose` | Any bug or failing test, before a fix |
 | `deeper-ask` | A request made deeper, not bigger: what an expert would do, the rawest material, the tools, the independent check (spec runs it; you can too) |
+| `reframe` | You can't name what you're building: the expert terms, checked sources, borrowed fields, and your description rewritten (you invoke it) |
 | `deepen` | Module and interface design, refactoring for testability |
 | `prune` | Docs that drifted from the code: move what's worth keeping into the code, keep only the core docs |
 | `thin` | Tests no mutant needs: find them with a kill matrix, confirm each by hand, fold or delete |
 | `pause` | Stop at a safe point and pick the work back up later |
 | `wait-what` | You lost the thread: Claude re-pitches it with the missing context, in glossary terms (you invoke it) |
+| `ketchup` | You were away: Claude catches you up since your last message and lists every call waiting on you, each decidable from the reply (you invoke it) |
 | `fan-out` | Competing designs or hypotheses, tried in parallel and judged |
 | `turn` | Check the upstream sources for changes worth working in |
 | `retro` | After a run: file the environment changes that would have made the session go better |
+| `automate-me` | Turn how you work, mined from this project's sessions and confirmed with you, into a personal `<handle>-mode` skill (you invoke it) |
 | `skill-drift` | Daily: turn repeated skill drift, judged by the `skill-drift` mod, into proposed skill fixes |
 
 compost targets Opus. Skill descriptions are tuned and measured on Opus 5.5, where `spec` picks up
@@ -109,7 +112,7 @@ as it does on any outage.
 | `ac-quality` | Score ×3 | spec | 24/24 (24) |
 | `adr-worthy` | Noul ×3 | spec, deepen, implement | 24/24 (24 rulings) |
 | `classify-change` | Choice | turn | every adopt/adapt read 4/4, no ignore recorded wrongly, 15/26 ignores skipped (30) |
-| `route` | Choice | turn, description changes | 27/30 (30 real prompts) |
+| `route` | Choice | turn, description changes | 27-28/30 (30 real prompts, over the skills Claude may load on its own) |
 | `rulings-lint` | Noul ×8 | turn, compost's own text | 10/13 violations, 2–4 false flags (36 passages) |
 | `stop-guard` | Noul ×2 | Stop hook in implement runs | 23/23 (23 final messages) |
 | `skill-drift` mod | Noul, one per skill step +2 | every skill-using turn | compost:build, 23 labeled turns, over six runs: deviated (by step) 0-1 false hits on 8 clean turns, 11-12/15 drifting flagged; missing guidance 4-5/5 flagged, 0-1 false hits on 18; corrected unmeasured |

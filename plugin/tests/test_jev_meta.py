@@ -145,14 +145,55 @@ def test_an_unchanged_path_is_ignored_without_asking_jev():
 
 
 def test_gather_route_takes_one_prompt_or_many_and_needs_skills(plugin, tmp_path):
-    assert meta.gather_route({"prompt": "spec this out", "plugin": str(plugin)})["prompts"] == ["spec this out"]
+    (plugin / "skills" / "ketchup").mkdir()
+    (plugin / "skills" / "ketchup" / "SKILL.md").write_text(
+        "---\nname: ketchup\ndescription: Catches the user up.\ndisable-model-invocation: true\n---\n"
+    )
+    one = meta.gather_route({"prompt": "spec this out", "plugin": str(plugin)})
+    assert one["prompts"] == ["spec this out"]
+    assert sorted(one["skills"]) == ["spec"], "a skill only the user can invoke is never a route"
     gathered = meta.gather_route({"prompts": ["a", "b"]})
     assert gathered["prompts"] == ["a", "b"]
-    assert gathered["skills"] == meta.skill_descriptions(PLUGIN_ROOT)
+    assert gathered["skills"] == meta.skill_descriptions(PLUGIN_ROOT, model_invoked=True)
+    assert "ketchup" in meta.skill_descriptions(PLUGIN_ROOT) and "ketchup" not in gathered["skills"]
     with pytest.raises(BadInput, match="needs `prompt` or `prompts`"):
         meta.gather_route({"prompts": []})
     with pytest.raises(BadInput, match="no skills"):
         meta.gather_route({"prompt": "x", "plugin": str(tmp_path)})
+
+
+@pytest.mark.parametrize(
+    ("frontmatter", "body", "routed"),
+    [
+        ('disable-model-invocation: "true"  ', "", False),
+        ("disable-model-invocation: True", "", False),
+        ("disable-model-invocation: false", "", True),
+        ("disable-model-invocation: true  # user only", "", False),
+        ("disable-model-invocation: true#x", "", True),
+        ("", "```yaml\ndisable-model-invocation: true\n```\n", True),
+    ],
+    ids=[
+        "quoted, trailing space",
+        "capitalised",
+        "false",
+        "trailing comment",
+        "hash with no space is a string",
+        "only in a body code block",
+    ],
+)
+def test_route_reads_the_user_only_flag_from_frontmatter_alone(plugin, frontmatter, body, routed):
+    (plugin / "skills" / "mode").mkdir()
+    (plugin / "skills" / "mode" / "SKILL.md").write_text(
+        f"---\nname: mode\ndescription: Works in the user's style.\n{frontmatter}\n---\n\n# mode\n{body}"
+    )
+    assert ("mode" in meta.gather_route({"prompt": "x", "plugin": str(plugin)})["skills"]) is routed
+
+
+def test_frontmatter_reads_through_a_bom_and_crlf_line_endings():
+    assert meta.frontmatter("\ufeff---\r\nname: mode\r\ndisable-model-invocation: true\r\n---\r\n# mode\r\n") == (
+        "name: mode\ndisable-model-invocation: true"
+    )
+    assert meta.frontmatter("# no frontmatter\n") == ""
 
 
 @pytest.mark.parametrize(
