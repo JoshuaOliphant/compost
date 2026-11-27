@@ -126,11 +126,13 @@ repo = "ray-amjad/skills"
 role = "input"
 license = "MIT"
 pin = "9dbbccbb2784ddb48a41ae2002659a9ff161da56"
-note = "task-lifecycle's misses-become-rules fed retro's per-pattern count, and its rule that a finding asking for new code names the path to the state fed the reviewer and skeptic (OLI-146, OLI-147). idea-to-spec and verify-round are adapt candidates for spec and verify."
+note = "task-lifecycle's misses-become-rules fed retro's per-trigger count, and its rule that a finding asking for new code names the path to the state fed the reviewer and skeptic (OLI-146, OLI-147). verify-round's unreachable and could_not_boot outcomes fed verify (OLI-151); idea-to-spec's early critique and defaults-to-veto fed spec (OLI-152)."
 
 [source.feeds]
 "skills/task-lifecycle/references/rule-candidates.md" = ["retro", "review"]
 "skills/task-lifecycle/references/review-round.md" = ["review"]
+"skills/task-lifecycle/references/verify-round.md" = ["verify"]
+"skills/idea-to-spec/SKILL.md" = ["spec"]
 
 [[source]]
 name = "oliphant-plugins"

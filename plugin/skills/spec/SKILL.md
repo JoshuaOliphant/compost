@@ -55,11 +55,11 @@ a quick lookup can answer.
    ([prototype](references/prototype.md)). Report the answer as a recommendation. Anything you
    built stays labelled throwaway; building on it for real is a fresh request, so classify it.
 
-4. **Ask in rounds until no open decisions remain.** Map the open decisions as a tree: each
+4. **Ask in rounds until no open decisions remain.** First say its rung on the rework
+   ladder; migrate or can't-undo gets the [early critique](references/early-critique.md). Map the open decisions as a tree: each
    decision branches into the ones that hang off it. A round asks the frontier, the 3 to 5
    decisions whose prerequisites are all settled, as lettered multiple-choice questions, each with
-   your recommended answer, in the format in [questions](references/questions.md). A question that
-   depends on one still open waits for a later round. Ask fewer when the frontier is smaller;
+   your recommended answer, in the format in [questions](references/questions.md). Ask fewer when the frontier is smaller;
    never pad a round. Draft the candidates, then ask Jev which make the round: `question-value`
    ranks them by how much the answer changes what gets built and returns the `round` to ask and the
    ones to `assume` ([jev](references/jev.md)). Exit 3: cut by the rules in
@@ -179,7 +179,8 @@ a quick lookup can answer.
     [readiness](references/readiness.md). A contract can add stops but never drop the irreversible
     ones. Run each prerequisite's check now: when one fails and the user is here, ask it as an
     open question before posting; with nobody to answer, mark it unconfirmed. Fix what fails, and
-    keep the result for the readiness record step 11 posts.
+    keep the result for the readiness record step 11 posts. It ends with the
+    [defaults-to-veto](references/readiness.md#defaults-to-veto) list.
 
 11. **Post the parent issue** with the tracker from `docs/agents/issue-tracker.md` (for GitHub,
     its REST create command with the `spec` label; a local tracker writes `.scratch/<slug>/spec.md`),

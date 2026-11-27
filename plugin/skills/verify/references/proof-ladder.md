@@ -33,6 +33,34 @@ That fact moves down the ladder like this:
 Stop at the cheapest rung that settles the fact, and report where you stopped. Below rung 4, the
 fact is unproven. Say so in the report and in the PR's Risk section.
 
+## When a check can't run
+
+Some checks never get a verdict on the code, wherever verify runs them: an AC-N's test (step 5),
+the app an e2e test needs (step 6), or a rung of this ladder (step 7). Two outcomes say why, and
+neither is `failed`: *failed*
+says the code is wrong, and these say the check never reached it. Neither goes back to
+`compost:build`, and neither gets a fix loop.
+
+- **`unreachable`**: the check's precondition is a state the code never creates. A test needs a
+  null the only caller rejects, or a flow starts from a row nothing writes. Don't build a harness to
+  force the state. Name the branch the check was covering and put it to the user as a question:
+  delete it, or say what reaches it. Unattended, post it as a ruling and list it under Risk. If every
+  check for what the issue asked for passed, the change is verified.
+- **`could_not_boot`**: the app, or a service the check needs, won't start: a missing credential,
+  env var, or database. A check that ran out of ideas twice lands here too (below). No code change repairs a credential. Record the evidence (the command and
+  its error), mark the check unverified, and report it as such; it counts below rung 4, so the fact
+  it was proving is unproven.
+
+A test skipped by a `skip`, `skipif` or `xfail` written into it is not either of these: it stays
+unmet, as step 5 says. A test that ran and failed because the app or a service it needs would not
+start is `could_not_boot`.
+
+A check that only ran out of ideas (the state exists but you found no way in) is never
+`unreachable`. Give it one more attempt with a sharper brief: what you tried, and where the state is
+written. If that fails too, record it as `could_not_boot`, with both attempts as its evidence;
+never a third try. `unreachable` needs
+evidence that nothing creates the state: the callers or writers you searched, each at a `file:line`.
+
 ## Where grep stops
 
 A symbol search finds callers. It does not find:

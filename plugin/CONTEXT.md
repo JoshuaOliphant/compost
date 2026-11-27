@@ -81,7 +81,7 @@ _Avoid_: run plan, run config.
 
 **Readiness record**: the comment on a parent issue, headed `## Readiness`, listing each readiness check
 item and whether it passed: the short check for bounded work, the full one for architectural work.
-Rewritten, not appended, when the check runs again.
+It ends with the numbered defaults-to-veto list. Rewritten, not appended, when the check runs again.
 _Avoid_: readiness report, DoR.
 
 **Review round**: one pass of `compost:review` over an issue's branch, recorded as one issue comment
