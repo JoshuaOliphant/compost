@@ -129,6 +129,9 @@ runs again:
 - [x] Rabbit holes: <each, or "None"> (architectural)
 - [x] No-gos: <each, or "None"> (architectural)
 - [x] Pre-mortem: <how the run fails, told as if it had> (architectural)
+
+### Defaults to veto
+1. <a low-stakes value settled without asking, and why it is safe>, or "None"
 ```
 
 A failed item is `- [ ]` with what fails it.

@@ -33,6 +33,26 @@ That fact moves down the ladder like this:
 Stop at the cheapest rung that settles the fact, and report where you stopped. Below rung 4, the
 fact is unproven. Say so in the report and in the PR's Risk section.
 
+## When a check can't run
+
+Some checks never get a verdict on the code. Two outcomes say why, and neither is `failed`: *failed*
+says the code is wrong, and these say the check never reached it. Neither goes back to
+`compost:build`, and neither gets a fix loop.
+
+- **`unreachable`**: the check's precondition is a state the code never creates. A test needs a
+  null the only caller rejects, or a flow starts from a row nothing writes. Don't build a harness to
+  force the state. Name the branch the check was covering and put it to the user as a question:
+  delete it, or say what reaches it. Unattended, post it as a ruling and list it under Risk. If every
+  check for what the issue asked for passed, the change is verified.
+- **`could_not_boot`**: the app, or a service the check needs, won't start: a missing credential,
+  env var, or database. No code change repairs a credential. Record the evidence (the command and
+  its error), mark the check unverified, and report it as such; it counts below rung 4, so the fact
+  it was proving is unproven.
+
+A check that only ran out of ideas (the state exists but you found no way in) is
+`could_not_boot`, never `unreachable`: write it a sharper brief and try again. `unreachable` needs
+evidence that nothing creates the state: the callers or writers you searched, each at a `file:line`.
+
 ## Where grep stops
 
 A symbol search finds callers. It does not find:

@@ -253,6 +253,7 @@ def test_a_run_contract_keeps_every_irreversible_stop_and_the_prerequisite_stop_
                 "ask it as an open question before posting",
                 "mark it unconfirmed",
                 "readiness record",
+                "(references/readiness.md#defaults-to-veto)",
             ],
         ),
         (
@@ -286,6 +287,52 @@ def test_the_readiness_check_is_short_for_bounded_work_and_full_for_architectura
     without_record = full.split("A parent without a record", 1)[1]
     for item in ("`compost:implement` runs the same check", "ruling marked `(assumed)`", "only when a gap is on"):
         assert item in without_record, f"readiness.md doesn't say implement {item!r}"
+
+
+@pytest.mark.parametrize(
+    ("path", "phrases"),
+    [
+        (
+            "skills/spec/references/early-critique.md",
+            [
+                "Rerun and unpick may skip the critique: say the rung and why",
+                "Migrate and can't undo always get it",
+                "not a fork, not you, and without your reasoning",
+                "a fact to re-check",
+                "an area the interview must cover",
+                "or a question",
+            ],
+        ),
+        (
+            "skills/spec/references/readiness.md",
+            [
+                "vetoes its number",
+                "auth or credentials, untrusted input",
+                "a destructive action, or overwriting the only copy",
+            ],
+        ),
+        (
+            "skills/verify/references/proof-ladder.md",
+            [
+                "Neither goes back to `compost:build`, and neither gets a fix loop",
+                "delete it, or say what reaches it",
+                "mark the check unverified",
+                "is `could_not_boot`, never `unreachable`",
+            ],
+        ),
+    ],
+)
+def test_early_critique_defaults_to_veto_and_checks_that_cannot_run_say_how(path, phrases):
+    text = " ".join((PLUGIN_ROOT / path).read_text().split())
+    for phrase in phrases:
+        assert phrase in text, f"{path} lacks {phrase!r}"
+
+
+def test_spec_and_verify_link_the_early_critique_and_the_outcomes_of_a_check_that_cannot_run():
+    ask = step_text("spec", "Ask in rounds until no open decisions remain.")
+    assert "rework ladder" in ask and "(references/early-critique.md)" in ask
+    proof = step_text("verify", "Prove the one fact the change is safe because of.")
+    assert "`unreachable` or `could_not_boot`" in proof and "(references/proof-ladder.md)" in proof
 
 
 def step_text(skill, step):

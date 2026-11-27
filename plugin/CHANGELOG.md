@@ -2,6 +2,13 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.56.0] - 2026-11-27
+
+### Changed
+
+- verify names two outcomes for a check that can't reach the code, neither of them failed and neither a fix loop: `unreachable` (the state the check needs is one nothing creates; the user is asked to delete the branch or say what reaches it) and `could_not_boot` (the app or a service it needs won't start; the check is reported unverified with its evidence). A verifier that ran out of ideas is `could_not_boot`. From ray-amjad/skills' verify-round (OLI-151).
+- spec places a Bounded or Architectural request on a rework ladder (rerun, unpick, migrate, can't undo) before the first round; a migrate or can't-undo request gets an early critique, where a fresh agent attacks a draft built from the facts and each finding becomes a re-check, an area to cover, or a question. The readiness record ends with a numbered defaults-to-veto list that confirming the spec accepts unless the user vetoes a number; auth, credentials, untrusted input, read access, destructive actions and a sole copy of data never go on it. From ray-amjad/skills' idea-to-spec (OLI-152).
+
 ## [0.55.0] - 2026-11-27
 
 ### Changed

@@ -159,7 +159,8 @@ command can: judge whether it ran what changed, and prove the fact the change is
 
    Look where grep stops: the library's own source, JSON a service returns, a database column, a
    feature flag, another program reading the same bytes. Report the rung you reached. Below
-   "ran", call the fact unproven. See [the proof ladder](references/proof-ladder.md) for examples.
+   "ran", call the fact unproven. See [the proof ladder](references/proof-ladder.md) for examples,
+   and a check that can't run: `unreachable` or `could_not_boot`.
    When the fact is a performance claim, run
    [the benchmark checklist](../diagnose/references/benchmarks.md) and report its verdict.
 
