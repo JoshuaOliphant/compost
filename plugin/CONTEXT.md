@@ -89,3 +89,10 @@ headed `Review round <n>` with the head it reviewed and its findings and rulings
 reviews only the lines changed since that head and is told those rulings. `compost:implement` caps
 an issue at three. In code: `since` and `prior` in `review-changes.js`.
 _Avoid_: review pass, iteration.
+
+**Preregistration**: the file `compost:experiment` commits before an eval runs: the question, the
+decision each outcome leads to, the prediction, the full SHA under test, controls, n, the members of
+every counted set, the bars, and a stop rule. The commit that holds it is the **registration**; the
+verdict is read from that commit, and later edits to the file are amendments that change nothing.
+In code: `prereg.py`.
+_Avoid_: experiment plan, eval config.

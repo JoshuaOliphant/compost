@@ -23,6 +23,7 @@ with review done by subagents every time, and records its rulings on the issue.
 | `review` | After verify, always: `/compost:review-changes`, plus the harness's built-in code review when the diff changes executable code, then weigh the findings |
 | `finish` | Integrate: re-run on the merge target, PR recap, clean up |
 | `diagnose` | Any bug or failing test, before a fix |
+| `experiment` | Before an eval, A/B, ablation or replay that decides something: hypothesis, bar, counted sets, n and the commit under test, committed before the run and scored against |
 | `deeper-ask` | A request made deeper, not bigger: what an expert would do, the rawest material, the tools, the independent check (spec runs it; you can too) |
 | `reframe` | You can't name what you're building: the expert terms, checked sources, borrowed fields, and your description rewritten (you invoke it) |
 | `deepen` | Module and interface design, refactoring for testability |
