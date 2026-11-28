@@ -21,5 +21,6 @@ the source; this page is what to copy from them.
 - `unsure`: survives as a minor, marked unsure.
 - `uphold` with `introduced: false` at a line the diff didn't change: pre-existing.
 - Otherwise it survives at the skeptic's severity, never above the reviewer's. A drop of more than
-  one step stands only when `limit` cites a `file:line`; without one, lower it one step.
+  one step stands only when `limit` cites a path with an extension and a line (`app/cli.py:40`);
+  without one, lower it one step.
 - Keep the `correction`. A Spec finding with `outsideSpec` moves to the Standards list.
