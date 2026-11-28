@@ -2,6 +2,13 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.59.0] - 2026-11-28
+
+### Added
+
+- `compost:experiment` runs an eval, A/B, ablation, replay or benchmark as a preregistered experiment: before anything runs it writes down and commits the question, the decision each outcome leads to, the hypothesis and predicted number, the full SHA under test, arms and controls, the members of every counted set, n, the bars, the scorer command, a stop rule and a budget; after the run it scores the result against that commit and reports a miss as a miss, with anything found afterwards labelled exploratory. It is to evals what `compost:diagnose` is to bugs. Prompted by OLI-155, where a wrong-claim bar went from 7/10 to 7/9 to "6 strict" because the counted set was never listed, a rerun was pinned to a stale commit, and compost#61 merged after missing its own bar (OLI-156).
+- `scripts/prereg.py`: `check` refuses a preregistration with a missing field, a ref that isn't a full SHA (or isn't in `--subject-repo`), or uncommitted edits, and prints the registration commit; `score` reads the bars from that commit, so an amended bar can't change the verdict, refuses results from another ref or another n, and combines per-run values by each bar's `aggregate` (`each`, `mean`, `sum`, `min`, `max`). Template in `skills/experiment/references/prereg-template.toml`.
+
 ## [0.58.0] - 2026-11-27
 
 ### Changed

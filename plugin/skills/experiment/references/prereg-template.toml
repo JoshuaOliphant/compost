@@ -1,0 +1,37 @@
+# Preregistration for compost:experiment. Fill every field, then:
+#   uv run ${CLAUDE_PLUGIN_ROOT}/scripts/prereg.py check prereg.toml --subject-repo <checkout>
+# commit this file, and record the commit check prints. Nothing runs before that commit.
+
+question = "Does <change> make <eval> better?"
+hypothesis = "<what you believe and why>"
+prediction = "<a number in the scorer's units, and its direction>"
+scorer = "<the exact command that turns a run into the metrics below>"
+stop = "After n runs. A run that errors or hits a usage limit is rerun once and logged. No extra runs to rescue a miss."
+budget = "<the most it may spend, in dollars or plan usage>"
+n = 2
+
+# What tells you the instrument works: a no-plugin arm, the base commit, clean controls.
+controls = ["<control>"]
+
+[decision]
+pass = "<what you will do if every bar passes>"
+miss = "<what you will do if any bar misses>"
+
+[subject]
+repo = "<owner/name>"
+ref = "<full 40-character SHA under test>"
+
+[arms]
+treatment = "<what this arm runs, at which SHA>"
+control = "<what this arm runs, at which SHA>"
+
+# The members of every set a bar counts, by id. Defined now, not after the run.
+[sets]
+counted = ["<case id>", "<case id>"]
+
+# One [[bars]] per test. aggregate says how the n runs combine: each, mean, sum, min, or max.
+[[bars]]
+metric = "<a metric the scorer prints>"
+op = ">="
+value = 0
+aggregate = "each"
