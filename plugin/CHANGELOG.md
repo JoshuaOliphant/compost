@@ -2,6 +2,17 @@
 
 All notable changes to the compost plugin. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions are `plugin.json` versions.
 
+## [0.58.0] - 2026-11-27
+
+### Changed
+
+- A review skeptic judges the claim the reviewer made: what it says the code does and the harm it says follows. Its verdict gains `harm` (`reached`, `rule` or `none`): a skeptic that upholds a finding whose claimed harm it could not find, and whose claimed rule the base doesn't document or the code doesn't break outright, has refuted it, and the workflow counts it so. A harm is refuted only where the skeptic shows the file:line it stops at (a guard, a loud failure, a search that finds nothing reaching it), never by arguing that untrusted text crossing a quoting boundary won't be misread; a claim holds when any path it names reaches the harm; and a different, smaller defect left over is named in the reason, not upheld in the claim's place. A missing or misquoted citation and a spec that doesn't mention the defect still don't refute a harm that happens (OLI-155).
+- The skeptic grades severity by the reviewer's rubric, quoted in its task with the review guide's Failure section, by the kind of harm that happens rather than its likelihood. Its verdict gains `limit`: a skeptic lowers a finding more than one step only with the file:line that caps the harm, and without one the workflow lowers it one step. In the review-recall eval 0.57.0's skeptic lowered 34 of 38 upheld findings and kept 3 of 9 wrong claims refuted (OLI-155).
+- A skeptic doesn't refute on the absence of an input that a person or another program produces (a hook or tool payload, a transcript, a file a user writes, a network response): a repo search can't find one, so it refutes only with the check that rejects the input or the producer's documented format. In the review-recall full rerun stop-guard-attr-tags was refuted for want of a transcript fixture; replayed, that finding now survives 3 of 3 times (OLI-155 review).
+- A `limit` unlocks a two-step drop only when it cites a path with an extension and a line (`app/cli.py:40`), not a time, a port, or `AC-1:2`.
+- A skeptic sets `introduced` to false only when the claimed harm happens the same way at the base. A diff that adds the path, caller, or input reaching an older line, or adds a check that misses it, introduced the defect, so it is judged on the branch rather than sent to `preExisting` (OLI-155; the jev-cache-partial loss in the review-recall eval).
+- compost:review's by-hand fallback briefs each skeptic with the rubric and settles its verdict as the workflow does, from the new [skeptics by hand](skills/review/references/skeptic-by-hand.md) reference.
+
 ## [0.57.0] - 2026-11-27
 
 ### Changed

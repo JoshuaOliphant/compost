@@ -68,17 +68,38 @@ def test_skill_frontmatter_names_its_directory_and_says_when_to_use_it(skill_dir
 @pytest.mark.parametrize(
     "phrase",
     [
-        "Otherwise refute only when you show at a file:line that the code does not behave as claimed.",
+        "Judge the claim the reviewer made, not one you could make instead.",
+        "the harm the claim predicts does not happen",
+        "is not the claim: refute, and name it in your `reason`",
+        "A baseline smell or a habit of the codebase is not a documented rule;",
+        "A finding you uphold with `harm` set to `none` is refuted.",
         "the rule or AC-N it cites is missing or misquoted: give the `correction`",
-        "its severity is overstated: give the `severity` it deserves (never higher than the reviewer's)",
         "the spec does not mention the defect: set `outsideSpec` (Spec findings)",
+        "Grade the kind of harm that happens, not how often",
+        "give in `limit` the file:line of the guard, caller, or flow that caps the harm",
+        "Show where it stops, at a file:line;",
+        "A claim that names several paths holds when any one of them reaches the harm, the headline one or not;",
+        "Set `introduced` to false only when the claimed harm happens the same way at the base",
+        "or adds a check that misses it; then `introduced` is true.",
         "the verdict is `unsure`; the finding survives as a minor",
+        "is not in the repo, so finding no example of it there shows nothing.",
+        "only with the file:line of a check that rejects it, or the producer's documented format that rules it out.",
     ],
 )
-def test_skeptic_upholds_a_real_defect_instead_of_refuting_it(phrase):
+def test_skeptic_refutes_a_harm_that_does_not_happen_and_grades_one_that_does(phrase):
     body = " ".join((PLUGIN_ROOT / "agents" / "skeptic.md").read_text().split())
     assert phrase in body
     assert "When you are uncertain, it is refuted" not in body
+    assert "will bite" not in body
+
+
+def test_skeptic_rubric_matches_the_reviewers():
+    reviewer = (PLUGIN_ROOT / "agents" / "reviewer.md").read_text()
+    workflow = (PLUGIN_ROOT / "workflows" / "review-changes.js").read_text()
+    rubric = re.search(r"const SEVERITY_RUBRIC = `(.*?)`", workflow, re.S).group(1)
+    for line in rubric.splitlines():
+        level, text = line.removeprefix("- ").split(": ", 1)
+        assert f"- `{level}`: {text}" in reviewer
 
 
 @pytest.mark.parametrize("agent", ["scope", "skeptic"])

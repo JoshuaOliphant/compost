@@ -120,7 +120,7 @@ test('scope and skeptics run as their own lean agent types, beside the reviewers
     'Standards skeptic 1.1': 'compost:skeptic',
   })
   // The checklist travels in the prompt too, so a skeptic whose definition did not load still knows what to check.
-  assert.match(prompts['Standards skeptic 1.1'], /Read the code it cites and what that depends on.*nothing elsewhere \(a test, a caller, a later hunk\) already answers it/)
+  assert.match(prompts['Standards skeptic 1.1'], /Read the code it cites and what that depends on[^]*something elsewhere \(a test, a caller, a later hunk\) already answers it/)
 })
 
 test('a spec passed in is graded as given, and the scope agent is told not to fetch one', async () => {
@@ -280,7 +280,7 @@ test('the guide and the standards come from the base, so a branch is not judged 
   assert.match(prompts['Standards reviewer'], new RegExp(`Standards sources, as they stand at the base ${SCOPE.base}`))
   assert.match(prompts['Standards reviewer'], /the branch's own edits to them take effect once it merges/)
   assert.match(prompts['Standards reviewer'], /this repo's REVIEW\.md at the base/)
-  assert.match(prompts['Standards skeptic 1.1'], /check that the rule \(as the base has it\) or AC-N exists/)
+  assert.match(prompts['Standards skeptic 1.1'], /that rule \(as the base has it\) or AC-N does not exist/)
 })
 
 test('a missing or unreadable guide falls back to the defaults and says why', async () => {
@@ -529,20 +529,71 @@ test('with three skeptics, a failed vote does not count and a split among the re
   assert.deepEqual(result.standards.refuted[0].refutedBecause, ['holds', 'tested elsewhere'])
 })
 
-test('a skeptic refutes a finding only by showing the code does not behave as claimed', async () => {
+test('a skeptic refutes a finding whose code or claimed harm the repo disproves, and upholds one whose harm happens', async () => {
   const { result, schemas, prompts } = await run({}, reviewers({ skeptic: REFUTED }))
   assert.deepEqual(result.standards.refuted.map(f => [f.line, f.refutedBecause]), [[12, ['app/export.py:12 escapes it']]])
   assert.deepEqual(schemas['Standards skeptic 1.1'].properties.verdict.enum, ['uphold', 'refute', 'unsure'])
-  assert.match(prompts['Standards skeptic 1.1'], /refute only when you show at a file:line that the code does not behave as claimed/)
-  assert.match(prompts['Standards skeptic 1.1'], /an ask for new handling of a state \(a null, an error, a race\) that neither the evidence nor your own search finds a caller or input to produce, is refuted/)
-  assert.match(prompts['Standards skeptic 1.1'], /A missing or misquoted rule, an overstated severity, a spec that does not mention the defect, or doubt that a defect in code that ships will bite are not grounds to refute/)
-  assert.doesNotMatch(prompts['Standards skeptic 1.1'], /When you are uncertain, it is refuted/)
+  assert.deepEqual(schemas['Standards skeptic 1.1'].properties.harm.enum, ['reached', 'rule', 'none'])
+  assert.ok(schemas['Standards skeptic 1.1'].required.includes('harm'))
+  const prompt = prompts['Standards skeptic 1.1']
+  assert.match(prompt, /Refute it when:\n- the code does not behave as claimed;\n- the claimed harm does not happen: a guard stops it/)
+  assert.match(prompt, /even if a different, smaller defect you found remains, which you name in the reason instead/)
+  assert.match(prompt, /a baseline smell or a habit of the codebase is not a documented rule/)
+  assert.match(prompt, /Show it at the file:line where it stops, not by an argument that a model or parser will not misread untrusted text crossing a quoting or escaping boundary/)
+  assert.match(prompt, /only when none of the paths the claim names, the headline one or not, reaches the harm/)
+  assert.match(prompt, /it did not only when the claimed harm happens the same way at the base/)
+  assert.match(schemas['Standards skeptic 1.1'].properties.introduced.description, /adds a check that misses it/)
+  assert.match(prompt, /an ask for new handling of a state \(a null, an error, a race\) that neither the evidence nor your own search finds a caller or input to produce/)
+  assert.match(prompt, /a command someone runs\) is not in the repo, so finding no example of it there shows nothing: refute on its absence only with the file:line of a check that rejects it, or the producer's documented format that rules it out/)
+  assert.match(prompt, /When the claimed harm happens, uphold it, even with a missing or misquoted rule \(give the correction\) or a spec that does not mention it \(set outsideSpec\)/)
+  assert.doesNotMatch(prompt, /When you are uncertain, it is refuted/)
+  assert.doesNotMatch(prompt, /doubt that a defect in code that ships will bite/)
+})
+
+test('an uphold that finds neither the claimed harm nor a broken rule counts as a refute', async () => {
+  const empty = { ...UPHELD, harm: 'none', severity: 'minor', reason: 'the import never fails in the documented flow; only the comment is loose' }
+  const { result } = await run({}, reviewers({ skeptic: empty }))
+  assert.deepEqual(result.standards.refuted.map(f => [f.line, f.refutedBecause]), [[12, [empty.reason]]])
+  assert.deepEqual(result.standards.survivors.map(f => f.line), [3])
+  for (const harm of ['reached', 'rule']) {
+    const held = await run({}, reviewers({ skeptic: { ...UPHELD, harm } }))
+    assert.deepEqual(held.result.standards.survivors.map(f => [f.line, f.severity]), [[12, 'blocker'], [3, 'minor']], harm)
+  }
+  const votes = { '1': { ...UPHELD, harm: 'reached' }, '2': empty, '3': { ...UPHELD, verdict: 'unsure', harm: 'none' } }
+  const split = await run({ skeptics: 3 }, reviewers({ skeptic: label => votes[label.split('.').pop()] }))
+  assert.equal(split.result.standards.survivors[0].line, 12, 'an unsure vote still upholds, whatever its harm')
+})
+
+test('the skeptic grades severity by the reviewer\'s rubric and the guide\'s Failure section, not by likelihood', async () => {
+  const { prompts } = await run({}, reviewers({ scope: { ...SCOPE, guide: { source: 'REVIEW.md', minorCap: 5, failure: 'A change that loses data.' } } }))
+  const prompt = prompts['Standards skeptic 1.1']
+  assert.match(prompt, /- blocker: wrong behaviour, a missing or broken AC-N/)
+  assert.match(prompt, /- major: a real cost the code will pay later/)
+  assert.match(prompt, /- minor: a judgement call worth a sentence/)
+  assert.match(prompt, /The review guide's Failure section says what a blocker is in this repo: A change that loses data\./)
+  assert.match(prompt, /Grade the kind of harm that happens, not its likelihood/)
+  const defaults = await run({}, reviewers())
+  assert.doesNotMatch(defaults.prompts['Standards skeptic 1.1'], /Failure section says/)
+})
+
+test('a skeptic lowers a finding more than one step only when it cites the file:line that caps the harm', async () => {
+  const bare = await run({}, reviewers({ skeptic: { ...UPHELD, severity: 'minor' } }))
+  assert.deepEqual(bare.result.standards.survivors.map(f => [f.line, f.severity, f.reviewerSeverity]), [[12, 'major', 'blocker'], [3, 'minor', undefined]])
+  for (const limit of ['the setup flow', 'app/export.py', 'at 12:30', 'localhost:8080', 'AC-1:2']) {
+    const vague = await run({}, reviewers({ skeptic: { ...UPHELD, severity: 'minor', limit } }))
+    assert.equal(vague.result.standards.survivors[0].severity, 'major', limit)
+  }
+  const capped = await run({}, reviewers({ skeptic: { ...UPHELD, severity: 'minor', limit: 'app/cli.py:40 only passes trusted names' } }))
+  assert.deepEqual(capped.result.standards.survivors[0].severity, 'minor')
+  const oneStep = await run({}, reviewers({ skeptic: { ...UPHELD, severity: 'major' } }))
+  assert.equal(oneStep.result.standards.survivors[0].severity, 'major', 'one step needs no limit')
 })
 
 test('an upheld finding takes the lower severity a skeptic gives, never a higher one', async () => {
-  const lowered = await run({}, reviewers({ skeptic: { ...UPHELD, severity: 'minor' } }))
+  const toMinor = { ...UPHELD, severity: 'minor', limit: 'app/cli.py:40 only passes trusted names' }
+  const lowered = await run({}, reviewers({ skeptic: toMinor }))
   assert.deepEqual(lowered.result.standards.survivors.map(f => [f.line, f.severity, f.reviewerSeverity]), [[12, 'minor', 'blocker'], [3, 'minor', undefined]])
-  const capped = await run({}, reviewers({ skeptic: { ...UPHELD, severity: 'minor' }, scope: { ...SCOPE, guide: { source: 'REVIEW.md', minorCap: 0 } } }))
+  const capped = await run({}, reviewers({ skeptic: toMinor, scope: { ...SCOPE, guide: { source: 'REVIEW.md', minorCap: 0 } } }))
   assert.deepEqual(capped.result.standards.survivors.map(f => f.line), [12], 'a lowered finding is exempt from the minor cap')
   const major = { ...BLOCKER, severity: 'major' }
   const raised = await run({}, reviewers({ standards: { findings: [major], checked: STANDARDS_CHECKED }, skeptic: UPHELD }))
@@ -550,7 +601,7 @@ test('an upheld finding takes the lower severity a skeptic gives, never a higher
   const votes = { '1': { ...UPHELD, severity: 'minor' }, '2': { ...UPHELD, severity: 'major' }, '3': { ...UPHELD, severity: 'minor' } }
   const split = await run({ skeptics: 3 }, reviewers({ skeptic: label => votes[label.split('.').pop()] }))
   assert.equal(split.result.standards.survivors[0].severity, 'major', 'the most severe upholding vote wins')
-  const mixed = { '1': { ...UPHELD, severity: 'minor' }, '2': { ...UPHELD, verdict: 'unsure', severity: 'blocker' }, '3': { ...UPHELD, severity: 'minor' } }
+  const mixed = { '1': toMinor, '2': { ...UPHELD, verdict: 'unsure', severity: 'blocker' }, '3': toMinor }
   const withUnsure = await run({ skeptics: 3 }, reviewers({ skeptic: label => mixed[label.split('.').pop()] }))
   assert.equal(withUnsure.result.standards.survivors[0].severity, 'minor', 'an unsure vote cannot block a downgrade')
 })
