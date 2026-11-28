@@ -31,7 +31,7 @@ commit, so editing the file afterwards changes nothing.
      `scripts/run-plugin-eval.sh <checkout> <ref> [model]` (does a skill fire, does its output beat
      the no-plugin arm);
    - `evals/review-recall/run.sh` and `score.py` (does `/compost:review-changes` catch known bugs),
-     and its skeptic replay, `replay/run.py` and, once compost-evals#18 lands, `replay/bars.py` (the reviewer's output held
+     and its skeptic replay, `replay/run.py` and `replay/bars.py` (the reviewer's output held
      fixed, only the skeptics rerun);
    - the Jev evals, `pytest -m jev` from `plugin/` (labeled cases per tool);
    - an `experiments/<name>/` harness in compost when none of these fits.
