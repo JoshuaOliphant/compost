@@ -69,7 +69,14 @@ def results(tmp_path, **fields) -> str:
 
 def test_a_committed_complete_prereg_checks_and_prints_its_registration(registered):
     path, sha = registered
-    assert run("check", path) == (0, f"registered at {sha}; record it and pass it to score\n")
+    head = run_git(path.parent, "rev-parse", "HEAD~1")
+    path.write_text(VALID.replace(REF, head))
+    run_git(path.parent, "commit", "-qam", "pin a real commit")
+    sha = run_git(path.parent, "rev-parse", "HEAD")
+    assert run("check", path, "--subject-repo", path.parent) == (
+        0,
+        f"registered at {sha}; record it and pass it to score\n",
+    )
 
 
 @pytest.mark.parametrize(
@@ -84,7 +91,7 @@ def test_a_committed_complete_prereg_checks_and_prints_its_registration(register
 def test_check_refuses_a_committed_prereg_missing_a_field_and_names_it(work_repo, field, named):
     text = "\n".join(line for line in VALID.splitlines() if not line.startswith(f"{field} ="))
     commit(work_repo, {"p.toml": text}, "register without a field")
-    code, said = run("check", work_repo / "p.toml")
+    code, said = run("check", work_repo / "p.toml", "--subject-repo", work_repo)
     assert code == 2 and named in said
 
 
@@ -129,7 +136,7 @@ def test_problems_names_each_way_a_field_falls_short(change, named):
 def test_check_refuses_invalid_toml(work_repo):
     path = work_repo / "p.toml"
     path.write_text("question = ")
-    code, said = run("check", path)
+    code, said = run("check", path, "--subject-repo", work_repo)
     assert code == 2 and "not valid TOML" in said
 
 
@@ -146,17 +153,17 @@ def test_check_refuses_a_ref_the_subject_repo_does_not_hold(registered, work_rep
 def test_check_refuses_an_uncommitted_or_edited_prereg(registered, work_repo, tmp_path):
     path, _ = registered
     path.write_text(VALID + "\n# edited\n")
-    code, said = run("check", path)
+    code, said = run("check", path, "--subject-repo", work_repo)
     assert code == 2 and "uncommitted changes; commit it before running" in said
 
     fresh = work_repo / "fresh.toml"
     fresh.write_text(VALID)
-    assert "uncommitted changes" in run("check", fresh)[1]
+    assert "uncommitted changes" in run("check", fresh, "--subject-repo", work_repo)[1]
 
     outside = tmp_path / "loose" / "p.toml"
     outside.parent.mkdir()
     outside.write_text(VALID)
-    assert "not in a git repo" in run("check", outside)[1]
+    assert "not in a git repo" in run("check", outside, "--subject-repo", work_repo)[1]
 
 
 def test_registration_refuses_a_file_git_has_never_committed(work_repo):
@@ -244,3 +251,44 @@ def test_the_skills_template_has_every_field_check_asks_for():
     assert prereg.problems(prereg.tomllib.loads(template.read_text())) == [
         "subject.ref must be the full 40-character SHA under test, not a branch or short SHA"
     ]
+
+
+@pytest.mark.parametrize(
+    ("body", "named"),
+    [
+        (None, "can't read results"),
+        ("not json", "can't read results"),
+        ("[1, 2]", 'must be an object with a "metrics" object'),
+        (json.dumps({"ref": REF, "n": 2}), 'must be an object with a "metrics" object'),
+        (
+            json.dumps({"ref": REF, "n": 2, "metrics": {"wrong_claims_refuted": None}}),
+            "metric wrong_claims_refuted must be",
+        ),
+        (
+            json.dumps({"ref": REF, "n": 2, "metrics": {"wrong_claims_refuted": ["7", 8]}}),
+            "must be a number or a non-empty list",
+        ),
+        (
+            json.dumps({"ref": REF, "n": 2, "metrics": {"wrong_claims_refuted": []}}),
+            "must be a number or a non-empty list",
+        ),
+        (
+            json.dumps({"ref": REF, "n": 2, "metrics": {"wrong_claims_refuted": True}}),
+            "must be a number or a non-empty list",
+        ),
+    ],
+)
+def test_score_refuses_a_broken_results_file_as_invalid_never_a_miss(registered, tmp_path, body, named):
+    path, sha = registered
+    results_file = tmp_path / "results.json"
+    if body is not None:
+        results_file.write_text(body)
+    code, said = run("score", path, "--registered", sha, "--results", results_file)
+    assert code == 2 and named in said
+
+
+def test_check_needs_a_subject_repo_to_resolve_the_ref_in(registered):
+    path, _ = registered
+    with pytest.raises(SystemExit) as exited:
+        run("check", path)
+    assert exited.value.code == 2

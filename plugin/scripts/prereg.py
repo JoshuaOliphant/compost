@@ -74,7 +74,7 @@ def bar_problems(bar: object) -> list[str]:
         found.append("missing metric")
     if bar.get("op") not in OPS:
         found.append(f"op must be one of {' '.join(OPS)}")
-    if not isinstance(bar.get("value"), int | float) or isinstance(bar.get("value"), bool):
+    if not is_number(bar.get("value")):
         found.append("value must be a number")
     if "aggregate" in bar and bar["aggregate"] not in {"each", *AGGREGATES}:
         found.append(f"aggregate must be one of each {' '.join(AGGREGATES)}")
@@ -110,16 +110,34 @@ def registration(path: Path) -> str:
     return last
 
 
-def check(path: Path, subject_repo: Path | None) -> str:
+def check(path: Path, subject_repo: Path) -> str:
     """Refuses an incomplete, unpinned, or uncommitted preregistration; returns its registration commit."""
     prereg = parse(path.read_text(), str(path))
-    ref = prereg["subject"]["ref"]
-    if subject_repo is not None and git(subject_repo, "cat-file", "-e", f"{ref}^{{commit}}").returncode:
-        raise Refused(f"subject.ref {ref} is not a commit in {subject_repo}")
     root, rel = located(path)
     if git(root, "status", "--porcelain", "--", rel).stdout.strip():
         raise Refused(f"{rel} has uncommitted changes; commit it before running")
+    ref = prereg["subject"]["ref"]
+    if git(subject_repo, "cat-file", "-e", f"{ref}^{{commit}}").returncode:
+        raise Refused(f"subject.ref {ref} is not a commit in {subject_repo}")
     return registration(path)
+
+
+def is_number(value: object) -> bool:
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
+
+def load_results(path: Path) -> dict:
+    """The results JSON, refused (exit 2, never a MISS) when it is unreadable or a metric isn't a number or a list of them."""
+    try:
+        results = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        raise Refused(f"INVALID: can't read results {path}: {error}") from None
+    if not isinstance(results, dict) or not isinstance(results.get("metrics"), dict):
+        raise Refused(f'INVALID: {path} must be an object with a "metrics" object')
+    for name, value in results["metrics"].items():
+        if not (is_number(value) or (isinstance(value, list) and value and all(map(is_number, value)))):
+            raise Refused(f"INVALID: metric {name} must be a number or a non-empty list of numbers, not {value!r}")
+    return results
 
 
 def judge(bar: dict, values: object, n: int) -> tuple[bool, float, str]:
@@ -150,7 +168,7 @@ def score(path: Path, results: dict, registered: str, out: TextIO) -> int:
         raise Refused(f"INVALID: the run used ref {results.get('ref')}, not the registered {prereg['subject']['ref']}")
     if results.get("n") != prereg["n"]:
         raise Refused(f"INVALID: the run has n={results.get('n')}, not the registered n={prereg['n']}")
-    metrics = results.get("metrics", {})
+    metrics = results["metrics"]
     passed = True
     for bar in prereg["bars"]:
         if bar["metric"] not in metrics:
@@ -171,7 +189,7 @@ def main(argv: list[str] | None = None, out: TextIO = sys.stdout) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     checking = commands.add_parser("check", help="refuse an incomplete, unpinned, or uncommitted prereg.toml")
     checking.add_argument("prereg", type=Path)
-    checking.add_argument("--subject-repo", type=Path, help="a checkout that must hold subject.ref")
+    checking.add_argument("--subject-repo", type=Path, required=True, help="a checkout that must hold subject.ref")
     scoring = commands.add_parser("score", help="judge a results JSON by the registered bars")
     scoring.add_argument("prereg", type=Path)
     scoring.add_argument(
@@ -183,7 +201,7 @@ def main(argv: list[str] | None = None, out: TextIO = sys.stdout) -> int:
         if args.command == "check":
             print(f"registered at {check(args.prereg, args.subject_repo)}; record it and pass it to score", file=out)
             return PASS
-        return score(args.prereg, json.loads(args.results.read_text()), args.registered, out)
+        return score(args.prereg, load_results(args.results), args.registered, out)
     except Refused as refusal:
         print(refusal, file=out)
         return MALFORMED
