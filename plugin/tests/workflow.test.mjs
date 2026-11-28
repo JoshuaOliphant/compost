@@ -120,7 +120,7 @@ test('scope and skeptics run as their own lean agent types, beside the reviewers
     'Standards skeptic 1.1': 'compost:skeptic',
   })
   // The checklist travels in the prompt too, so a skeptic whose definition did not load still knows what to check.
-  assert.match(prompts['Standards skeptic 1.1'], /Read the code it cites and what that depends on.*something elsewhere \(a test, a caller, a later hunk\) already answers it/)
+  assert.match(prompts['Standards skeptic 1.1'], /Read the code it cites and what that depends on[^]*something elsewhere \(a test, a caller, a later hunk\) already answers it/)
 })
 
 test('a spec passed in is graded as given, and the scope agent is told not to fetch one', async () => {
@@ -536,10 +536,10 @@ test('a skeptic refutes a finding whose code or claimed harm the repo disproves,
   assert.deepEqual(schemas['Standards skeptic 1.1'].properties.harm.enum, ['reached', 'rule', 'none'])
   assert.ok(schemas['Standards skeptic 1.1'].required.includes('harm'))
   const prompt = prompts['Standards skeptic 1.1']
-  assert.match(prompt, /Refute it when the code does not behave as claimed; when the claimed harm does not happen/)
+  assert.match(prompt, /Refute it when:\n- the code does not behave as claimed;\n- the claimed harm does not happen: a guard stops it/)
   assert.match(prompt, /even if a different, smaller defect you found remains, which you name in the reason instead/)
   assert.match(prompt, /a baseline smell or a habit of the codebase is not a documented rule/)
-  assert.match(prompt, /shown at the file:line where it stops, not by an argument that a model or parser will not misread untrusted text crossing a quoting or escaping boundary/)
+  assert.match(prompt, /Show it at the file:line where it stops, not by an argument that a model or parser will not misread untrusted text crossing a quoting or escaping boundary/)
   assert.match(prompt, /only when none of the paths the claim names, the headline one or not, reaches the harm/)
   assert.match(prompt, /it did not only when the claimed harm happens the same way at the base/)
   assert.match(schemas['Standards skeptic 1.1'].properties.introduced.description, /adds a check that misses it/)
@@ -579,7 +579,7 @@ test('the skeptic grades severity by the reviewer\'s rubric and the guide\'s Fai
 test('a skeptic lowers a finding more than one step only when it cites the file:line that caps the harm', async () => {
   const bare = await run({}, reviewers({ skeptic: { ...UPHELD, severity: 'minor' } }))
   assert.deepEqual(bare.result.standards.survivors.map(f => [f.line, f.severity, f.reviewerSeverity]), [[12, 'major', 'blocker'], [3, 'minor', undefined]])
-  for (const limit of ['the setup flow', 'app/export.py']) {
+  for (const limit of ['the setup flow', 'app/export.py', 'at 12:30', 'localhost:8080', 'AC-1:2']) {
     const vague = await run({}, reviewers({ skeptic: { ...UPHELD, severity: 'minor', limit } }))
     assert.equal(vague.result.standards.survivors[0].severity, 'major', limit)
   }

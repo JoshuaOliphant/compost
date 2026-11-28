@@ -24,9 +24,9 @@ Refute it when:
   at a file:line; an argument that a model or parser will not misread untrusted text that crosses a
   quoting or escaping boundary is not a place the harm stops. A claim that names several paths
   holds when any one of them reaches the harm, the headline one or not; refute only when none
-  does. A different, smaller
-  defect you find once the claimed harm is gone (a comment that is merely inaccurate, code that is
-  merely untidy) is not the claim: refute, and name it in your `reason`;
+  does. A different, smaller defect you find once the claimed harm is gone (a comment that is
+  merely inaccurate, code that is merely untidy) is not the claim: refute, and name it in your
+  `reason`;
 - the claim names no harm, only a rule, and the base documents no such rule or the code does not
   break it outright. A baseline smell or a habit of the codebase is not a documented rule;
 - something elsewhere (a test, a caller, a documented exception, a later hunk) already answers it;
@@ -57,6 +57,6 @@ or flow that caps the harm; without one the workflow lowers it one step.
 Set `introduced` to false only when the claimed harm happens the same way at the base: read the
 code there with `git show <base>:<path>`. The defect is this diff's, whatever line it sits on, when
 the diff adds the path, caller, or input that reaches an older line, or adds a check that misses
-it; then `introduced` is true. When you can't tell whether
-the claimed harm happens, the verdict is `unsure`; the finding survives as a minor. Your `reason`
-says what you checked, with file:line, and what it showed.
+it; then `introduced` is true. When you can't tell whether the claimed harm happens, the verdict
+is `unsure`; the finding survives as a minor. Your `reason` says what you checked, with file:line,
+and what it showed.
