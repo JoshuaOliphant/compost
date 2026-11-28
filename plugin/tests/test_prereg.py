@@ -297,3 +297,27 @@ def test_check_needs_a_subject_repo_to_resolve_the_ref_in(registered):
     with pytest.raises(SystemExit) as exited:
         run("check", path)
     assert exited.value.code == 2
+
+
+def test_a_shell_redirect_in_the_scorer_is_not_a_template_placeholder():
+    data = prereg.tomllib.loads(VALID) | {"scorer": "python3 bars.py < runs.txt > results.json"}
+    assert prereg.problems(data) == []
+
+
+def test_check_refuses_a_prereg_that_does_not_exist(work_repo):
+    code, said = run("check", work_repo / "missing.toml", "--subject-repo", work_repo)
+    assert code == 2 and "can't read" in said
+
+
+def test_score_refuses_a_registered_value_that_is_not_a_full_sha(registered, tmp_path):
+    path, sha = registered
+    for bad in (sha[:12], "--output=/tmp/x"):
+        code, said = run("score", path, f"--registered={bad}", "--results", results(tmp_path))
+        assert code == 2 and "--registered must be the full 40-character commit" in said
+
+
+def test_a_prereg_deleted_after_registration_is_still_judged_by_the_registered_bars(registered, tmp_path):
+    path, sha = registered
+    path.unlink()
+    code, said = run("score", path, "--registered", sha, "--results", results(tmp_path))
+    assert code == 0 and "amended after registration" in said

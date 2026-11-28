@@ -22,7 +22,7 @@ TEXT_FIELDS = ("question", "hypothesis", "prediction", "scorer", "stop", "budget
 OPS = {">=": operator.ge, ">": operator.gt, "<=": operator.le, "<": operator.lt, "==": operator.eq}
 AGGREGATES = {"mean": mean, "sum": sum, "min": min, "max": max}
 SHA = re.compile(r"[0-9a-f]{40}")
-PLACEHOLDER = re.compile(r"<[^<>]+>")
+TEMPLATE = Path(__file__).resolve().parent.parent / "skills" / "experiment" / "references" / "prereg-template.toml"
 PASS, MISS, MALFORMED = 0, 1, 2
 
 
@@ -77,8 +77,14 @@ def placeholders(value: object, where: str = "") -> list[tuple[str, str]]:
         return [hole for key, item in value.items() for hole in placeholders(item, f"{where}.{key}".lstrip("."))]
     if isinstance(value, list):
         return [hole for index, item in enumerate(value) for hole in placeholders(item, f"{where}[{index}]")]
-    found = PLACEHOLDER.search(value) if isinstance(value, str) else None
-    return [(where, found.group())] if found else []
+    holes = template_placeholders()
+    found = [hole for hole in re.findall(r"<[^<>]+>", value) if hole in holes] if isinstance(value, str) else []
+    return [(where, found[0])] if found else []
+
+
+def template_placeholders() -> set[str]:
+    """The `<...>` placeholders the skill's template holds; a shell redirect in a scorer command is not one."""
+    return set(re.findall(r"<[^<>]+>", TEMPLATE.read_text()))
 
 
 def bar_problems(bar: object) -> list[str]:
@@ -125,9 +131,16 @@ def registration(path: Path) -> str:
     return last
 
 
+def read(path: Path) -> str:
+    try:
+        return path.read_text()
+    except OSError as error:
+        raise Refused(f"can't read {path}: {error}") from None
+
+
 def check(path: Path, subject_repo: Path) -> str:
     """Refuses an incomplete, unpinned, or uncommitted preregistration; returns its registration commit."""
-    prereg = parse(path.read_text(), str(path))
+    prereg = parse(read(path), str(path))
     root, rel = located(path)
     if git(root, "status", "--porcelain", "--", rel).stdout.strip():
         raise Refused(f"{rel} has uncommitted changes; commit it before running")
@@ -175,6 +188,8 @@ def judge(bar: dict, values: object, n: int) -> tuple[bool, float, str]:
 def score(path: Path, results: dict, registered: str, out: TextIO) -> int:
     """Prints PASS or MISS per registered bar and overall; returns the exit code."""
     root, rel = located(path)
+    if not SHA.fullmatch(registered):
+        raise Refused(f"--registered must be the full 40-character commit check printed, not {registered!r}")
     shown = git(root, "show", f"{registered}:{rel}")
     if shown.returncode:
         raise Refused(f"{rel} is not in commit {registered}")
@@ -192,7 +207,7 @@ def score(path: Path, results: dict, registered: str, out: TextIO) -> int:
         passed &= ok
         of = f" of {len(prereg['sets'][bar['set']])} in {bar['set']}" if "set" in bar else ""
         print(f"{'PASS' if ok else 'MISS'}  {bar['metric']} ({how}) {got:g} {bar['op']} {bar['value']:g}{of}", file=out)
-    if path.read_text() != shown.stdout:
+    if not path.is_file() or path.read_text() != shown.stdout:
         print(
             f"amended after registration: judged by the bars at {registered[:12]}, not the file as it stands", file=out
         )
