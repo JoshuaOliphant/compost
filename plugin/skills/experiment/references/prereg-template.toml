@@ -30,8 +30,10 @@ control = "<what this arm runs, at which SHA>"
 counted = ["<case id>", "<case id>"]
 
 # One [[bars]] per test. aggregate says how the n runs combine: each, mean, sum, min, or max.
+# set names the [sets] list the metric counts. check refuses any <...> left in this file.
 [[bars]]
 metric = "<a metric the scorer prints>"
+set = "counted"
 op = ">="
 value = 0
 aggregate = "each"

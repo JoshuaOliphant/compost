@@ -38,6 +38,7 @@ metric = "wrong_claims_refuted"
 op = ">="
 value = 7
 aggregate = "each"
+set = "wrong_claims"
 
 [[bars]]
 metric = "control_bm"
@@ -125,6 +126,8 @@ def test_problems_names_a_missing_table(table, named):
         ({"bars": [{"metric": "m", "op": ">=", "value": True}]}, "value must be a number"),
         ({"bars": [{"metric": "m", "op": ">=", "value": 7, "aggregate": "median"}]}, "aggregate must be one of"),
         ({"budget": "  "}, "missing budget"),
+        ({"bars": [{"metric": "m", "op": ">=", "value": 7, "set": "nope"}]}, "set 'nope' is not a list in [sets]"),
+        ({"question": "Does <change> help?"}, "question still holds the template placeholder <change>"),
     ],
 )
 def test_problems_names_each_way_a_field_falls_short(change, named):
@@ -178,7 +181,7 @@ def test_score_prints_each_bar_and_passes(registered, tmp_path):
     code, said = run("score", path, "--registered", sha, "--results", results(tmp_path))
     assert code == 0
     assert said.splitlines() == [
-        "PASS  wrong_claims_refuted (each) 7 >= 7",
+        "PASS  wrong_claims_refuted (each) 7 >= 7 of 2 in wrong_claims",
         "PASS  control_bm (max) 2 <= 2",
         "VERDICT: PASS",
     ]
@@ -248,9 +251,11 @@ def test_a_per_run_list_with_no_aggregate_is_refused():
 
 def test_the_skills_template_has_every_field_check_asks_for():
     template = prereg.Path(__file__).parent.parent / "skills" / "experiment" / "references" / "prereg-template.toml"
-    assert prereg.problems(prereg.tomllib.loads(template.read_text())) == [
-        "subject.ref must be the full 40-character SHA under test, not a branch or short SHA"
-    ]
+    found = prereg.problems(prereg.tomllib.loads(template.read_text()))
+    assert "subject.ref must be the full 40-character SHA under test, not a branch or short SHA" in found
+    assert "controls[0] still holds the template placeholder <control>" in found
+    assert "bars[0].metric still holds the template placeholder <a metric the scorer prints>" in found
+    assert all("placeholder" in line or "subject.ref" in line for line in found)
 
 
 @pytest.mark.parametrize(

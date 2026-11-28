@@ -22,6 +22,7 @@ TEXT_FIELDS = ("question", "hypothesis", "prediction", "scorer", "stop", "budget
 OPS = {">=": operator.ge, ">": operator.gt, "<=": operator.le, "<": operator.lt, "==": operator.eq}
 AGGREGATES = {"mean": mean, "sum": sum, "min": min, "max": max}
 SHA = re.compile(r"[0-9a-f]{40}")
+PLACEHOLDER = re.compile(r"<[^<>]+>")
 PASS, MISS, MALFORMED = 0, 1, 2
 
 
@@ -61,9 +62,23 @@ def problems(prereg: dict) -> list[str]:
     bars = prereg.get("bars")
     if not isinstance(bars, list) or not bars:
         found.append("missing bars: at least one [[bars]] with metric, op and value")
+    sets = prereg["sets"] if isinstance(prereg.get("sets"), dict) else {}
     for index, bar in enumerate(bars if isinstance(bars, list) else []):
         found.extend(f"bars[{index}]: {line}" for line in bar_problems(bar))
+        if isinstance(bar, dict) and "set" in bar and not isinstance(sets.get(bar["set"]), list):
+            found.append(f"bars[{index}]: set {bar['set']!r} is not a list in [sets]")
+    found.extend(f"{where} still holds the template placeholder {hole}" for where, hole in placeholders(prereg))
     return found
+
+
+def placeholders(value: object, where: str = "") -> list[tuple[str, str]]:
+    """Every `<...>` placeholder left from the template, with the field that holds it."""
+    if isinstance(value, dict):
+        return [hole for key, item in value.items() for hole in placeholders(item, f"{where}.{key}".lstrip("."))]
+    if isinstance(value, list):
+        return [hole for index, item in enumerate(value) for hole in placeholders(item, f"{where}[{index}]")]
+    found = PLACEHOLDER.search(value) if isinstance(value, str) else None
+    return [(where, found.group())] if found else []
 
 
 def bar_problems(bar: object) -> list[str]:
@@ -175,7 +190,8 @@ def score(path: Path, results: dict, registered: str, out: TextIO) -> int:
             raise Refused(f"INVALID: the results have no {bar['metric']}")
         ok, got, how = judge(bar, metrics[bar["metric"]], prereg["n"])
         passed &= ok
-        print(f"{'PASS' if ok else 'MISS'}  {bar['metric']} ({how}) {got:g} {bar['op']} {bar['value']:g}", file=out)
+        of = f" of {len(prereg['sets'][bar['set']])} in {bar['set']}" if "set" in bar else ""
+        print(f"{'PASS' if ok else 'MISS'}  {bar['metric']} ({how}) {got:g} {bar['op']} {bar['value']:g}{of}", file=out)
     if path.read_text() != shown.stdout:
         print(
             f"amended after registration: judged by the bars at {registered[:12]}, not the file as it stands", file=out

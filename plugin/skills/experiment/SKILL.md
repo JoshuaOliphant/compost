@@ -31,7 +31,7 @@ commit, so editing the file afterwards changes nothing.
      `scripts/run-plugin-eval.sh <checkout> <ref> [model]` (does a skill fire, does its output beat
      the no-plugin arm);
    - `evals/review-recall/run.sh` and `score.py` (does `/compost:review-changes` catch known bugs),
-     and its skeptic replay, `replay/run.py` and `replay/bars.py` (the reviewer's output held
+     and its skeptic replay, `replay/run.py` and, once compost-evals#18 lands, `replay/bars.py` (the reviewer's output held
      fixed, only the skeptics rerun);
    - the Jev evals, `pytest -m jev` from `plugin/` (labeled cases per tool);
    - an `experiments/<name>/` harness in compost when none of these fits.
@@ -57,7 +57,10 @@ commit, so editing the file afterwards changes nothing.
      no-plugin arm, the base commit, clean control cases, a known-good case that must stay good.
      When there is no control, write `"none: <why>"`.
    - **sets**: the members of every set a bar counts, listed by id. "The wrong claims" is not a
-     set; ten case ids are. A set defined after the run is the commonest way a bar moves.
+     set; ten case ids are. A set defined after the run is the commonest way a bar moves. A bar
+     names its set with `set = "<name>"`; `check` refuses a set that isn't listed and `score`
+     prints the count out of it. It can't see what the scorer counted, so the scorer must count
+     exactly these members: read the list from here, or show in the write-up that its list matches.
    - **n and the noise**: how many runs, and why that many is enough. Read the run-to-run spread
      from earlier results of the same harness; when single cases flip between runs, a bar on one
      run can't tell 7 from 8, so run more or bar on every run (`aggregate = "each"`).
@@ -83,7 +86,7 @@ commit, so editing the file afterwards changes nothing.
 
 7. **Score against the registration.** Have the scorer write a results JSON:
    `{"ref": "<SHA>", "n": <runs>, "metrics": {"<metric>": <number or one value per run>}}`, then run
-   `prereg.py score <prereg.toml> --registered <commit> --results <results.json>`. It exits 0 on
+   `uv run ${CLAUDE_PLUGIN_ROOT}/scripts/prereg.py score <prereg.toml> --registered <commit> --results <results.json>`. It exits 0 on
    PASS, 1 on MISS, 2 when the results don't match the registration (another ref, another n, a
    metric missing), and says so when the file was amended after registration. A 2 is not a
    verdict: fix the run, not the file, and score again.
