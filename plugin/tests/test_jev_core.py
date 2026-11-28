@@ -143,7 +143,7 @@ class OllayaStandIn(BaseHTTPRequestHandler):
 def test_open_client_reaches_the_configured_server_with_its_model_and_the_placeholder(tmp_path, monkeypatch):
     OllayaStandIn.seen = []
     server = ThreadingHTTPServer(("127.0.0.1", 0), OllayaStandIn)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
+    threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True).start()
     monkeypatch.delenv(core.ENV_VAR, raising=False)
     monkeypatch.setenv(core.BASE_URL_VAR, f"http://127.0.0.1:{server.server_port}")
     monkeypatch.setenv(core.MODEL_VAR, "winnow:e4b")
