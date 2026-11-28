@@ -5,6 +5,8 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 
 import needs_uv
@@ -99,10 +101,16 @@ def test_without_a_way_to_install_the_sdk_it_exits_3_in_one_line(environ, sync_c
 
 
 def bare_python(*args, path, stdin=None, home=None):
-    """Runs a script with -S, so the dev environment's typesafe-sdk is out of sight, as for a plain python3."""
+    """Runs a script with -S, so the dev environment's typesafe-sdk is out of sight, as for a plain python3. A
+    `home` keeps this run's uv cache, so uv reuses what it installed rather than downloading the SDK again."""
     env = {key: value for key, value in os.environ.items() if key != "COMPOST_UV_REEXEC"}
     env["PATH"] = path
     if home:
+        if uv := shutil.which("uv", path=path):
+            env.setdefault(
+                "UV_CACHE_DIR",
+                subprocess.run([uv, "cache", "dir"], capture_output=True, text=True, check=True).stdout.strip(),
+            )
         env["HOME"] = str(home)
     return subprocess.run(
         [sys.executable, "-S", *args], input=stdin, capture_output=True, text=True, env=env, timeout=120, check=False
@@ -130,6 +138,17 @@ def test_jev_py_under_bare_python_re_execs_under_uv_and_lists_the_tools():
     assert "review-risk" in ran.stdout
 
 
+class Refuses(BaseHTTPRequestHandler):
+    """Answers every request 400, which the SDK does not retry, so Jev is Unavailable at once and offline."""
+
+    def do_POST(self):
+        self.send_response(400)
+        self.end_headers()
+
+    def log_message(self, *args):
+        pass
+
+
 @pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv on PATH")
 def test_stop_guard_under_bare_python_re_execs_under_uv_before_reading_its_input(tmp_path, monkeypatch):
     """stop_guard.py reads the hook's input on stdin; a re-exec after that read would leave the new process none."""
@@ -137,11 +156,18 @@ def test_stop_guard_under_bare_python_re_execs_under_uv_before_reading_its_input
     transcript.write_text(
         "".join(json.dumps(entry) + "\n" for entry in (LOADS_IMPLEMENT, said("m1", "Which library?")))
     )
-    # A message to judge, so the guard reaches Jev; a closed local port keeps the judgment offline.
-    monkeypatch.setenv("TYPESAFE_BASE_URL", "http://127.0.0.1:9")
+    # A message to judge, so the guard reaches Jev; a local server that refuses keeps the judgment offline. A closed
+    # port would do too, but the SDK retries a connection error with backoff, which cost this test 1.5s.
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Refuses)
+    threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True).start()
+    monkeypatch.setenv("TYPESAFE_BASE_URL", f"http://127.0.0.1:{server.server_port}")
     monkeypatch.setenv("TYPESAFE_API_KEY", "unit-test")
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1")
     hook = json.dumps({"transcript_path": str(transcript), "stop_hook_active": False})
-    ran = bare_python(str(SCRIPTS / "stop_guard.py"), path=os.environ["PATH"], stdin=hook, home=tmp_path)
+    try:
+        ran = bare_python(str(SCRIPTS / "stop_guard.py"), path=os.environ["PATH"], stdin=hook, home=tmp_path)
+    finally:
+        server.shutdown()
     assert ran.returncode == 0, ran.stderr
     logged = (tmp_path / ".cache" / "compost" / "stop-guard.log").read_text()
     assert "JSONDecodeError" not in logged and "Unavailable" in logged

@@ -57,10 +57,11 @@ def spawn_server(review_path):
     returns, so a handler's last line (a `return` after an error reply) can still be running when
     the test does. Under `--cov-context=test`, coverage drops a line another thread records while
     pytest-cov switches from the run context to teardown (#147). `shutdown()` waits for the request
-    in flight, so leaving the block here keeps every handler line inside the test.
+    in flight, so leaving the block here keeps every handler line inside the test. It also waits for
+    serve_forever to poll, every 0.5s by default; polling every 0.01s keeps that wait off each test.
     """
     server = start_server(_DIFF, review_path, 0)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
+    threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True).start()
     try:
         yield f"http://127.0.0.1:{server.server_address[1]}"
     finally:
